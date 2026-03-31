@@ -134,7 +134,7 @@ func (a *App) Status() Status {
 				ErrorMsg: info.Error,
 			})
 
-			logger.Warnf("USB printer unavailable: %s (%s)", info.Name, info.Error)
+			logger.Debugf("USB printer unavailable: %s (%s)", info.Name, info.Error)
 		}
 	} else {
 		errorMsg = err.Error()
