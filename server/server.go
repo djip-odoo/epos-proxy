@@ -47,6 +47,16 @@ func New(port int, mgr *printer.Manager) *Server {
 		return printData(mgr, ctx, "")
 	})
 
+	app.Post("/p/:printerId/print/pdf", func(ctx fiber.Ctx) error {
+		printerId := ctx.Params("printerId")
+		logger.Infof("Print request received for printer: %s", printerId)
+		return printPDF(mgr, ctx, printerId)
+	})
+
+	app.Get("/printers", func(ctx fiber.Ctx) error {
+		return printerList(mgr, ctx, port)
+	})
+
 	server := &Server{app: app, Port: port}
 	server.running.Store(true)
 	go func() {
@@ -70,7 +80,7 @@ func printData(mgr *printer.Manager, ctx fiber.Ctx, printerID string) error {
 	}
 	logger.Debug("XML parsed successfully")
 
-	reply, err := mgr.WriteAsync(printerID, jobData)
+	reply, err := mgr.WriteAsync(printerID, jobData, true)
 	if err == nil {
 		logger.Debug("Print job queued")
 		result := <-reply
@@ -93,6 +103,21 @@ func printData(mgr *printer.Manager, ctx fiber.Ctx, printerID string) error {
 	return ctx.XML(EPOSResponse{Success: true, Code: "", Status: ""})
 }
 
+func printPDF(mgr *printer.Manager, ctx fiber.Ctx, printerID string) error {
+	logger.Infof("Processing PDF print job for printer: %s", printerID)
+	pdfBytes := ctx.Body()
+	logger.Infof("Received PDF data for printer: %s", printerID)
+	reply, err := mgr.WriteAsync(printerID, pdfBytes, false)
+	if err == nil {
+		logger.Debug("Print job queued")
+		result := <-reply
+		if !result.OK {
+			err = result.Err
+		}
+	}
+	return err
+}
+
 func (s *Server) Stop() error {
 	logger.Infof("Stopping HTTP server")
 	return s.app.Shutdown()
@@ -100,4 +125,16 @@ func (s *Server) Stop() error {
 
 func (s *Server) Running() bool {
 	return s.running.Load()
+}
+
+func printerList(mgr *printer.Manager, ctx fiber.Ctx, port int) error {
+	printers, err := mgr.ListPrinters(port)
+	if err != nil {
+		logger.Errorf("Failed to list printers: %v", err)
+		return ctx.Status(500).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return ctx.JSON(printers)
 }

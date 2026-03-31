@@ -157,3 +157,61 @@ func readParentIdPrefix(vid, pid string) string {
 	}
 	return ""
 }
+
+type Win32_Printer struct {
+	Name        string
+	DriverName  string
+	PortName    string
+	WorkOffline bool
+	Default     bool
+}
+
+func ListSystemPrinters() ([]Info, error) {
+	var printersWMI []Win32_Printer
+
+	query := "SELECT Name, DriverName, PortName, WorkOffline, Default FROM Win32_Printer"
+	err := wmi.Query(query, &printersWMI)
+	if err != nil {
+		return nil, err
+	}
+
+	var printers []Info
+
+	for _, p := range printersWMI {
+		serial := "" // ❌ usually not available on Windows
+
+		info := Info{
+			Serial:      serial,
+			ProductName: p.DriverName,
+			VendorName:  "Windows",
+			CupsName:    p.Name, // keep same field for consistency
+		}
+
+		printers = append(printers, info)
+	}
+
+	return printers, nil
+}
+
+func GetSystemPrinterStatusMap() (map[string]string, error) {
+	var printersWMI []Win32_Printer
+
+	query := "SELECT Name, WorkOffline FROM Win32_Printer"
+	err := wmi.Query(query, &printersWMI)
+	if err != nil {
+		return nil, err
+	}
+
+	statusMap := make(map[string]string)
+
+	for _, p := range printersWMI {
+		status := "online"
+		if p.WorkOffline {
+			status = "offline"
+		}
+
+		statusMap[p.Name] = status
+	}
+
+	return statusMap, nil
+}

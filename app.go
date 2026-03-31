@@ -72,30 +72,13 @@ func (a *App) shutdown(ctx context.Context) {
 	}
 }
 
-type Printer struct {
-	Name   string `json:"name"`
-	Serial string `json:"serial"`
-	Ip     string `json:"ip"`
-	Id     string `json:"id"`
-	IsLAN  bool   `json:"isLAN"`
-	LANIp  string `json:"lanIp,omitempty"`
-	Online bool   `json:"online"`
-}
-
-type UnavailablePrinter struct {
-	Name     string `json:"name"`
-	ErrorMsg string `json:"errorMsg"`
-	IsLAN    bool   `json:"isLAN"`
-	LANIp    string `json:"lanIp,omitempty"`
-}
-
 type Status struct {
-	ServerRunning       bool                 `json:"serverRunning"`
-	DefaultIp           string               `json:"defaultIp"`
-	ErrorMsg            string               `json:"errorMsg"`
-	Printers            []Printer            `json:"printers"`
-	UnavailablePrinters []UnavailablePrinter `json:"unavailablePrinters"`
-	Os                  string               `json:"os"`
+	ServerRunning       bool                         `json:"serverRunning"`
+	DefaultIp           string                       `json:"defaultIp"`
+	ErrorMsg            string                       `json:"errorMsg"`
+	Printers            []printer.PrinterJson        `json:"printers"`
+	UnavailablePrinters []printer.UnavailablePrinter `json:"unavailablePrinters"`
+	Os                  string                       `json:"os"`
 }
 
 func (a *App) GetPrinterIp(id string) string {
@@ -108,8 +91,8 @@ func (a *App) Status() Status {
 
 	logger.Debug("Collecting printer status")
 
-	printers := make([]Printer, 0)
-	unavailablePrinters := make([]UnavailablePrinter, 0)
+	printers := make([]printer.PrinterJson, 0)
+	unavailablePrinters := make([]printer.UnavailablePrinter, 0)
 
 	printerInfos, err := printer.ListUSBPrinters()
 	errorMsg := ""
@@ -119,7 +102,7 @@ func (a *App) Status() Status {
 		logger.Debugf("Detected %d available USB printers", len(printerInfos.Available))
 
 		for _, info := range printerInfos.Available {
-			printers = append(printers, Printer{
+			printers = append(printers, printer.PrinterJson{
 				Id:     info.Id,
 				Name:   info.VendorName + " " + info.ProductName,
 				Serial: info.Serial,
@@ -129,7 +112,7 @@ func (a *App) Status() Status {
 		}
 
 		for _, info := range printerInfos.Unavailable {
-			unavailablePrinters = append(unavailablePrinters, UnavailablePrinter{
+			unavailablePrinters = append(unavailablePrinters, printer.UnavailablePrinter{
 				Name:     info.Name,
 				ErrorMsg: info.Error,
 			})
@@ -144,7 +127,7 @@ func (a *App) Status() Status {
 	lanPrinters := printer.ListLANPrinters(a.config)
 
 	for _, info := range lanPrinters {
-		printers = append(printers, Printer{
+		printers = append(printers, printer.PrinterJson{
 			Id:    info.Id,
 			Name:  fmt.Sprintf("Network - %s", info.IP),
 			Ip:    a.GetPrinterIp(info.Id),
