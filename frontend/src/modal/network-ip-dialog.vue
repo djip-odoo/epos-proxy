@@ -40,7 +40,7 @@
 <script setup>
 import {ref, watch, nextTick} from 'vue'
 import CloseButton from './close-button.vue'
-import {AddLANPrinter} from '../../wailsjs/go/main/App'
+import { AddLANPrinter } from '../../wailsjs/go/main/App'
 
 const props = defineProps({
   show: {type: Boolean, default: false},
