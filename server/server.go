@@ -47,6 +47,12 @@ func New(port int, mgr *printer.Manager) *Server {
 		return printData(mgr, ctx, "")
 	})
 
+	app.Post("/p/:printerId/print/pdf", func(ctx fiber.Ctx) error {
+		printerId := ctx.Params("printerId")
+		logger.Debugf("Print request received for printer: %s", printerId)
+		return printPDF(mgr, ctx, printerId)
+	})
+
 	server := &Server{app: app, Port: port}
 	server.running.Store(true)
 	go func() {
@@ -70,7 +76,7 @@ func printData(mgr *printer.Manager, ctx fiber.Ctx, printerID string) error {
 	}
 	logger.Debug("XML parsed successfully")
 
-	reply, err := mgr.WriteAsync(printerID, jobData)
+	reply, err := mgr.WriteAsync(printerID, jobData, printer.PrinterThermal)
 	if err == nil {
 		logger.Debug("Print job queued")
 		result := <-reply
@@ -91,6 +97,22 @@ func printData(mgr *printer.Manager, ctx fiber.Ctx, printerID string) error {
 	}
 	logger.Debugf("Print job completed successfully for printer: %s", printerID)
 	return ctx.XML(EPOSResponse{Success: true, Code: "", Status: ""})
+}
+
+func printPDF(mgr *printer.Manager, ctx fiber.Ctx, printerID string) error {
+	logger.Debugf("Processing PDF print job for printer: %s", printerID)
+	pdfBytes := ctx.Body()
+	logger.Debugf("Received PDF data for printer: %s", printerID)
+	reply, err := mgr.WriteAsync(printerID, pdfBytes, printer.PrinterOffice)
+	if err == nil {
+		logger.Debug("Print job queued")
+		result := <-reply
+		if !result.OK {
+			err = result.Err
+		}
+	}
+	logger.Errorf("Print PDF Error %v", err)
+	return err
 }
 
 func (s *Server) Stop() error {
