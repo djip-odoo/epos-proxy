@@ -25,24 +25,3 @@ func PathToString(desc *gousb.DeviceDesc) string {
 	logger.Debugf("parts: %s", strings.Join(parts, "."))
 	return strings.Join(parts, ".")
 }
-
-func DetectPrinterType(data string) PrinterType {
-	s := strings.ToLower(data)
-
-	if strings.Contains(s, "pdf") {
-		return TypePDF
-	}
-
-	thermalKeywords := []string{
-		"thermal", "epos", "pos", "receipt", "tm",
-		"epson", "star", "80mm", "58mm", "roll",
-	}
-
-	for _, k := range thermalKeywords {
-		if strings.Contains(s, k) {
-			return TypeEPOS
-		}
-	}
-
-	return TypeANY
-}

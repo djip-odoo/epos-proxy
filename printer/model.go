@@ -71,9 +71,10 @@ type Printer struct {
 type PrinterType string
 
 const (
-	TypeEPOS PrinterType = "EPOS"
-	TypePDF  PrinterType = "PDF"
-	TypeANY  PrinterType = "ANY"
+	TypeEPOS    PrinterType = "EPOS"
+	TypeLABEL   PrinterType = "LABEL"
+	TypePDF     PrinterType = "PDF"
+	TypeUNKNOWN PrinterType = "UNKNOWN"
 )
 
 type Info struct {

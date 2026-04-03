@@ -126,7 +126,7 @@ func (a *App) Status(activeFilter string) Status {
 				Serial: info.Serial,
 				Ip:     a.GetPrinterIp(info.Id),
 				Online: true,
-				Type:   string(info.Type),
+				Type:   string(printer.DetectPrinterType(info.VendorName+" "+info.ProductName, activeFilter)),
 			})
 		}
 
