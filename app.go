@@ -105,14 +105,14 @@ func (a *App) GetPrinterIp(id string) string {
 	return ip
 }
 
-func (a *App) Status() Status {
+func (a *App) Status(activeFilter string) Status {
 
 	logger.Debug("Collecting printer status")
 
 	printers := make([]Printer, 0)
 	unavailablePrinters := make([]UnavailablePrinter, 0)
 
-	printerInfos, err := printer.ListUSBPrinters()
+	printerInfos, err := printer.ListUSBPrinters(activeFilter)
 	errorMsg := ""
 
 	if err == nil {
@@ -143,17 +143,19 @@ func (a *App) Status() Status {
 		logger.Errorf("USB printer detection failed: %v", err)
 	}
 
-	lanPrinters := printer.ListLANPrinters(a.config)
+	if activeFilter == "EPOS" {
+		lanPrinters := printer.ListLANPrinters(a.config)
 
-	for _, info := range lanPrinters {
-		printers = append(printers, Printer{
-			Id:    info.Id,
-			Name:  fmt.Sprintf("IP - %s", info.IP),
-			Ip:    a.GetPrinterIp(info.Id),
-			IsLAN: true,
-			LANIp: info.IP,
-			Type:  string(printer.TypeEPOS),
-		})
+		for _, info := range lanPrinters {
+			printers = append(printers, Printer{
+				Id:    info.Id,
+				Name:  fmt.Sprintf("IP - %s", info.IP),
+				Ip:    a.GetPrinterIp(info.Id),
+				IsLAN: true,
+				LANIp: info.IP,
+				Type:  string(printer.TypeEPOS),
+			})
+		}
 	}
 
 	return Status{

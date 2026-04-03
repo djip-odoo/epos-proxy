@@ -2,12 +2,10 @@
   <div>
     <div
         class="w-full max-w-full sm:max-w-md md:max-w-lg lg:max-w-xl bg-white/85 rounded-2xl shadow-lg overflow-hidden px-4 sm:px-6 py-2 sm:py-4">
-
-      <div v-if="printers.length || unavailablePrinters.length" class="p-6">
+      <PrinterFilter v-model="activeFilter" @refresh="updatePrinters" :loading="isUpdating"/>
+      <div v-if="printers.length || unavailablePrinters.length" class="p-6 overflow-y-auto max-h-[60vh]">
         <ul class="divide-y divide-gray-300">
-
           <li v-for="printer in printers" :key="printer.id" class="text-left first:pt-0 py-6 last:pb-0 relative">
-
             <div class="flex items-center gap-2">
               <span class="w-3 h-3 rounded-full shrink-0" :class="getPrinterStatusClass(printer)"></span>
               <div class="flex items-center gap-2 min-w-0 flex-1">
@@ -161,7 +159,9 @@ import copy_svg from "./assets/images/copy.svg"
 import done_svg from "./assets/images/done.svg"
 import PrinterActions from './components/printer-actions.vue'
 import {copyPrinterFieldValue, handleTestPrint} from "./components/printer-actions.js";
+import PrinterFilter from './components/top-bar.vue'
 
+const activeFilter = ref('EPOS')
 const printers = ref([])
 const unavailablePrinters = ref([])
 const errorMsg = ref(null)
@@ -181,7 +181,7 @@ const selectedPrinter = ref(null)
 let toastTimeout = null
 let intervalId = null
 let isTabVisible = true
-let isUpdating = false
+let isUpdating = ref(false)
 
 const copyField = (printer, field) =>
   copyPrinterFieldValue(printer, field, {copiedIds, showToast})
@@ -198,11 +198,13 @@ function selectType(type) {
     executePrint(selectedPrinter.value, type)
   }
 }
-function updatePrinters() {
-  if (isUpdating) return
 
-  isUpdating = true
-  Status().then((res) => {
+async function updatePrinters() {
+  if (isUpdating.value) return
+
+  isUpdating.value = true
+  try {
+    const res = await Status(activeFilter.value)
     printers.value = res.printers
     unavailablePrinters.value = res.unavailablePrinters
     errorMsg.value = res.errorMsg
@@ -215,9 +217,13 @@ function updatePrinters() {
         checkLanPrinterStatus(printer.lanIp)
       }
     }
-  }).finally(() => {
-    isUpdating = false
-  })
+    
+  } catch (error) {
+    console.error('Failed to update printers:', error)
+    errorMsg.value = 'Failed to retrieve printer status. Please try again.'
+  }  finally{
+    isUpdating.value = false
+  }
 }
 
 function checkLanPrinterStatus(ip) {
@@ -248,9 +254,6 @@ onMounted(() => {
   isTabVisible = true
   document.addEventListener('visibilitychange', handleVisibilityChange)
   updatePrinters()
-  intervalId = setInterval(() => {
-    if (isTabVisible) updatePrinters()
-  }, 5000)
 })
 
 onUnmounted(() => {

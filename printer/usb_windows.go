@@ -364,15 +364,15 @@ func removePrinterPort(name string) error {
 }
 
 func printerPortExists(name string) bool {
-    out, _ := exec.Command("powershell", "-NoProfile", "-Command",
-        fmt.Sprintf(`Get-PrinterPort -Name "%s" -ErrorAction SilentlyContinue | Out-String`, name)).CombinedOutput()
-    
-    return strings.TrimSpace(string(out)) != ""
+	out, _ := exec.Command("powershell", "-NoProfile", "-Command",
+		fmt.Sprintf(`Get-PrinterPort -Name "%s" -ErrorAction SilentlyContinue | Out-String`, name)).CombinedOutput()
+
+	return strings.TrimSpace(string(out)) != ""
 }
 
 func printerExists(name string) bool {
-    out, _ := exec.Command("powershell", "-NoProfile", "-Command",
-        fmt.Sprintf(`Get-Printer -Name "%s" -ErrorAction SilentlyContinue | Out-String`, name)).CombinedOutput()
-    
-    return strings.TrimSpace(string(out)) != ""
+	out, _ := exec.Command("powershell", "-NoProfile", "-Command",
+		fmt.Sprintf(`Get-Printer -Name "%s" -ErrorAction SilentlyContinue | Out-String`, name)).CombinedOutput()
+
+	return strings.TrimSpace(string(out)) != ""
 }

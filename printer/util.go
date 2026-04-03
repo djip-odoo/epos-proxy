@@ -26,8 +26,6 @@ func PathToString(desc *gousb.DeviceDesc) string {
 	return strings.Join(parts, ".")
 }
 
-
-
 func DetectPrinterType(data string) PrinterType {
 	s := strings.ToLower(data)
 
@@ -36,7 +34,7 @@ func DetectPrinterType(data string) PrinterType {
 	}
 
 	thermalKeywords := []string{
-		"thermal", "epos", "pos", "receipt", "tm", 
+		"thermal", "epos", "pos", "receipt", "tm",
 		"epson", "star", "80mm", "58mm", "roll",
 	}
 
@@ -48,4 +46,3 @@ func DetectPrinterType(data string) PrinterType {
 
 	return TypeANY
 }
-
