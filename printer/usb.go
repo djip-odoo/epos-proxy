@@ -102,9 +102,10 @@ func GetPrinterInfo(ctx *gousb.Context, descToFind *gousb.DeviceDesc) (*Info, er
 	if info.VendorName == "" {
 		info.VendorName = fmt.Sprintf("VID: %04X", uint16(descToFind.Vendor))
 	}
-	info.Type = TypeEPOS
+
 	info.Serial, _ = device.SerialNumber()
 	info.Path = PathToString(descToFind)
+	info.Type = DetectPrinterType(fmt.Sprint(info))
 	return info, nil
 }
 

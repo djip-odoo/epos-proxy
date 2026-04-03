@@ -58,33 +58,11 @@ func ListSystemPrinters() ([]Info, error) {
 			CupsName:    name,
 		}
 
-		info.Type = detectPrinterType(line)
-
+		info.Type = DetectPrinterType(line)
 		printers = append(printers, info)
 	}
 
 	return printers, nil
-}
-
-func detectPrinterType(uri string) PrinterType {
-	s := strings.ToLower(uri)
-
-	if strings.Contains(s, "pdf") {
-		return TypePDF
-	}
-
-	thermalKeywords := []string{
-		"thermal", "pos", "receipt",
-		"tm", "xp-", "tsp", "star",
-	}
-
-	for _, k := range thermalKeywords {
-		if strings.Contains(s, k) {
-			return TypeEPOS
-		}
-	}
-
-	return TypeANY
 }
 
 func GetSystemPrinterStatusMap() (map[string]string, error) {

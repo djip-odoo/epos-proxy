@@ -189,9 +189,8 @@ func ListSystemPrinters() ([]Info, error) {
 			ProductName: p.DeviceID,
 			VendorName:  "PDF",
 			CupsName:    p.Name,
-			Type:        TypePDF,
 		}
-
+		info.Type = DetectPrinterType(fmt.Sprint(info))
 		printers = append(printers, info)
 	}
 
