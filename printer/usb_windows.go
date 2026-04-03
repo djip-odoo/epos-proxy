@@ -189,7 +189,7 @@ func ListSystemPrinters() ([]Info, error) {
 			ProductName: p.DeviceID,
 			VendorName:  "PDF",
 			CupsName:    p.Name,
-			Type: 		 TypePDF,
+			Type:        TypePDF,
 		}
 
 		printers = append(printers, info)
@@ -308,4 +308,72 @@ func EnsureSystemPrinterOpen(p *Printer) error {
 	default:
 		return fmt.Errorf("printer unavailable (status: %s)", status)
 	}
+}
+
+func AddLanPdfPrinter(ip string) error {
+	portName := fmt.Sprintf("IP_%s", ip)
+	printerName := fmt.Sprintf("NET_%s", ip)
+
+	if printerPortExists(portName) {
+		return fmt.Errorf("printer port %s already exists", portName)
+	}
+
+	if printerExists(printerName) {
+		return fmt.Errorf("printer %s already exists", printerName)
+	}
+
+	cmd1 := exec.Command("powershell",
+		"-Command",
+		fmt.Sprintf(`Add-PrinterPort -Name "%s" -PrinterHostAddress "%s"`, portName, ip),
+	)
+
+	if output, err := cmd1.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to add port: %s (%v)", string(output), err)
+	}
+
+	cmd2 := exec.Command("powershell",
+		"-Command",
+		fmt.Sprintf(`Add-Printer -Name "%s" -DriverName "Microsoft IPP Class Driver" -PortName "%s"`, printerName, portName),
+	)
+
+	if output, err := cmd2.CombinedOutput(); err != nil {
+
+		if rmErr := removePrinterPort(portName); rmErr != nil {
+			return fmt.Errorf("failed to add printer: %s (%v); cleanup failed: %v", string(output), err, rmErr)
+		}
+
+		return fmt.Errorf("failed to add printer: %s (%v)", string(output), err)
+	}
+
+	return nil
+}
+
+func removePrinter(name string) error {
+	cmd := exec.Command("powershell",
+		"-Command",
+		fmt.Sprintf(`Remove-Printer -Name "%s"`, name),
+	)
+	return cmd.Run()
+}
+
+func removePrinterPort(name string) error {
+	cmd := exec.Command("powershell",
+		"-Command",
+		fmt.Sprintf(`Remove-PrinterPort -Name "%s"`, name),
+	)
+	return cmd.Run()
+}
+
+func printerPortExists(name string) bool {
+    out, _ := exec.Command("powershell", "-NoProfile", "-Command",
+        fmt.Sprintf(`Get-PrinterPort -Name "%s" -ErrorAction SilentlyContinue | Out-String`, name)).CombinedOutput()
+    
+    return strings.TrimSpace(string(out)) != ""
+}
+
+func printerExists(name string) bool {
+    out, _ := exec.Command("powershell", "-NoProfile", "-Command",
+        fmt.Sprintf(`Get-Printer -Name "%s" -ErrorAction SilentlyContinue | Out-String`, name)).CombinedOutput()
+    
+    return strings.TrimSpace(string(out)) != ""
 }

@@ -58,11 +58,11 @@ func ListSystemPrinters() ([]Info, error) {
 			CupsName:    name,
 		}
 
-		info.Type = detectPrinterType(line);
-		
+		info.Type = detectPrinterType(line)
+
 		printers = append(printers, info)
 	}
-	
+
 	return printers, nil
 }
 
@@ -73,16 +73,16 @@ func detectPrinterType(uri string) PrinterType {
 		return TypePDF
 	}
 
-	// thermalKeywords := []string{
-	// 	"thermal", "pos", "receipt",
-	// 	"tm", "xp-", "tsp", "star",
-	// }
+	thermalKeywords := []string{
+		"thermal", "pos", "receipt",
+		"tm", "xp-", "tsp", "star",
+	}
 
-	// for _, k := range thermalKeywords {
-	// 	if strings.Contains(s, k) {
-	// 		return TypeEPOS
-	// 	}
-	// }
+	for _, k := range thermalKeywords {
+		if strings.Contains(s, k) {
+			return TypeEPOS
+		}
+	}
 
 	return TypeANY
 }
@@ -148,4 +148,38 @@ func EnsureSystemPrinterOpen(p *Printer) error {
 	}
 	logger.Debugf("Office printer %s is available with status: %s", p.cupsName, status)
 	return nil
+}
+
+func AddLanPdfPrinter(ip string) error {
+	printerName := fmt.Sprintf("PDF_NET_%s", ip)
+	uri := fmt.Sprintf("ipp://%s/ipp/print", ip)
+
+	cmd := exec.Command(
+		"lpadmin",
+		"-p", printerName,
+		"-E",
+		"-v", uri,
+		"-m", "everywhere",
+	)
+
+	if err := cmd.Run(); err != nil {
+		if printerExists(printerName) {
+			if rmErr := removePrinter(printerName); rmErr != nil {
+				return fmt.Errorf("lpadmin failed: %v; cleanup also failed: %v", err, rmErr)
+			}
+		}
+		return fmt.Errorf("failed to add CUPS printer: %w", err)
+	}
+
+	return nil
+}
+
+func removePrinter(name string) error {
+	cmd := exec.Command("lpadmin", "-x", name)
+	return cmd.Run()
+}
+
+func printerExists(name string) bool {
+	cmd := exec.Command("lpstat", "-p", name)
+	return cmd.Run() == nil
 }

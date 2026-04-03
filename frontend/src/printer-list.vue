@@ -10,7 +10,29 @@
 
             <div class="flex items-center gap-2">
               <span class="w-3 h-3 rounded-full shrink-0" :class="getPrinterStatusClass(printer)"></span>
-              <span class="min-w-0 font-medium text-gray-900 break-all flex-1">{{ printer.name }}</span>
+              <div class="flex items-center gap-2 min-w-0 flex-1">
+                <span class="font-medium text-gray-900 break-all">
+                  {{ printer.name }}
+                </span>
+                <button
+                  @click="copyPrinterFieldValue(printer, 'name')"
+                  class="text-gray-400 hover:text-gray-700 text-xs px-1 cursor-pointer"
+                  title="Copy name"
+                >
+                  <img
+                    v-if="copiedIds[printer.id]?.name"
+                    :src="done_svg"
+                    alt="Copied"
+                    class="w-4 h-4"
+                  />
+                  <img
+                    v-else
+                    :src="copy_svg"
+                    alt="Copy"
+                    class="w-4 h-4"
+                  />
+                </button>
+              </div>
               <span class="px-2 py-1 text-xs font-semibold rounded bg-gray-100 text-gray-800">{{ printer.type }}</span>
               <span
                   v-if="printer.isLAN"
@@ -22,15 +44,17 @@
             <div class="text-slate-600 mt-2 text-sm break-all">{{ printer.ip }}</div>
             <div class="flex gap-2 mt-4 flex-wrap">
               <button
-                  @click="copyPrinterIp(printer)"
+                  @click="copyPrinterFieldValue(printer)"
                   class="flex-1 border text-sm  rounded-lg px-3 py-2 cursor-pointer whitespace-nowrap"
-                  :class="copiedIds[printer.id] ? 'bg-success text-white' : 'bg-odoo text-white hover:bg-odoo-dark'">
-                {{ copiedIds[printer.id] ? '✓ Copied!' : 'Copy IP' }}
+                  :class="copiedIds[printer.id]?.ip ? 'bg-success text-white' : 'bg-odoo text-white hover:bg-odoo-dark'">
+                {{ copiedIds[printer.id]?.ip ? '✓ Copied!' : 'Copy IP' }}
               </button>
               <button
                   @click="testPrint(printer, printer.type)"
+                  :disabled="testPrintIds[printer.id]"
                   class="flex-1 border rounded-lg text-sm px-3 py-2 cursor-pointer border-stone-300 text-stone-600 hover:bg-stone-50 hover:border-stone-400"
-              >Test
+              >
+              {{ testPrintIds[printer.id] ? 'Printing...' : 'Test' }}
               </button>
             </div>
           </li>
@@ -142,12 +166,15 @@ import {brewSteps, linuxSteps, zadigSteps} from "./modal/fix-step";
 import StepModal from "./modal/step-modal.vue";
 import NetworkIpDialog from "./modal/network-ip-dialog.vue";
 import test_pdf_file from "./assets/pdf/test_pdf.pdf"
+import copy_svg from "./assets/images/copy.svg"
+import done_svg from "./assets/images/done.svg"
 
 const printers = ref([])
 const unavailablePrinters = ref([])
 const errorMsg = ref(null)
 const loading = ref(true)
 const copiedIds = ref({})
+const testPrintIds = ref({})
 const lanStatus = ref({})
 const pendingChecks = ref(new Set())
 const showFixModal = ref(false)
@@ -244,13 +271,16 @@ const fixSteps = computed(() => {
   return []
 })
 
-async function copyPrinterIp(printer) {
+async function copyPrinterFieldValue(printer, field = 'ip') {
   try {
-    await navigator.clipboard.writeText(printer.ip)
-    copiedIds.value[printer.id] = true
-    setTimeout(() => copiedIds.value[printer.id] = false, 2000)
+    await navigator.clipboard.writeText(printer[field])
+    if (!copiedIds.value[printer.id]) {
+      copiedIds.value[printer.id] = {}
+    }
+    copiedIds.value[printer.id][field] = true
+    setTimeout(() => copiedIds.value[printer.id][field] = false, 2000)
   } catch (err) {
-    console.error('Copy failed:', err)
+    showToast('Copy failed:'+err)
   }
 }
 
@@ -336,8 +366,13 @@ async function testPrint(printer, type) {
     showTypeSelect.value = true
     return
   }
-
-  return executePrint(printer, type)
+  
+  testPrintIds.value[printer.id] = true
+  try{
+    return await executePrint(printer, type)
+  }finally{
+    testPrintIds.value[printer.id] = false
+  }
 }
 
 async function executePrint(printer, type) {
