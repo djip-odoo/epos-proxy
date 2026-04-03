@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"epos-proxy/depends"
+	"epos-proxy/assets"
 	"epos-proxy/logger"
 
 	"github.com/yusufpapurcu/wmi"
@@ -189,6 +189,7 @@ func ListSystemPrinters() ([]Info, error) {
 			ProductName: p.DeviceID,
 			VendorName:  "PDF",
 			CupsName:    p.Name,
+			Type: 		 TypePDF,
 		}
 
 		printers = append(printers, info)
@@ -237,7 +238,7 @@ func PrintViaSystemPrinter(p *Printer, data []byte) error {
 		return fmt.Errorf("failed to write PDF: %w", err)
 	}
 
-	sumatraPath, err := depends.GetSumatraPDFPath()
+	sumatraPath, err := assets.GetSumatraPDFPath()
 	if err != nil {
 		return fmt.Errorf("SumatraPDF not available: %w", err)
 	}

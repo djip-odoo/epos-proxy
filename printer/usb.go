@@ -102,7 +102,7 @@ func GetPrinterInfo(ctx *gousb.Context, descToFind *gousb.DeviceDesc) (*Info, er
 	if info.VendorName == "" {
 		info.VendorName = fmt.Sprintf("VID: %04X", uint16(descToFind.Vendor))
 	}
-	info.VendorName = "USB " + info.VendorName
+	info.Type = TypeEPOS
 	info.Serial, _ = device.SerialNumber()
 	info.Path = PathToString(descToFind)
 	return info, nil
@@ -241,6 +241,7 @@ func mergeSystemPrinters(result *Printers) {
 					logger.Errorf("Failed to encode printer ID: %v", err)
 				} else {
 					result.Available[i].Id = id
+					result.Available[i].Type = cups.Type
 				}
 
 				found = true

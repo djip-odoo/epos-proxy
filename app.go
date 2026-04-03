@@ -80,6 +80,7 @@ type Printer struct {
 	IsLAN  bool   `json:"isLAN"`
 	LANIp  string `json:"lanIp,omitempty"`
 	Online bool   `json:"online"`
+	Type   string `json:"type"`
 }
 
 type UnavailablePrinter struct {
@@ -125,6 +126,7 @@ func (a *App) Status() Status {
 				Serial: info.Serial,
 				Ip:     a.GetPrinterIp(info.Id),
 				Online: true,
+				Type:   string(info.Type),
 			})
 		}
 

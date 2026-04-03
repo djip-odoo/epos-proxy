@@ -68,6 +68,14 @@ type Printer struct {
 	cupsName string
 }
 
+type PrinterType string
+
+const (
+	TypeEPOS  PrinterType = "EPOS"
+	TypePDF  PrinterType = "PDF"
+	TypeANY PrinterType = "ANY"
+)
+
 type Info struct {
 	ProductName string
 	VendorName  string
@@ -75,6 +83,7 @@ type Info struct {
 	Id          string
 	CupsName    string
 	Path        string
+	Type        PrinterType
 }
 
 type UnavailableInfo struct {

@@ -1,6 +1,6 @@
 //go:build windows
 
-package depends
+package assets
 
 import (
 	_ "embed"

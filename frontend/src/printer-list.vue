@@ -11,6 +11,7 @@
             <div class="flex items-center gap-2">
               <span class="w-3 h-3 rounded-full shrink-0" :class="getPrinterStatusClass(printer)"></span>
               <span class="min-w-0 font-medium text-gray-900 break-all flex-1">{{ printer.name }}</span>
+              <span class="px-2 py-1 text-xs font-semibold rounded bg-gray-100 text-gray-800">{{ printer.type }}</span>
               <span
                   v-if="printer.isLAN"
                   @click="removeLanPrinter(printer)"
@@ -27,7 +28,7 @@
                 {{ copiedIds[printer.id] ? '✓ Copied!' : 'Copy IP' }}
               </button>
               <button
-                  @click="testPrint(printer)"
+                  @click="testPrint(printer, printer.type)"
                   class="flex-1 border rounded-lg text-sm px-3 py-2 cursor-pointer border-stone-300 text-stone-600 hover:bg-stone-50 hover:border-stone-400"
               >Test
               </button>
@@ -72,6 +73,38 @@
 
     </div>
   </div>
+  <teleport to="body">
+    <div v-if="showTypeSelect" class="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+      <div class="bg-white rounded-xl p-6 w-80 shadow-lg">
+        <div class="text-lg font-semibold mb-4 text-center">
+          Select Printer Type
+        </div>
+
+        <div class="flex gap-3">
+          <button
+            class="flex-1 bg-gray-200 rounded-lg py-2 hover:bg-odoo hover:text-white"
+            @click="selectType('EPOS')"
+          >
+            Thermal (EPOS)
+          </button>
+
+          <button
+            class="flex-1 bg-gray-200 rounded-lg py-2 hover:bg-odoo hover:text-white"
+            @click="selectType('PDF')"
+          >
+            Normal (PDF)
+          </button>
+        </div>
+
+        <button
+          class="mt-4 w-full text-sm text-gray-500 bg-red-100 rounded-lg py-2 hover:bg-red-200"
+          @click="showTypeSelect = false"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  </teleport>
   <div class="mt-6 text-center">
     <div
         @click="showAddDialog = true"
@@ -108,6 +141,7 @@ import {CheckLANPrinterStatus, ConfirmRemoveLANPrinter, Status} from '../wailsjs
 import {brewSteps, linuxSteps, zadigSteps} from "./modal/fix-step";
 import StepModal from "./modal/step-modal.vue";
 import NetworkIpDialog from "./modal/network-ip-dialog.vue";
+import test_pdf_file from "./assets/pdf/test_pdf.pdf"
 
 const printers = ref([])
 const unavailablePrinters = ref([])
@@ -121,6 +155,8 @@ const fixPrinterName = ref(null)
 const os = ref(null)
 const showAddDialog = ref(false)
 const toast = ref({ show: false, message: '', type: 'success' })
+const showTypeSelect = ref(false)
+const selectedPrinter = ref(null)
 
 let toastTimeout = null
 let intervalId = null
@@ -131,7 +167,12 @@ const handleVisibilityChange = () => {
   isTabVisible = !document.hidden
   if (isTabVisible) updatePrinters()
 }
-
+function selectType(type) {
+  showTypeSelect.value = false
+  if (selectedPrinter.value) {
+    executePrint(selectedPrinter.value, type)
+  }
+}
 function updatePrinters() {
   if (isUpdating) return
 
@@ -257,38 +298,72 @@ function showToast(message, type = 'success') {
   }, type === 'success' ? 2000: 3000)
 }
 
-async function testPrint(printer) {
+async function sendPdf(printerIp) {
+  const res = await fetch(test_pdf_file)
+  const blob = await res.blob()
+
+  return await fetch(`http://${printerIp}/print/pdf`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/pdf",
+    },
+    body: blob,
+    signal: AbortSignal.timeout(60000),
+  })
+}
+
+async function sendEposPrint(printerIp, name){
+  return await fetch(`http://${printerIp}/cgi-bin/epos/service.cgi`, {
+        method: 'POST',
+        signal: AbortSignal.timeout(60000),
+        body: `<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
+          <s:Body>
+            <epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">
+              <feed line="1" />
+              <text font="font_e" em="true"/>
+              <text align="center">This is a test receipt ${name}</text>
+              <feed line="10" />
+              <cut type="feed" />
+            </epos-print>
+          </s:Body>
+        </s:Envelope>`
+      })
+}
+
+async function testPrint(printer, type) {
+  if (type === 'ANY') {
+    selectedPrinter.value = printer
+    showTypeSelect.value = true
+    return
+  }
+
+  return executePrint(printer, type)
+}
+
+async function executePrint(printer, type) {
   try {
-    const response = await fetch(`http://${printer.ip}/cgi-bin/epos/service.cgi`, {
-      method: 'POST',
-      body: `<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
-        <s:Body>
-          <epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">
-            <feed line="1" />
-            <text font="font_e" em="true"/>
-            <text align="center">This is a test receipt ${printer.name}</text>
-            <feed line="10" />
-            <cut type="feed" />
-          </epos-print>
-        </s:Body>
-      </s:Envelope>`
-    })
-    if (!response.ok) throw new Error('Network response was not ok')
-
-    const xml = await response.text()
-    const parser = new DOMParser()
-    const doc = parser.parseFromString(xml, 'text/xml')
-    const responseEl = doc.querySelector('response')
-
-    if (responseEl?.getAttribute('success') !== 'true') {
-      const code = responseEl?.getAttribute('code') || 'Unknown error'
-      if(code === 'EX_BADPORT'){
-        throw new Error('The device is not connected, please check the printer power / connection')
+    if (type === 'EPOS') {
+      const response = await sendEposPrint(printer.ip, printer.name)
+      const xml = await response.text()
+      const parser = new DOMParser()
+      const doc = parser.parseFromString(xml, 'text/xml')
+      const responseEl = doc.querySelector('response')
+  
+      if (responseEl?.getAttribute('success') !== 'true') {
+        const code = responseEl?.getAttribute('code') || 'Unknown error'
+        if(code === 'EX_BADPORT'){
+          throw new Error('The device is not connected, please check the printer power / connection')
+        }
+        throw new Error(code)
       }
-      throw new Error(code)
+  
+      showToast(`Test print sent`, 'success')
+      
+    } else {
+      const response =  await sendPdf(printer.ip);
+      if (!response.ok) throw new Error('Network response was not ok')
+      showToast(`Test print sent to ${printer.name}`, 'success')
     }
-
-    showToast(`Test print sent`, 'success')
   } catch (err) {
     showToast(`Test failed: ${err.message}`, 'error')
   }

@@ -46,7 +46,7 @@ func ListSystemPrinters() ([]Info, error) {
 		if strings.Contains(uri, "serial=") {
 			parts := strings.Split(uri, "serial=")
 			serialPart := parts[1]
-			serial := strings.Split(serialPart, "&")[0]
+			serial = strings.Split(serialPart, "&")[0]
 			logger.Debugf("CUPS printer %s serial: %s", name, serial)
 		} else {
 			logger.Debugf("CUPS printer %s does not have a serial number in its URI", name)
@@ -54,14 +54,37 @@ func ListSystemPrinters() ([]Info, error) {
 		info := Info{
 			Serial:      serial,
 			ProductName: name,
-			VendorName:  "CUPS",
+			VendorName:  "",
 			CupsName:    name,
 		}
 
+		info.Type = detectPrinterType(line);
+		
 		printers = append(printers, info)
 	}
-
+	
 	return printers, nil
+}
+
+func detectPrinterType(uri string) PrinterType {
+	s := strings.ToLower(uri)
+
+	if strings.Contains(s, "pdf") {
+		return TypePDF
+	}
+
+	// thermalKeywords := []string{
+	// 	"thermal", "pos", "receipt",
+	// 	"tm", "xp-", "tsp", "star",
+	// }
+
+	// for _, k := range thermalKeywords {
+	// 	if strings.Contains(s, k) {
+	// 		return TypeEPOS
+	// 	}
+	// }
+
+	return TypeANY
 }
 
 func GetSystemPrinterStatusMap() (map[string]string, error) {
