@@ -192,8 +192,8 @@ let isUpdating = ref(false)
 
 const copyField = (printer, field) =>
   copyPrinterFieldValue(printer, field, {copiedIds, showToast})
-const testPrint = (printer) =>
-  handleTestPrint(printer, {testPrintIds, selectedPrinter, showTypeSelect, showToast})
+const testPrint = (printer, type) =>
+  handleTestPrint(printer, type, {testPrintIds, selectedPrinter, showTypeSelect, showToast})
 
 const handleVisibilityChange = () => {
   isTabVisible = !document.hidden
@@ -202,7 +202,7 @@ const handleVisibilityChange = () => {
 function selectType(type) {
   showTypeSelect.value = false
   if (selectedPrinter.value) {
-    executePrint(selectedPrinter.value, type)
+    testPrint(selectedPrinter.value, type)
   }
 }
 

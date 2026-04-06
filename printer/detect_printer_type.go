@@ -1,6 +1,9 @@
 package printer
 
-import "strings"
+import (
+	"epos-proxy/logger"
+	"strings"
+)
 
 var eposKeywords = []string{
 	"tm-t", "tm t", "tm20", "tm82", "tm88", "tm-m", "epson tm",
@@ -11,23 +14,9 @@ var eposKeywords = []string{
 	"receipt", "thermal pos", "epos",
 }
 
-var pdfKeywords = []string{
-	"pdf", "laserjet", "deskjet", "officejet", "smart tank", "ink tank",
-	"lbp", "imageclass", "pixma", "ecotank", "workforce",
-	"hl-l", "dcp-l", "mfc-l", "brother hl", "brother dcp",
-	"ml-", "xpress", "phaser", "workcentre", "imageprograf",
-}
-
-var keywordMap = map[string]struct {
-	keywords []string
-	pType    PrinterType
-}{
-	"EPOS": {eposKeywords, TypeEPOS},
-	"PDF":  {pdfKeywords, TypePDF},
-}
-
 func DetectPrinterType(printerName string) PrinterType {
 	if printerName == "" {
+		logger.Infof("Set Unknown for Name: %s", printerName)
 		return TypeUNKNOWN
 	}
 
@@ -36,11 +25,9 @@ func DetectPrinterType(printerName string) PrinterType {
 }
 
 func detectByName(s string) PrinterType {
-	for _, entry := range keywordMap {
-		for _, k := range entry.keywords {
-			if strings.Contains(s, k) {
-				return entry.pType
-			}
+	for _, k := range eposKeywords {
+		if strings.Contains(s, k) {
+			return TypeEPOS
 		}
 	}
 	return TypeUNKNOWN

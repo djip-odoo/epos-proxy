@@ -157,3 +157,18 @@ Thermal printers
 device for CN811-UWB: usb://Caysn/CN811-UWB?serial=203B0C837ECD
 device for PR-55: usb://Essae/PR-55?serial=PR-55025230494
 device for TM-m30III: usb://EPSON/TM-m30III?serial=584257410042360000
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

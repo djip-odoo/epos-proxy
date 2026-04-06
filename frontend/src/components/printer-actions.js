@@ -46,8 +46,9 @@ async function sendEposPrint(printerIp, name) {
   })
 }
 
-export async function handleTestPrint(printer, { testPrintIds, selectedPrinter, showTypeSelect, showToast }) {
-  if (printer.type === 'UNKNOWN') {
+export async function handleTestPrint(printer, type, { testPrintIds, selectedPrinter, showTypeSelect, showToast }) {
+  type = type || printer.type;
+  if (type === 'UNKNOWN') {
     selectedPrinter.value = printer
     showTypeSelect.value = true
     return
@@ -55,15 +56,15 @@ export async function handleTestPrint(printer, { testPrintIds, selectedPrinter, 
 
   testPrintIds.value[printer.id] = true
   try {
-    return await executePrint(printer, showToast)
+    return await executePrint(printer, showToast, type)
   } finally {
     testPrintIds.value[printer.id] = false
   }
 }
 
-async function executePrint(printer, showToast) {
+async function executePrint(printer, showToast, type) {
   try {
-    if (printer.type === 'EPOS') {
+    if (type === 'EPOS') {
       const response = await sendEposPrint(printer.ip, printer.name)
       const xml = await response.text()
       const parser = new DOMParser()
@@ -79,11 +80,12 @@ async function executePrint(printer, showToast) {
       }
 
       showToast(`Test print sent`, 'success')
-
-    } else {
+    } else if (type === 'PDF'){
       const response = await sendPdf(printer.ip);
       if (!response.ok) throw new Error('Network response was not ok')
       showToast(`Test print sent to ${printer.name}`, 'success')
+    }else{
+      throw new Error('Unknown printer type')
     }
   } catch (err) {
     showToast(`Test failed: ${err.message}`, 'error')

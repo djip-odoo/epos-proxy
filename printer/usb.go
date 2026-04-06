@@ -237,7 +237,7 @@ func mergePrinters(systemPrinters []SystemUsbPrinter, libusbPrinters []LibUsbPri
 
 			// Serial match
 			if libUsb.Serial != "" && sysUsb.Serial != "" && libUsb.Serial == sysUsb.Serial {
-				logger.Debugf("Matched by SERIAL: %s ↔ %s", libUsb.Serial, sysUsb.IdName)
+				logger.Infof("Matched by SERIAL: %s ↔ %s", libUsb.Serial, sysUsb.Serial)
 				id, err := encodePrinterID(libUsb.Serial, libUsb.Path, sysUsb.IdName)
 				if err != nil {
 					logger.Errorf("Failed to encode printer ID: %v", err)

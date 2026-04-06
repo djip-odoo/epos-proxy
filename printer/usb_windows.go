@@ -13,6 +13,7 @@ import (
 
 	"epos-proxy/assets"
 	"epos-proxy/logger"
+	"epos-proxy/util"
 
 	"github.com/yusufpapurcu/wmi"
 	"golang.org/x/sys/windows/registry"
@@ -190,7 +191,7 @@ func ListSystemPrinters() ([]SystemUsbPrinter, error) {
 	for _, p := range printersWMI {
 		serial := ""
 		for usbName, s := range usbMap {
-			if simpleMatch(p.Name, usbName) {
+			if util.IsMatch(p.Name, usbName) {
 				serial = s
 				break
 			}
@@ -399,13 +400,4 @@ func getUSBSerialMap() (map[string]string, error) {
 	}
 
 	return serialMap, nil
-}
-
-// ---------------- FUZZY SIMPLE MATCH ----------------
-
-func simpleMatch(a, b string) bool {
-	a = strings.ToLower(a)
-	b = strings.ToLower(b)
-
-	return strings.Contains(a, b) || strings.Contains(b, a)
 }
