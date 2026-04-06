@@ -72,7 +72,6 @@ type PrinterType string
 
 const (
 	TypeEPOS    PrinterType = "EPOS"
-	TypeLABEL   PrinterType = "LABEL"
 	TypePDF     PrinterType = "PDF"
 	TypeUNKNOWN PrinterType = "UNKNOWN"
 )

@@ -212,7 +212,7 @@ async function updatePrinters() {
   isUpdating.value = true
   try {
     const res = await Status(activeFilter.value)
-    printers.value = res.printers
+    printers.value = res.printers.filter(p => p.type === activeFilter.value)
     unavailablePrinters.value = res.unavailablePrinters
     errorMsg.value = res.errorMsg
     os.value = res.os

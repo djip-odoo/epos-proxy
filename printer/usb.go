@@ -15,7 +15,7 @@ var supportedVendorIDs = map[gousb.ID]string{
 	0x04B8: "Epson",
 }
 
-func ListUSBPrinters(activeFilter string) (*Printers, error) {
+func ListUSBPrinters() (*Printers, error) {
 	logger.Debug("Starting USB printer detection")
 	ctx := gousb.NewContext()
 	defer func(ctx *gousb.Context) {
@@ -26,21 +26,16 @@ func ListUSBPrinters(activeFilter string) (*Printers, error) {
 		Available:   make([]Info, 0),
 		Unavailable: make([]UnavailableInfo, 0),
 	}
-	logger.Infof("filter: %s", activeFilter)
-	if activeFilter == "EPOS" {
-		logger.Infof("usb printer added")
-		err := addLibUsbPrinters(ctx, result)
-		if err != nil {
-			return nil, err
-		}
-		if activeFilter == "EPOS" {
-			return result, nil
-		}
-	}
-
-	err := getSystemPrinters(result)
+	logger.Infof("usb printer added")
+	err := addLibUsbPrinters(ctx, result)
 	if err != nil {
 		return nil, err
+	}
+
+	err2 := getSystemPrinters(result)
+	if err2 != nil {
+		logger.Errorf("System printer detection failed: %v", err2)
+		// return result, err2
 	}
 	return result, nil
 }
@@ -241,18 +236,63 @@ func getSystemPrinters(result *Printers) error {
 
 		if strings.Contains(status, "disabled") || strings.Contains(status, "stopped") {
 			logger.Debugf("CUPS printer unavailable: %s (%s)", cups.CupsName, status)
+
+			// result.Unavailable = append(result.Unavailable, UnavailableInfo{
+			// 	Name: "CUPS " + cups.CupsName,
+			// 	Error: status,
+			// })
 			continue
 		}
 
-		id, err := encodePrinterID(cups.Serial, "", cups.CupsName)
-		if err != nil {
-			logger.Errorf("Failed to encode printer ID: %v", err)
-		} else {
-			cups.Id = id
+		found := false
+
+		for i, usb := range result.Available {
+			logger.Debugf("Matching USB[%d]: Serial=%v Path=%v with CUPS Serial=%v Name=%s",
+				i, usb.Serial, usb.Path, cups.Serial, cups.CupsName)
+
+			// Serial match
+			if usb.Serial != "" && cups.Serial != "" && usb.Serial == cups.Serial {
+				logger.Debugf("Matched by SERIAL: %s ↔ %s", usb.Serial, cups.CupsName)
+				result.Available[i].CupsName = cups.CupsName
+				id, err := encodePrinterID(usb.Serial, usb.Path, cups.CupsName)
+				if err != nil {
+					logger.Errorf("Failed to encode printer ID: %v", err)
+				} else {
+					result.Available[i].Id = id
+					result.Available[i].Type = cups.Type
+				}
+
+				found = true
+				break
+			}
 		}
 
-		result.Available = append(result.Available, cups)
+		// No USB match → standalone CUPS printer
+		if !found {
+			logger.Debugf("No USB match for CUPS printer: %s", cups.CupsName)
 
+			id, err := encodePrinterID("", "", cups.CupsName)
+			if err != nil {
+				logger.Errorf("Failed to encode printer ID: %v", err)
+			} else {
+				cups.Id = id
+			}
+
+			result.Available = append(result.Available, cups)
+		}
+	}
+
+	for i, usb := range result.Available {
+		if usb.Id == "" {
+			logger.Debugf("Assigning ID to USB-only printer: %s", usb.ProductName)
+
+			id, err := encodePrinterID(usb.Serial, usb.Path, usb.CupsName)
+			if err != nil {
+				logger.Errorf("Failed to encode printer ID: %v", err)
+			} else {
+				result.Available[i].Id = id
+			}
+		}
 	}
 	return nil
 }

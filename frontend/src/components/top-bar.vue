@@ -56,6 +56,9 @@ async function handleRefresh() {
         <button @click="setFilter('PDF')" :class="filterBtnClass('PDF')">
           Normal
         </button>
+        <button @click="setFilter('UNKNOWN')" :class="filterBtnClass('UNKNOWN')">
+          Unknown
+        </button>
       </div>
       <button>
         <img

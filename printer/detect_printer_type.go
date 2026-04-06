@@ -11,13 +11,6 @@ var eposKeywords = []string{
 	"receipt", "thermal pos", "epos",
 }
 
-var labelKeywords = []string{
-	"zd2", "zd4", "zd6", "gk42", "gk420", "gx43", "zt2", "zt4", "zt41",
-	"zebra", "te244", "te200", "te210", "ttp-244", "ttp-247",
-	"ql-7", "ql-8", "ql-11", "brother ql", "brother td",
-	"dymo labelwriter", "godex", "honeywell pc", "honeywell pm",
-	"sato", "munbyn", "labelworks", "colorworks", "label printer",
-}
 
 var pdfKeywords = []string{
 	"pdf", "laserjet", "deskjet", "officejet", "smart tank", "ink tank",
@@ -31,27 +24,28 @@ var keywordMap = map[string]struct {
 	pType    PrinterType
 }{
 	"EPOS":  {eposKeywords, TypeEPOS},
-	"LABEL": {labelKeywords, TypeLABEL},
 	"PDF":   {pdfKeywords, TypePDF},
 }
 
-func DetectPrinterType(printerName string, activeFilter string) PrinterType {
+func DetectPrinterType(printerName string, pType PrinterType) PrinterType {
 	if printerName == "" {
 		return TypeUNKNOWN
 	}
+	if pType != TypeUNKNOWN {
+		return  pType
+	}
 
 	s := strings.ToLower(strings.TrimSpace(printerName))
-	return detectByName(s, activeFilter)
+	return detectByName(s)
 }
 
-func detectByName(s string, activeFilter string) PrinterType {
-	if entry, ok := keywordMap[activeFilter]; ok {
+func detectByName(s string) PrinterType {
+	for _, entry := range keywordMap {
 		for _, k := range entry.keywords {
 			if strings.Contains(s, k) {
 				return entry.pType
 			}
 		}
 	}
-
 	return TypeUNKNOWN
 }

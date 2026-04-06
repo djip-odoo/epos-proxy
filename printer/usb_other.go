@@ -35,6 +35,7 @@ func ListSystemPrinters() ([]Info, error) {
 		prefix := "device for "
 		lineName := strings.TrimPrefix(line, prefix)
 		name, uri, found := strings.Cut(lineName, ":")
+		// logger.Infof("Parsing CUPS printer line: %s, %s, %v", name, uri, found)
 		if !found {
 			logger.Warnf("Invalid line format, skipping: %s", line)
 			continue
@@ -56,6 +57,7 @@ func ListSystemPrinters() ([]Info, error) {
 			ProductName: name,
 			VendorName:  "",
 			CupsName:    name,
+			Type: 		 getPrinterTypeFromCupsURI(uri),
 		}
 		printers = append(printers, info)
 	}
@@ -158,4 +160,11 @@ func removePrinter(name string) error {
 func printerExists(name string) bool {
 	cmd := exec.Command("lpstat", "-p", name)
 	return cmd.Run() == nil
+}
+
+func getPrinterTypeFromCupsURI(uri string) PrinterType {
+	if strings.HasPrefix(uri, "usb://") {
+		return TypeEPOS
+	}
+	return TypePDF
 }

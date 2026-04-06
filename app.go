@@ -105,14 +105,14 @@ func (a *App) GetPrinterIp(id string) string {
 	return ip
 }
 
-func (a *App) Status(activeFilter string) Status {
+func (a *App) Status() Status {
 
 	logger.Debug("Collecting printer status")
 
 	printers := make([]Printer, 0)
 	unavailablePrinters := make([]UnavailablePrinter, 0)
 
-	printerInfos, err := printer.ListUSBPrinters(activeFilter)
+	printerInfos, err := printer.ListUSBPrinters()
 	errorMsg := ""
 
 	if err == nil {
@@ -126,7 +126,7 @@ func (a *App) Status(activeFilter string) Status {
 				Serial: info.Serial,
 				Ip:     a.GetPrinterIp(info.Id),
 				Online: true,
-				Type:   string(printer.DetectPrinterType(info.VendorName+" "+info.ProductName, activeFilter)),
+				Type:   string(printer.DetectPrinterType(info.VendorName+" "+info.ProductName, info.Type)),
 			})
 		}
 
@@ -143,20 +143,19 @@ func (a *App) Status(activeFilter string) Status {
 		logger.Errorf("USB printer detection failed: %v", err)
 	}
 
-	if activeFilter == "EPOS" {
-		lanPrinters := printer.ListLANPrinters(a.config)
+	lanPrinters := printer.ListLANPrinters(a.config)
 
-		for _, info := range lanPrinters {
-			printers = append(printers, Printer{
-				Id:    info.Id,
-				Name:  fmt.Sprintf("IP - %s", info.IP),
-				Ip:    a.GetPrinterIp(info.Id),
-				IsLAN: true,
-				LANIp: info.IP,
-				Type:  string(printer.TypeEPOS),
-			})
-		}
+	for _, info := range lanPrinters {
+		printers = append(printers, Printer{
+			Id:    info.Id,
+			Name:  fmt.Sprintf("IP - %s", info.IP),
+			Ip:    a.GetPrinterIp(info.Id),
+			IsLAN: true,
+			LANIp: info.IP,
+			Type:  string(printer.TypeEPOS),
+		})
 	}
+	
 
 	return Status{
 		ServerRunning:       a.webserver.Running(),
