@@ -2,8 +2,6 @@ name: Wails build
 
 on:
   push:
-    branch:
-      - main-imp-office-printer-djip
     tags:
       - '*'
 

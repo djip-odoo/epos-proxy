@@ -122,11 +122,10 @@ func (a *App) Status() Status {
 		for _, info := range printerInfos.Available {
 			printers = append(printers, Printer{
 				Id:     info.Id,
-				Name:   info.VendorName + " " + info.ProductName,
-				Serial: info.Serial,
+				Name:   info.Name,
 				Ip:     a.GetPrinterIp(info.Id),
 				Online: true,
-				Type:   string(printer.DetectPrinterType(info.VendorName+" "+info.ProductName, info.Type)),
+				Type:   string(info.Type),
 			})
 		}
 
@@ -155,7 +154,6 @@ func (a *App) Status() Status {
 			Type:  string(printer.TypeEPOS),
 		})
 	}
-	
 
 	return Status{
 		ServerRunning:       a.webserver.Running(),

@@ -77,27 +77,27 @@ const (
 )
 
 type SystemUsbPrinter struct {
-	Serial      string
-	IdName      string
-	DeviceID    string
-	Status      bool
-	Type        PrinterType
-	CupsUri     string // linux
-	DriverName  string // win
+	Serial     string
+	IdName     string
+	DeviceID   string
+	Status     bool
+	Name       string
+	Type       PrinterType
+	CupsUri    string // linux
+	DriverName string // win
 }
 
 type LibUsbPrinter struct {
-	Serial      string
-	Path        string
-	ProductName string
-	VendorName  string
-	Type        PrinterType
+	Serial string
+	Path   string
+	Name   string
+	Type   PrinterType
 }
 
 type Info struct {
-	Id          string
-	Name        string
-	Type        PrinterType
+	Id   string
+	Name string
+	Type PrinterType
 }
 
 type UnavailableInfo struct {

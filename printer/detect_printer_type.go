@@ -11,7 +11,6 @@ var eposKeywords = []string{
 	"receipt", "thermal pos", "epos",
 }
 
-
 var pdfKeywords = []string{
 	"pdf", "laserjet", "deskjet", "officejet", "smart tank", "ink tank",
 	"lbp", "imageclass", "pixma", "ecotank", "workforce",
@@ -23,16 +22,13 @@ var keywordMap = map[string]struct {
 	keywords []string
 	pType    PrinterType
 }{
-	"EPOS":  {eposKeywords, TypeEPOS},
-	"PDF":   {pdfKeywords, TypePDF},
+	"EPOS": {eposKeywords, TypeEPOS},
+	"PDF":  {pdfKeywords, TypePDF},
 }
 
-func DetectPrinterType(printerName string, pType PrinterType) PrinterType {
+func DetectPrinterType(printerName string) PrinterType {
 	if printerName == "" {
 		return TypeUNKNOWN
-	}
-	if pType != TypeUNKNOWN {
-		return  pType
 	}
 
 	s := strings.ToLower(strings.TrimSpace(printerName))

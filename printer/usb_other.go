@@ -19,7 +19,7 @@ func getPrinterFriendlyName(vid, pid string) string {
 func ListSystemPrinters() ([]SystemUsbPrinter, error) {
 	var printers []SystemUsbPrinter
 	out, err := exec.Command("lpstat", "-v").Output()
-	
+
 	if err != nil {
 		return nil, err
 	}
@@ -28,7 +28,6 @@ func ListSystemPrinters() ([]SystemUsbPrinter, error) {
 	if err != nil {
 		return nil, err
 	}
-
 
 	lines := strings.Split(string(out), "\n")
 
@@ -48,22 +47,15 @@ func ListSystemPrinters() ([]SystemUsbPrinter, error) {
 		}
 		name = strings.TrimSpace(name)
 		uri = strings.TrimSpace(uri)
-		serial := ""
+		data := parseUSBURI(uri, name)
 
-		if strings.Contains(uri, "serial=") {
-			parts := strings.Split(uri, "serial=")
-			serialPart := parts[1]
-			serial = strings.Split(serialPart, "&")[0]
-			logger.Debugf("CUPS printer %s serial: %s", name, serial)
-		} else {
-			logger.Debugf("CUPS printer %s does not have a serial number in its URI", name)
-		}
 		info := SystemUsbPrinter{
-			Serial:      serial,
-			IdName:     name,
-			CupsUri:  	uri,
-			Status:      strings.Contains(statusMap[name], "enabled"),
-			Type: 		 getPrinterTypeFromCupsURI(uri),
+			Serial:  data.Serial,
+			IdName:  name,
+			Name:    data.Vendor + " " + data.Product,
+			CupsUri: uri,
+			Status:  strings.Contains(statusMap[name], "enabled"),
+			Type:    getPrinterTypeFromCupsURI(uri),
 		}
 		printers = append(printers, info)
 	}
@@ -173,4 +165,48 @@ func getPrinterTypeFromCupsURI(uri string) PrinterType {
 		return TypeEPOS
 	}
 	return TypePDF
+}
+
+type USBInfo struct {
+	Vendor  string
+	Product string
+	Serial  string
+}
+
+func parseUSBURI(uri string, name string) USBInfo {
+	var info USBInfo
+	info.Vendor = name
+
+	if !strings.HasPrefix(uri, "usb://") {
+		logger.Debugf("CUPS printer %s does not have a serial number in its URI: %s, Name: %s", uri, name)
+		return info
+	}
+
+	// Remove prefix
+	uri = strings.TrimPrefix(uri, "usb://")
+
+	// Split query
+	var query string
+	if idx := strings.Index(uri, "?"); idx != -1 {
+		query = uri[idx+1:]
+		uri = uri[:idx]
+	}
+
+	// Extract vendor + product
+	parts := strings.Split(uri, "/")
+	if len(parts) >= 2 {
+		info.Vendor = parts[0]
+		info.Product = parts[1]
+	}
+
+	// Extract serial
+	if query != "" {
+		for _, q := range strings.Split(query, "&") {
+			if strings.HasPrefix(q, "serial=") {
+				info.Serial = strings.TrimPrefix(q, "serial=")
+			}
+		}
+	}
+
+	return info
 }

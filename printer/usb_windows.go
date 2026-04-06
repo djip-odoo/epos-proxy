@@ -173,7 +173,7 @@ type Win32_Printer struct {
 
 func ListSystemPrinters() ([]SystemUsbPrinter, error) {
 	var printersWMI []Win32_Printer
-	
+
 	query := "SELECT Name, DeviceID, WorkOffline, DriverName FROM Win32_Printer"
 	err := wmi.Query(query, &printersWMI)
 	if err != nil {
@@ -197,11 +197,12 @@ func ListSystemPrinters() ([]SystemUsbPrinter, error) {
 		}
 
 		info := SystemUsbPrinter{
-			Serial:      serial,
-			IdName:      p.Name,
-			DeviceID:    p.DeviceID,
-			Status:      !p.WorkOffline,
-			Type:        TypePDF,
+			Serial:   serial,
+			IdName:   p.Name,
+			Name:     p.Name,
+			DeviceID: p.DeviceID,
+			Status:   !p.WorkOffline,
+			Type:     TypePDF,
 		}
 		printers = append(printers, info)
 	}
@@ -365,7 +366,6 @@ func printerExists(name string) bool {
 
 	return strings.TrimSpace(string(out)) != ""
 }
-
 
 // ---------------- SERIAL EXTRACTION ----------------
 
