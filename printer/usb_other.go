@@ -57,8 +57,6 @@ func ListSystemPrinters() ([]Info, error) {
 			VendorName:  "",
 			CupsName:    name,
 		}
-
-		info.Type = DetectPrinterType(line)
 		printers = append(printers, info)
 	}
 

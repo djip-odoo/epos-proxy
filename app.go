@@ -126,18 +126,18 @@ func (a *App) Status(activeFilter string) Status {
 				Serial: info.Serial,
 				Ip:     a.GetPrinterIp(info.Id),
 				Online: true,
-				Type:   string(info.Type),
+				Type:   string(printer.DetectPrinterType(info.VendorName+" "+info.ProductName, activeFilter)),
 			})
 		}
 
-		for _, info := range printerInfos.Unavailable {
-			unavailablePrinters = append(unavailablePrinters, UnavailablePrinter{
-				Name:     info.Name,
-				ErrorMsg: info.Error,
-			})
+		// for _, info := range printerInfos.Unavailable {
+		// 	unavailablePrinters = append(unavailablePrinters, UnavailablePrinter{
+		// 		Name:     info.Name,
+		// 		ErrorMsg: info.Error,
+		// 	})
 
-			logger.Debugf("USB printer unavailable: %s (%s)", info.Name, info.Error)
-		}
+		// 	logger.Debugf("USB printer unavailable: %s (%s)", info.Name, info.Error)
+		// }
 	} else {
 		errorMsg = err.Error()
 		logger.Errorf("USB printer detection failed: %v", err)

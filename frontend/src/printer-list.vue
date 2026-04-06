@@ -31,7 +31,14 @@
                   />
                 </button>
               </div>
-              <span class="px-2 py-1 text-xs font-semibold rounded bg-gray-100 text-gray-800">{{ printer.type }}</span>
+              <span
+                class="px-2 py-1 text-xs font-semibold rounded"
+                :class="printer.type === 'UNKNOWN'
+                  ? 'bg-yellow-500 text-gray-800'
+                  : 'bg-green-500 text-gray-800'"
+              >
+                {{ printer.type === 'PDF' ? 'Normal' : printer.type === 'EPOS' ? 'Thermal' : 'Unknown' }}
+              </span>
               <span
                   v-if="printer.isLAN"
                   @click="removeLanPrinter(printer)"
@@ -96,14 +103,14 @@
 
         <div class="flex gap-3">
           <button
-            class="flex-1 bg-gray-200 rounded-lg py-2 hover:bg-odoo hover:text-white"
+            class="flex-1 bg-gray-200 rounded-lg py-2 hover:bg-odoo hover:text-white cursor-pointer"
             @click="selectType('EPOS')"
           >
             Thermal (EPOS)
           </button>
 
           <button
-            class="flex-1 bg-gray-200 rounded-lg py-2 hover:bg-odoo hover:text-white"
+            class="flex-1 bg-gray-200 rounded-lg py-2 hover:bg-odoo hover:text-white cursor-pointer"
             @click="selectType('PDF')"
           >
             Normal (PDF)
@@ -111,7 +118,7 @@
         </div>
 
         <button
-          class="mt-4 w-full text-sm text-gray-500 bg-red-100 rounded-lg py-2 hover:bg-red-200"
+          class="mt-4 w-full text-sm text-gray-500 bg-red-100 rounded-lg py-2 hover:bg-red-600 hover:text-white cursor-pointer"
           @click="showTypeSelect = false"
         >
           Cancel

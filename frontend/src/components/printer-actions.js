@@ -47,7 +47,7 @@ async function sendEposPrint(printerIp, name) {
 }
 
 export async function handleTestPrint(printer, { testPrintIds, selectedPrinter, showTypeSelect, showToast }) {
-  if (printer.type === 'ANY') {
+  if (printer.type === 'UNKNOWN') {
     selectedPrinter.value = printer
     showTypeSelect.value = true
     return
