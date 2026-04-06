@@ -76,13 +76,27 @@ const (
 	TypeUNKNOWN PrinterType = "UNKNOWN"
 )
 
-type Info struct {
+type SystemUsbPrinter struct {
+	Serial      string
+	IdName      string
+	DeviceID    string
+	Status      bool
+	Type        PrinterType
+	CupsUri     string // linux
+	DriverName  string // win
+}
+
+type LibUsbPrinter struct {
+	Serial      string
+	Path        string
 	ProductName string
 	VendorName  string
-	Serial      string
+	Type        PrinterType
+}
+
+type Info struct {
 	Id          string
-	CupsName    string
-	Path        string
+	Name        string
 	Type        PrinterType
 }
 

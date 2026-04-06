@@ -16,13 +16,19 @@ func getPrinterFriendlyName(vid, pid string) string {
 	return fmt.Sprintf("VID:%s PID:%s", vid, pid)
 }
 
-func ListSystemPrinters() ([]Info, error) {
-	var printers []Info
+func ListSystemPrinters() ([]SystemUsbPrinter, error) {
+	var printers []SystemUsbPrinter
 	out, err := exec.Command("lpstat", "-v").Output()
-
+	
 	if err != nil {
-		return printers, err
+		return nil, err
 	}
+
+	statusMap, err := GetSystemPrinterStatusMap()
+	if err != nil {
+		return nil, err
+	}
+
 
 	lines := strings.Split(string(out), "\n")
 
@@ -52,11 +58,11 @@ func ListSystemPrinters() ([]Info, error) {
 		} else {
 			logger.Debugf("CUPS printer %s does not have a serial number in its URI", name)
 		}
-		info := Info{
+		info := SystemUsbPrinter{
 			Serial:      serial,
-			ProductName: name,
-			VendorName:  "",
-			CupsName:    name,
+			IdName:     name,
+			CupsUri:  	uri,
+			Status:      strings.Contains(statusMap[name], "enabled"),
 			Type: 		 getPrinterTypeFromCupsURI(uri),
 		}
 		printers = append(printers, info)

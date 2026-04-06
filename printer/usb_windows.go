@@ -168,55 +168,45 @@ type Win32_Printer struct {
 	Name        string
 	DeviceID    string
 	WorkOffline bool
+	DriverName  string
 }
 
-func ListSystemPrinters() ([]Info, error) {
+func ListSystemPrinters() ([]SystemUsbPrinter, error) {
 	var printersWMI []Win32_Printer
-
-	query := "SELECT Name, DeviceID, WorkOffline FROM Win32_Printer"
+	
+	query := "SELECT Name, DeviceID, WorkOffline, DriverName FROM Win32_Printer"
 	err := wmi.Query(query, &printersWMI)
 	if err != nil {
 		return nil, err
 	}
 
-	var printers []Info
+	usbMap, err := getUSBSerialMap()
+	if err != nil {
+		return nil, err
+	}
+
+	var printers []SystemUsbPrinter
 
 	for _, p := range printersWMI {
 		serial := ""
+		for usbName, s := range usbMap {
+			if simpleMatch(p.Name, usbName) {
+				serial = s
+				break
+			}
+		}
 
-		info := Info{
+		info := SystemUsbPrinter{
 			Serial:      serial,
-			ProductName: p.DeviceID,
-			VendorName:  "PDF",
-			CupsName:    p.Name,
+			IdName:      p.Name,
+			DeviceID:    p.DeviceID,
+			Status:      !p.WorkOffline,
+			Type:        TypePDF,
 		}
 		printers = append(printers, info)
 	}
 
 	return printers, nil
-}
-
-func GetSystemPrinterStatusMap() (map[string]string, error) {
-	var printersWMI []Win32_Printer
-
-	query := "SELECT Name, WorkOffline FROM Win32_Printer"
-	err := wmi.Query(query, &printersWMI)
-	if err != nil {
-		return nil, err
-	}
-
-	statusMap := make(map[string]string)
-
-	for _, p := range printersWMI {
-		status := "online"
-		if p.WorkOffline {
-			status = "stopped"
-		}
-
-		statusMap[p.Name] = status
-	}
-
-	return statusMap, nil
 }
 
 func PrintViaSystemPrinter(p *Printer, data []byte) error {
@@ -374,4 +364,48 @@ func printerExists(name string) bool {
 		fmt.Sprintf(`Get-Printer -Name "%s" -ErrorAction SilentlyContinue | Out-String`, name)).CombinedOutput()
 
 	return strings.TrimSpace(string(out)) != ""
+}
+
+
+// ---------------- SERIAL EXTRACTION ----------------
+
+func extractSerial(deviceID string) string {
+	// Example: USB\VID_04B8&PID_0202\ABC123
+	parts := strings.Split(deviceID, "\\")
+	if len(parts) > 0 {
+		return parts[len(parts)-1]
+	}
+	return ""
+}
+
+// ---------------- GET USB SERIAL MAP ----------------
+
+func getUSBSerialMap() (map[string]string, error) {
+	var devices []Win32_PnPEntity
+
+	query := "SELECT Name, DeviceID FROM Win32_PnPEntity WHERE DeviceID LIKE 'USB%'"
+	err := wmi.Query(query, &devices)
+	if err != nil {
+		return nil, err
+	}
+
+	serialMap := make(map[string]string)
+
+	for _, d := range devices {
+		serial := extractSerial(d.DeviceID)
+		if serial != "" {
+			serialMap[d.Name] = serial
+		}
+	}
+
+	return serialMap, nil
+}
+
+// ---------------- FUZZY SIMPLE MATCH ----------------
+
+func simpleMatch(a, b string) bool {
+	a = strings.ToLower(a)
+	b = strings.ToLower(b)
+
+	return strings.Contains(a, b) || strings.Contains(b, a)
 }

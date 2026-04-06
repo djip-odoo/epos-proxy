@@ -17,30 +17,32 @@ var supportedVendorIDs = map[gousb.ID]string{
 
 func ListUSBPrinters() (*Printers, error) {
 	logger.Debug("Starting USB printer detection")
-	ctx := gousb.NewContext()
-	defer func(ctx *gousb.Context) {
-		_ = ctx.Close()
-
-	}(ctx)
-	result := &Printers{
-		Available:   make([]Info, 0),
-		Unavailable: make([]UnavailableInfo, 0),
-	}
-	logger.Infof("usb printer added")
-	err := addLibUsbPrinters(ctx, result)
+	
+	systemUsbPrinters, err := ListSystemPrinters()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Failed to get System printers , %v", err)
 	}
 
-	err2 := getSystemPrinters(result)
-	if err2 != nil {
-		logger.Errorf("System printer detection failed: %v", err2)
+	logger.Infof("usb printer added")
+	libusbPrinters, unavailable, err := listLibUsbPrinters()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get Usb printers, %v", err)
+	}
+
+	result, err := mergePrinters(systemUsbPrinters, libusbPrinters, unavailable)
+	if err != nil {
+		logger.Errorf("System printer detection failed: %v", err)
 		// return result, err2
 	}
 	return result, nil
 }
 
-func addLibUsbPrinters(ctx *gousb.Context, result *Printers) error {
+func listLibUsbPrinters() ([]LibUsbPrinter, []UnavailableInfo, error) {
+	ctx := gousb.NewContext()
+	defer func(ctx *gousb.Context) {
+		_ = ctx.Close()
+
+	}(ctx)
 	var descriptors []gousb.DeviceDesc
 	_, err := ctx.OpenDevices(func(desc *gousb.DeviceDesc) bool {
 		_, supported := findPrinterEndpoint(desc)
@@ -51,8 +53,11 @@ func addLibUsbPrinters(ctx *gousb.Context, result *Printers) error {
 	})
 
 	if err != nil {
-		return fmt.Errorf("failed to open USB devices for listing: %w", err)
+		return nil, nil, fmt.Errorf("failed to open USB devices for listing: %w", err)
 	}
+
+	var printers []LibUsbPrinter
+	var unavailable []UnavailableInfo
 
 	for _, desc := range descriptors {
 		info, err := GetPrinterInfo(ctx, &desc)
@@ -60,18 +65,18 @@ func addLibUsbPrinters(ctx *gousb.Context, result *Printers) error {
 			// Device is not accessible, likely due to permissions / drivers.
 			vid := fmt.Sprintf("%04X", uint16(desc.Vendor))
 			pid := fmt.Sprintf("%04X", uint16(desc.Product))
-			result.Unavailable = append(result.Unavailable, UnavailableInfo{
+			unavailable = append(unavailable, UnavailableInfo{
 				Name:  getPrinterFriendlyName(vid, pid),
 				Error: err.Error(),
 			})
 		} else if info != nil {
 			logger.Debugf("Found available USB printer: %s (Serial: %s)", info.ProductName, info.Serial)
-			result.Available = append(result.Available, *info)
+			printers = append(printers, *info)
 		}
 	}
-	return nil
+	return printers, unavailable, nil
 }
-func GetPrinterInfo(ctx *gousb.Context, descToFind *gousb.DeviceDesc) (*Info, error) {
+func GetPrinterInfo(ctx *gousb.Context, descToFind *gousb.DeviceDesc) (*LibUsbPrinter, error) {
 	logger.Debugf("Attempting to get info for USB device: Bus %d, Address %d, Vendor %04X, Product %04X", descToFind.Bus, descToFind.Address, uint16(descToFind.Vendor), uint16(descToFind.Product))
 	var found bool
 	devices, err := ctx.OpenDevices(func(desc *gousb.DeviceDesc) bool {
@@ -101,7 +106,7 @@ func GetPrinterInfo(ctx *gousb.Context, descToFind *gousb.DeviceDesc) (*Info, er
 	}()
 
 	device := devices[0]
-	info := &Info{}
+	info := &LibUsbPrinter{}
 	info.ProductName, _ = device.Product()
 
 	if info.ProductName == "" {
@@ -116,13 +121,7 @@ func GetPrinterInfo(ctx *gousb.Context, descToFind *gousb.DeviceDesc) (*Info, er
 
 	info.Serial, _ = device.SerialNumber()
 	info.Path = PathToString(descToFind)
-
-	id, err := encodePrinterID(info.Serial, info.Path, "")
-	if err != nil {
-		logger.Errorf("Failed to encode printer ID: %v", err)
-	} else {
-		info.Id = id
-	}
+	info.Type = TypeUNKNOWN
 	return info, nil
 }
 
@@ -220,46 +219,32 @@ func findPrinterEndpoint(dev *gousb.DeviceDesc) (EndpointInfo, bool) {
 	return EndpointInfo{}, false
 }
 
-func getSystemPrinters(result *Printers) error {
-	cupsPrinters, err := ListSystemPrinters()
-	if err != nil {
-		return fmt.Errorf("failed to list system printers: %w", err)
+func mergePrinters(systemPrinters []SystemUsbPrinter, libusbPrinters []LibUsbPrinter, unavailable []UnavailableInfo) (*Printers, error) {
+	result := &Printers{
+		Available:   make([]Info, 0),
+		Unavailable: make([]UnavailableInfo, 0),
 	}
+	result.Unavailable = append(result.Unavailable, unavailable...)
 
-	statusMap, err := GetSystemPrinterStatusMap()
-	if err != nil {
-		return fmt.Errorf("failed to get CUPS printer status: %w", err)
-	}
-
-	for _, cups := range cupsPrinters {
-		status := statusMap[cups.CupsName]
-
-		if strings.Contains(status, "disabled") || strings.Contains(status, "stopped") {
-			logger.Debugf("CUPS printer unavailable: %s (%s)", cups.CupsName, status)
-
-			// result.Unavailable = append(result.Unavailable, UnavailableInfo{
-			// 	Name: "CUPS " + cups.CupsName,
-			// 	Error: status,
-			// })
-			continue
-		}
-
+	for _, sysUsb := range systemPrinters {
 		found := false
 
-		for i, usb := range result.Available {
+		for i, libUsb := range libusbPrinters {
 			logger.Debugf("Matching USB[%d]: Serial=%v Path=%v with CUPS Serial=%v Name=%s",
-				i, usb.Serial, usb.Path, cups.Serial, cups.CupsName)
-
+				i, libUsb.Serial, libUsb.Path, sysUsb.Serial, sysUsb.IdName)
+			
 			// Serial match
-			if usb.Serial != "" && cups.Serial != "" && usb.Serial == cups.Serial {
-				logger.Debugf("Matched by SERIAL: %s ↔ %s", usb.Serial, cups.CupsName)
-				result.Available[i].CupsName = cups.CupsName
-				id, err := encodePrinterID(usb.Serial, usb.Path, cups.CupsName)
+			if libUsb.Serial != "" && sysUsb.Serial != "" && libUsb.Serial == sysUsb.Serial {
+				logger.Debugf("Matched by SERIAL: %s ↔ %s", libUsb.Serial, sysUsb.IdName)
+				id, err := encodePrinterID(libUsb.Serial, libUsb.Path, sysUsb.IdName)
 				if err != nil {
 					logger.Errorf("Failed to encode printer ID: %v", err)
 				} else {
-					result.Available[i].Id = id
-					result.Available[i].Type = cups.Type
+					result.Available = append(result.Available, Info{
+						Id:          id,
+						Name:        libUsb.VendorName + " " + libUsb.ProductName,
+						Type:        sysUsb.Type,
+					})
 				}
 
 				found = true
@@ -267,32 +252,35 @@ func getSystemPrinters(result *Printers) error {
 			}
 		}
 
-		// No USB match → standalone CUPS printer
+		// No USB match → standalone System printer
 		if !found {
-			logger.Debugf("No USB match for CUPS printer: %s", cups.CupsName)
+			logger.Debugf("No USB match for CUPS printer: %s", sysUsb.IdName)
 
-			id, err := encodePrinterID("", "", cups.CupsName)
+			id, err := encodePrinterID("", "", sysUsb.IdName)
 			if err != nil {
 				logger.Errorf("Failed to encode printer ID: %v", err)
-			} else {
-				cups.Id = id
+				continue
 			}
 
-			result.Available = append(result.Available, cups)
+			result.Available = append(result.Available, Info{
+				Id:          id,
+				Name:        sysUsb.IdName,
+				Type:        sysUsb.Type,	
+			})
 		}
 	}
 
-	for i, usb := range result.Available {
-		if usb.Id == "" {
-			logger.Debugf("Assigning ID to USB-only printer: %s", usb.ProductName)
+	// for i, usb := range result.Available {
+	// 	if usb.Id == "" {
+	// 		logger.Debugf("Assigning ID to USB-only printer: %s", usb.ProductName)
 
-			id, err := encodePrinterID(usb.Serial, usb.Path, usb.CupsName)
-			if err != nil {
-				logger.Errorf("Failed to encode printer ID: %v", err)
-			} else {
-				result.Available[i].Id = id
-			}
-		}
-	}
-	return nil
+	// 		id, err := encodePrinterID(usb.Serial, usb.Path, usb.CupsName)
+	// 		if err != nil {
+	// 			logger.Errorf("Failed to encode printer ID: %v", err)
+	// 		} else {
+	// 			result.Available[i].Id = id
+	// 		}
+	// 	}
+	// }
+	return result, nil
 }
