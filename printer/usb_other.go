@@ -168,7 +168,7 @@ func printerExists(name string) bool {
 
 func getPrinterTypeFromCupsURI(uri string) PrinterType {
 	if strings.HasPrefix(uri, "usb://") {
-		return TypeEPOS
+		return TypeUNKNOWN
 	}
 	return TypePDF
 }

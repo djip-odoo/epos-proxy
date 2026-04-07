@@ -11,12 +11,21 @@ var vidPidTypeMap = map[string]PrinterType{
 }
 
 var eposKeywords = []string{
-	"tm-t", "tm t", "tm20", "tm82", "tm88", "tm-m", "epson tm",
-	"srp-3", "srp-350", "srp-330", "srp-275", "bixolon",
-	"rp58", "rp80", "rpp200", "rpp300", "rongta rp",
-	"xp-58", "xp-80", "xp-q200", "ct-s", "tvs rp", "tvs msp",
-	"sunmi", "hoin", "zjiang", "gprinter gp-5890",
-	"receipt", "thermal pos", "epos",
+	// Epson
+	"tm-t", "tm-m", "tm-p", "tm-u", "tm-l", "m30",
+	
+	// Bixolon
+	"srp-3", "srp-2", "srp-e", "bixolon",
+	
+	// Star Micronics
+	"tsp100", "tsp600", "tsp700", "mc-print", "star line",
+	
+	// Budget/Android Specialized
+	"xp-58", "xp-80", "xp-q", "rp58", "rp80", "rpp200", "rpp300", 
+	"sunmi", "zjiang", "hoin", "gprinter", "rongta",
+	
+	// Citizen
+	"ct-s2", "ct-s3", "ct-s6", "ct-s8",
 }
 
 func DetectPrinterType(printerName string, vidPid string) PrinterType {

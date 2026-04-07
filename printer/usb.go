@@ -234,10 +234,11 @@ func mergePrinters(systemPrinters []SystemUsbPrinter, libusbPrinters []LibUsbPri
 				if err != nil {
 					logger.Errorf("Failed to encode printer ID: %v", err)
 				} else {
+					Type := DetectPrinterType(sysUsb.Name, libUsb.VidPid)
 					result.Available = append(result.Available, Info{
 						Id:   id,
 						Name: sysUsb.Name,
-						Type: sysUsb.Type,
+						Type: Type,
 					})
 				}
 				matchedUSB[i] = true
