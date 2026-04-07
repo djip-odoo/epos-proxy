@@ -74,12 +74,12 @@ func (a *App) shutdown(ctx context.Context) {
 
 type Printer struct {
 	Name   string `json:"name"`
-	Serial string `json:"serial"`
 	Ip     string `json:"ip"`
 	Id     string `json:"id"`
 	IsLAN  bool   `json:"isLAN"`
 	LANIp  string `json:"lanIp,omitempty"`
 	Online bool   `json:"online"`
+	Type   string `json:"type"`
 }
 
 type UnavailablePrinter struct {
@@ -121,10 +121,10 @@ func (a *App) Status() Status {
 		for _, info := range printerInfos.Available {
 			printers = append(printers, Printer{
 				Id:     info.Id,
-				Name:   info.VendorName + " " + info.ProductName,
-				Serial: info.Serial,
+				Name:   info.Name,
 				Ip:     a.GetPrinterIp(info.Id),
 				Online: true,
+				Type:   string(info.Type),
 			})
 		}
 
@@ -146,10 +146,11 @@ func (a *App) Status() Status {
 	for _, info := range lanPrinters {
 		printers = append(printers, Printer{
 			Id:    info.Id,
-			Name:  fmt.Sprintf("Network - %s", info.IP),
+			Name:  fmt.Sprintf("IP - %s", info.IP),
 			Ip:    a.GetPrinterIp(info.Id),
 			IsLAN: true,
 			LANIp: info.IP,
+			Type:  string(printer.TypeEPOS),
 		})
 	}
 
@@ -163,7 +164,7 @@ func (a *App) Status() Status {
 	}
 }
 
-func (a *App) AddLANPrinter(ip string) error {
+func (a *App) AddLANPrinter(ip string, printerType string) error {
 
 	logger.Debugf("Adding LAN printer: %s", ip)
 
@@ -176,8 +177,19 @@ func (a *App) AddLANPrinter(ip string) error {
 		return fmt.Errorf("LAN printer unreachable: %s, error: %v", ip, err)
 	}
 
-	if err := a.config.AddLANPrinter(ip); err != nil {
-		return fmt.Errorf("failed to save LAN printer: %s, error: %v", ip, err)
+	switch printerType {
+	case "EPOS":
+		err = a.config.AddLanEposPrinter(ip)
+
+	case "PDF":
+		err = printer.AddLanPdfPrinter(ip)
+
+	default:
+		return fmt.Errorf("invalid printer type: %s", printerType)
+	}
+
+	if err != nil {
+		return fmt.Errorf("failed to add printer (%s - %s): %w", ip, printerType, err)
 	}
 
 	logger.Debugf("LAN printer added successfully: %s", ip)

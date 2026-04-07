@@ -68,13 +68,37 @@ type Printer struct {
 	cupsName string
 }
 
+type PrinterType string
+
+const (
+	TypeEPOS    PrinterType = "EPOS"
+	TypePDF     PrinterType = "PDF"
+	TypeUNKNOWN PrinterType = "UNKNOWN"
+)
+
+type SystemUsbPrinter struct {
+	Serial     string
+	IdName     string
+	DeviceID   string
+	Status     bool
+	Name       string
+	Type       PrinterType
+	CupsUri    string // linux
+	DriverName string // win
+}
+
+type LibUsbPrinter struct {
+	Serial string
+	Path   string
+	Name   string
+	Type   PrinterType
+	VidPid string
+}
+
 type Info struct {
-	ProductName string
-	VendorName  string
-	Serial      string
-	Id          string
-	CupsName    string
-	Path        string
+	Id   string
+	Name string
+	Type PrinterType
 }
 
 type UnavailableInfo struct {

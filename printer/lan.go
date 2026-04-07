@@ -22,15 +22,20 @@ type LANPrinterInfo struct {
 }
 
 func CheckLANPrinter(ip string) error {
-	addr := fmt.Sprintf("%s:%d", ip, LANPort)
-	conn, err := net.DialTimeout("tcp", addr, LANConnectTimeout)
-	if err != nil {
-		logger.Debugf("LAN printer %s is offline or unreachable: %v", ip, err)
-		return err
+	ports := []int{80, 631, 9100}
+
+	for _, port := range ports {
+		addr := fmt.Sprintf("%s:%d", ip, port)
+
+		conn, err := net.DialTimeout("tcp", addr, 2*time.Second)
+		if err == nil {
+			conn.Close()
+			logger.Debugf("Printer %s reachable on port %d", ip, port)
+			return nil
+		}
 	}
-	_ = conn.Close()
-	logger.Debugf("Successfully connected to LAN printer %s", ip)
-	return nil
+
+	return fmt.Errorf("printer %s not reachable on common ports", ip)
 }
 
 func EncodeLANPrinterID(ip string) string {
