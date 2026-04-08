@@ -13,7 +13,6 @@ import (
 
 	"epos-proxy/assets"
 	"epos-proxy/logger"
-	"epos-proxy/util"
 
 	"github.com/yusufpapurcu/wmi"
 	"golang.org/x/sys/windows/registry"
@@ -180,25 +179,11 @@ func ListSystemPrinters() ([]SystemUsbPrinter, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	usbMap, err := getUSBSerialMap()
-	if err != nil {
-		return nil, err
-	}
-
 	var printers []SystemUsbPrinter
 
 	for _, p := range printersWMI {
-		serial := ""
-		for usbName, s := range usbMap {
-			if util.IsMatch(p.Name, usbName) {
-				serial = s
-				break
-			}
-		}
-
 		info := SystemUsbPrinter{
-			Serial:   serial,
+			Serial:   "",
 			IdName:   p.Name,
 			Name:     p.Name,
 			DeviceID: p.DeviceID,
@@ -379,25 +364,47 @@ func extractSerial(deviceID string) string {
 	return ""
 }
 
-// ---------------- GET USB SERIAL MAP ----------------
-
-func getUSBSerialMap() (map[string]string, error) {
-	var devices []Win32_PnPEntity
-
-	query := "SELECT Name, DeviceID FROM Win32_PnPEntity WHERE DeviceID LIKE 'USB%'"
-	err := wmi.Query(query, &devices)
-	if err != nil {
-		return nil, err
+func mergePrinters(systemPrinters []SystemUsbPrinter, libusbPrinters []LibUsbPrinter, unavailable []UnavailableInfo) (*Printers, error) {
+	result := &Printers{
+		Available:   make([]Info, 0),
+		Unavailable: make([]UnavailableInfo, 0),
 	}
-
-	serialMap := make(map[string]string)
-
-	for _, d := range devices {
-		serial := extractSerial(d.DeviceID)
-		if serial != "" {
-			serialMap[d.Name] = serial
+	result.Unavailable = append(result.Unavailable, unavailable...)
+	for _, sysUsb := range systemPrinters {
+		logger.Debugf("No USB match for CUPS printer: %s", sysUsb.IdName)
+		id, err := encodePrinterID("", "", sysUsb.IdName)
+		if err != nil {
+			logger.Errorf("Failed to encode printer ID: %v", err)
+			continue
+		}
+		if sysUsb.Status {
+			result.Available = append(result.Available, Info{
+				Id:   id,
+				Name: sysUsb.IdName,
+				Type: sysUsb.Type,
+			})
+		} else {
+			result.Unavailable = append(result.Unavailable, UnavailableInfo{
+				Name:  sysUsb.IdName,
+				Error: "Offline",
+			})
 		}
 	}
 
-	return serialMap, nil
+	for _, libUsb := range libusbPrinters {
+		logger.Debugf("USB-only printer detected: %s", libUsb.Name)
+
+		id, err := encodePrinterID(libUsb.Serial, libUsb.Path, "")
+		if err != nil {
+			logger.Errorf("Failed to encode printer ID: %v", err)
+			continue
+		}
+
+		result.Available = append(result.Available, Info{
+			Id:   id,
+			Name: libUsb.Name,
+			Type: TypeEPOS,
+		})
+	}
+	return result, nil
 }

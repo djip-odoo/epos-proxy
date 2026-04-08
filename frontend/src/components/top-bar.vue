@@ -52,7 +52,7 @@ async function handleRefresh() {
       </button>
 
       <button @click="setFilter('PDF')" :class="filterBtnClass('PDF')">
-        Normal
+        Office
       </button>
       <button @click="setFilter('UNKNOWN')" :class="filterBtnClass('UNKNOWN')">
         Unknown

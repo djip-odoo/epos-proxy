@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"epos-proxy/logger"
-	"epos-proxy/util"
 
 	"github.com/google/gousb"
 )
@@ -209,105 +208,4 @@ func findPrinterEndpoint(dev *gousb.DeviceDesc) (EndpointInfo, bool) {
 		}
 	}
 	return EndpointInfo{}, false
-}
-
-func mergePrinters(systemPrinters []SystemUsbPrinter, libusbPrinters []LibUsbPrinter, unavailable []UnavailableInfo) (*Printers, error) {
-	result := &Printers{
-		Available:   make([]Info, 0),
-		Unavailable: make([]UnavailableInfo, 0),
-	}
-	result.Unavailable = append(result.Unavailable, unavailable...)
-	matchedUSB := make(map[int]bool)
-	matchedSystemPrinterName := make([]string, 0, len(systemPrinters))
-
-	for _, sysUsb := range systemPrinters {
-		found := false
-
-		for i, libUsb := range libusbPrinters {
-			logger.Debugf("Matching USB[%d]: Serial=%v Path=%v with CUPS Serial=%v Name=%s",
-				i, libUsb.Serial, libUsb.Path, sysUsb.Serial, sysUsb.IdName)
-
-			// Serial match
-			if libUsb.Serial != "" && sysUsb.Serial != "" && libUsb.Serial == sysUsb.Serial {
-				logger.Debugf("Matched by SERIAL: %s ↔ %s", libUsb.Serial, sysUsb.Serial)
-				id, err := encodePrinterID(libUsb.Serial, libUsb.Path, sysUsb.IdName)
-				if err != nil {
-					logger.Errorf("Failed to encode printer ID: %v", err)
-				} else {
-					Type := DetectPrinterType(sysUsb.Name, libUsb.VidPid)
-					result.Available = append(result.Available, Info{
-						Id:   id,
-						Name: sysUsb.Name,
-						Type: Type,
-					})
-				}
-				matchedUSB[i] = true
-				found = true
-				break
-			}
-		}
-
-		// No USB match → standalone System printer
-		// cups list out all the printers so exclude printer which are not TypePDF
-		if !found && sysUsb.Type == TypePDF {
-			logger.Debugf("No USB match for CUPS printer: %s", sysUsb.IdName)
-
-			id, err := encodePrinterID("", "", sysUsb.IdName)
-			if err != nil {
-				logger.Errorf("Failed to encode printer ID: %v", err)
-				continue
-			}
-			if !strings.HasPrefix(sysUsb.Name, "PDF_NET_") {
-				matchedSystemPrinterName = append(matchedSystemPrinterName, sysUsb.Name)
-			}
-			if sysUsb.Status {
-				result.Available = append(result.Available, Info{
-					Id:   id,
-					Name: sysUsb.IdName,
-					Type: sysUsb.Type,
-				})
-			} else {
-				result.Unavailable = append(result.Unavailable, UnavailableInfo{
-					Name:  sysUsb.IdName,
-					Error: "Offline",
-				})
-			}
-		}
-	}
-
-	// standalone libusb printer
-	for i, libUsb := range libusbPrinters {
-		if matchedUSB[i] {
-			continue
-		}
-		matched := false
-		// skip those which are normal standard printer
-		for _, name := range matchedSystemPrinterName {
-			if name == "" {
-				continue
-			}
-			if util.IsMatch(libUsb.Name, name) {
-				matched = true
-				logger.Infof("Printer matched by fuzzy name: %s, %s ", libUsb.Name, name)
-				break
-			}
-		}
-		if matched {
-			continue
-		}
-		logger.Debugf("USB-only printer detected: %s", libUsb.Name)
-
-		id, err := encodePrinterID(libUsb.Serial, libUsb.Path, "")
-		if err != nil {
-			logger.Errorf("Failed to encode printer ID: %v", err)
-			continue
-		}
-
-		result.Available = append(result.Available, Info{
-			Id:   id,
-			Name: libUsb.Name,
-			Type: DetectPrinterType(libUsb.Name, libUsb.VidPid),
-		})
-	}
-	return result, nil
 }

@@ -37,7 +37,7 @@
                   ? 'bg-yellow-500 text-gray-800'
                   : 'bg-green-500 text-gray-800'"
               >
-                {{ printer.type === 'PDF' ? 'Normal' : printer.type === 'EPOS' ? 'Thermal' : 'Unknown' }}
+                {{ printer.type === 'PDF' ? 'Office' : printer.type === 'EPOS' ? 'Thermal' : 'Unknown' }}
               </span>
               <span
                   v-if="printer.isLAN"

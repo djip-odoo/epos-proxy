@@ -25,7 +25,7 @@ const (
 
 const (
 	QueueSize    = 100
-	WriteTimeout = 5 * time.Second
+	WriteTimeout = 60 * time.Second
 )
 
 var ErrNotFound = errors.New("printer not found")
