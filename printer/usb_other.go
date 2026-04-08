@@ -35,35 +35,30 @@ func ListSystemPrinters() ([]SystemUsbPrinter, error) {
 		return nil, err
 	}
 
-	lines := strings.Split(string(out), "\n")
-
-	for _, line := range lines {
+	for _, line := range strings.Split(string(out), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || !strings.HasPrefix(line, "device for ") {
 			continue
 		}
 
-		prefix := "device for "
-		lineName := strings.TrimPrefix(line, prefix)
+		lineName := strings.TrimPrefix(line, "device for ")
 		name, uri, found := strings.Cut(lineName, ":")
-		// logger.Infof("Parsing CUPS printer line: %s, %s, %v", name, uri, found)
 		if !found {
 			logger.Warnf("Invalid line format, skipping: %s", line)
 			continue
 		}
+
 		name = strings.TrimSpace(name)
 		uri = strings.TrimSpace(uri)
 		data := parseUSBURI(uri, name)
-
-		info := SystemUsbPrinter{
+		printers = append(printers, SystemUsbPrinter{
 			Serial:  data.Serial,
 			IdName:  name,
-			Name:    data.Vendor + " " + data.Product,
+			Name:    data.VendorName + " " + data.ProductName,
 			CupsUri: uri,
 			Status:  strings.Contains(statusMap[name], "enabled"),
 			Type:    getPrinterTypeFromCupsURI(uri),
-		}
-		printers = append(printers, info)
+		})
 	}
 
 	return printers, nil
@@ -75,8 +70,8 @@ func GetSystemPrinterStatusMap() (map[string]string, error) {
 		return nil, err
 	}
 
+	
 	statusMap := make(map[string]string)
-
 	for _, line := range strings.Split(string(out), "\n") {
 		line = strings.TrimSpace(line)
 		if !strings.HasPrefix(line, "printer ") {
@@ -90,7 +85,6 @@ func GetSystemPrinterStatusMap() (map[string]string, error) {
 
 		name := parts[1]
 		status := parts[2]
-
 		statusMap[name] = status
 	}
 
@@ -116,19 +110,18 @@ func PrintViaSystemPrinter(p *Printer, data []byte) error {
 	return nil
 }
 
-func EnsureSystemPrinterOpen(p *Printer) error {
-	statusMap, err := GetSystemPrinterStatusMap()
+func EnsureSystemPrinterOpen(name string) error {
+	out, err := exec.Command("lpstat", "-p", name).CombinedOutput()
 	if err != nil {
-		logger.Warnf("Failed to get CUPS status: %v", err)
+		return fmt.Errorf("failed to get printer status: %v (%s)", err, string(out))
 	}
-	status, exists := statusMap[p.cupsName]
-	if !exists {
-		return fmt.Errorf("office printer %s not found in CUPS", p.cupsName)
-	}
+
+	status := string(out)
 	if strings.Contains(status, "disabled") || strings.Contains(status, "stopped") {
-		return fmt.Errorf("office printer %s is unavailable: %s", p.cupsName, status)
+		return fmt.Errorf("office printer %s is unavailable: %s", name, status)
 	}
-	logger.Debugf("Office printer %s is available with status: %s", p.cupsName, status)
+
+	logger.Debugf("Office printer %s is available: %s", name, status)
 	return nil
 }
 
@@ -136,14 +129,7 @@ func AddLanPdfPrinter(ip string) error {
 	printerName := fmt.Sprintf("PDF_NET_%s", ip)
 	uri := fmt.Sprintf("ipp://%s/ipp/print", ip)
 
-	cmd := exec.Command(
-		"lpadmin",
-		"-p", printerName,
-		"-E",
-		"-v", uri,
-		"-m", "everywhere",
-	)
-
+	cmd := exec.Command("lpadmin","-p", printerName,"-E","-v", uri,"-m", "everywhere")
 	if err := cmd.Run(); err != nil {
 		if printerExists(printerName) {
 			if rmErr := removePrinter(printerName); rmErr != nil {
@@ -157,13 +143,11 @@ func AddLanPdfPrinter(ip string) error {
 }
 
 func removePrinter(name string) error {
-	cmd := exec.Command("lpadmin", "-x", name)
-	return cmd.Run()
+	return exec.Command("lpadmin", "-x", name).Run()
 }
 
 func printerExists(name string) bool {
-	cmd := exec.Command("lpstat", "-p", name)
-	return cmd.Run() == nil
+	return exec.Command("lpstat", "-p", name).Run() == nil
 }
 
 func getPrinterTypeFromCupsURI(uri string) PrinterType {
@@ -174,38 +158,33 @@ func getPrinterTypeFromCupsURI(uri string) PrinterType {
 }
 
 type USBInfo struct {
-	Vendor  string
-	Product string
+	VendorName  string
+	ProductName string
 	Serial  string
 }
 
 func parseUSBURI(uri string, name string) USBInfo {
 	var info USBInfo
-	info.Vendor = name
-
+	info.VendorName = name
+	
 	if !strings.HasPrefix(uri, "usb://") {
 		logger.Debugf("CUPS printer %s does not have a serial number in its URI: %s, Name: %s", uri, name)
 		return info
 	}
-
-	// Remove prefix
-	uri = strings.TrimPrefix(uri, "usb://")
-
-	// Split query
+	
 	var query string
+	uri = strings.TrimPrefix(uri, "usb://")
 	if idx := strings.Index(uri, "?"); idx != -1 {
 		query = uri[idx+1:]
 		uri = uri[:idx]
 	}
 
-	// Extract vendor + product
 	parts := strings.Split(uri, "/")
 	if len(parts) >= 2 {
-		info.Vendor = parts[0]
-		info.Product = parts[1]
+		info.VendorName = parts[0]
+		info.ProductName = parts[1]
 	}
 
-	// Extract serial
 	if query != "" {
 		for _, q := range strings.Split(query, "&") {
 			if strings.HasPrefix(q, "serial=") {

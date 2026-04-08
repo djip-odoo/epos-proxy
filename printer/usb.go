@@ -28,8 +28,7 @@ func ListUSBPrinters() (*Printers, error) {
 
 	result, err := mergePrinters(systemUsbPrinters, libusbPrinters, unavailable)
 	if err != nil {
-		logger.Errorf("System printer detection failed: %v", err)
-		// return result, err2
+		logger.Errorf("Failed to merge printer list, failed: %v", err)
 	}
 	return result, nil
 }
@@ -244,7 +243,7 @@ func mergePrinters(systemPrinters []SystemUsbPrinter, libusbPrinters []LibUsbPri
 						result.Available = append(result.Available, Info{
 							Id:   id,
 							Name: sysUsb.Name,
-							Type: Type, // TypeUknown
+							Type: Type,
 						})
 					}
 					matchedUSB[i] = true
@@ -275,13 +274,13 @@ func mergePrinters(systemPrinters []SystemUsbPrinter, libusbPrinters []LibUsbPri
 				result.Available = append(result.Available, Info{
 					Id:   id,
 					Name: sysUsb.IdName,
-					Type: Type, //type pdf
+					Type: Type,
 				})
 			} else {
 				result.Unavailable = append(result.Unavailable, UnavailableInfo{
 					Name:  sysUsb.IdName,
 					Error: "Offline",
-					Type:  Type, //type pdf
+					Type:  Type,
 				})
 			}
 		}
