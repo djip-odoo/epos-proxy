@@ -1,6 +1,7 @@
 package printer
 
 import (
+	"epos-proxy/logger"
 	"strconv"
 	"strings"
 
@@ -21,6 +22,6 @@ func PathToString(desc *gousb.DeviceDesc) string {
 	for _, p := range desc.Path {
 		parts = append(parts, strconv.Itoa(p))
 	}
-
+	logger.Debugf("parts: %s", strings.Join(parts, "."))
 	return strings.Join(parts, ".")
 }

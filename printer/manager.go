@@ -15,7 +15,7 @@ func NewManager() *Manager {
 	return &Manager{printers: make(map[string]*Printer)}
 }
 
-func (m *Manager) Get(id string) (*Printer, error) {
+func (m *Manager) Get(id string, category PrinterCategory) (*Printer, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -25,7 +25,7 @@ func (m *Manager) Get(id string) (*Printer, error) {
 	}
 
 	logger.Debugf("Creating new printer instance for ID: %s", id)
-	p := newPrinter(id)
+	p := newPrinter(id, category)
 	if err := p.ensureOpen(); err != nil {
 		return nil, fmt.Errorf("failed to open new printer instance for ID %s: %w", id, err)
 	}
@@ -35,8 +35,8 @@ func (m *Manager) Get(id string) (*Printer, error) {
 	return p, nil
 }
 
-func (m *Manager) WriteAsync(printerId string, data []byte) (<-chan JobResult, error) {
-	p, err := m.Get(printerId)
+func (m *Manager) WriteAsync(printerId string, data []byte, category PrinterCategory) (<-chan JobResult, error) {
+	p, err := m.Get(printerId, category)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get printer for ID %s: %w", printerId, err)
 	}
@@ -44,7 +44,7 @@ func (m *Manager) WriteAsync(printerId string, data []byte) (<-chan JobResult, e
 	reply := make(chan JobResult, 1)
 	err = p.Enqueue(func(p *Printer) JobResult {
 		logger.Debugf("Executing print job for printer %s", printerId)
-		if err := p.Write(data); err != nil {
+		if err := p.Write(data, category); err != nil {
 			return JobResult{Err: fmt.Errorf("print job failed for printer %s: %w", printerId, err)}
 		}
 		logger.Debugf("Print job completed for printer %s", printerId)
