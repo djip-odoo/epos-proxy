@@ -238,11 +238,11 @@ func mergePrinters(systemPrinters []SystemUsbPrinter, libusbPrinters []LibUsbPri
 					} else {
 						Type := sysUsb.Type
 						if Type == TypeUNKNOWN {
-							Type = DetectPrinterType(sysUsb.Name, libUsb.VidPid)
+							Type = DetectPrinterType(sysUsb.IdName, libUsb.VidPid)
 						}
 						result.Available = append(result.Available, Info{
 							Id:   id,
-							Name: sysUsb.Name,
+							Name: sysUsb.IdName,
 							Type: Type,
 						})
 					}
@@ -263,12 +263,12 @@ func mergePrinters(systemPrinters []SystemUsbPrinter, libusbPrinters []LibUsbPri
 				logger.Errorf("Failed to encode printer ID: %v", err)
 				continue
 			}
-			if !strings.HasPrefix(sysUsb.Name, "PDF_NET_") && sysUsb.Type == TypePDF {
-				matchedSystemPrinterName = append(matchedSystemPrinterName, sysUsb.Name)
+			if !strings.HasPrefix(sysUsb.IdName, "PDF_NET_") && sysUsb.Type == TypePDF {
+				matchedSystemPrinterName = append(matchedSystemPrinterName, sysUsb.IdName)
 			}
 			Type := sysUsb.Type
 			if Type == TypeUNKNOWN {
-				Type = DetectPrinterType(sysUsb.Name, "")
+				Type = DetectPrinterType(sysUsb.IdName, "")
 			}
 			if sysUsb.Status {
 				result.Available = append(result.Available, Info{

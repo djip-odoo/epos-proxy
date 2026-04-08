@@ -7,12 +7,35 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
 //go:embed SumatraPDF-3.6-32.exe
 var sumatraBinary []byte
 
+var (
+	sumatraPath string
+	mu          sync.Mutex
+)
+
 func GetSumatraPDFPath() (string, error) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	if sumatraPath != "" {
+		return sumatraPath, nil
+	}
+
+	path, err := initSumatra()
+	if err != nil {
+		return "", err
+	}
+
+	sumatraPath = path
+	return sumatraPath, nil
+}
+
+func initSumatra() (string, error) {
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get user config dir: %w", err)
@@ -24,9 +47,11 @@ func GetSumatraPDFPath() (string, error) {
 	}
 
 	exePath := filepath.Join(appDir, "SumatraPDF.exe")
+
 	if _, err := os.Stat(exePath); err == nil {
 		return exePath, nil
 	}
+
 	if err := os.WriteFile(exePath, sumatraBinary, 0755); err != nil {
 		return "", fmt.Errorf("failed to write SumatraPDF executable: %w", err)
 	}

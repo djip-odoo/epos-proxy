@@ -222,6 +222,29 @@ func (a *App) ConfirmRemoveLANPrinter(ip string) (bool, error) {
 	return false, nil
 }
 
+func (a *App) ConfirmRemoveSystemPrinter(name string) (bool, error) {
+
+	logger.Infof("Remove LAN printer requested: %s", name)
+
+	result, err := wailsruntime.MessageDialog(a.ctx, wailsruntime.MessageDialogOptions{
+		Type:          wailsruntime.QuestionDialog,
+		Title:         "Remove Printer",
+		Message:       fmt.Sprintf("Are you sure you want to remove the printer at %s?", name),
+		Buttons:       []string{"Cancel", "Confirm"},
+		DefaultButton: "Cancel",
+		CancelButton:  "Cancel",
+	})
+	if err != nil {
+		return false, fmt.Errorf("failed to show confirmation dialog: %w", err)
+	}
+	if result == "Confirm" || result == "Yes" {
+		err := printer.DeleteSystemPrinter(name)
+		return true, fmt.Errorf("Error removing LAN printer: %s, error: %v", name, err)
+	}
+	logger.Infof("Remove LAN printer cancelled, Remove printer dialog result: %s", result)
+	return false, nil
+}
+
 func (a *App) CheckLANPrinterStatus(ip string) bool {
 	logger.Debugf("Checking LAN printer status: %s", ip)
 	return printer.CheckLANPrinter(ip) == nil

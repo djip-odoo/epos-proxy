@@ -81,7 +81,6 @@ type SystemUsbPrinter struct {
 	IdName     string
 	DeviceID   string
 	Status     bool
-	Name       string
 	Type       PrinterType
 	CupsUri    string // linux
 	DriverName string // win

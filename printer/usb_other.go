@@ -54,7 +54,6 @@ func ListSystemPrinters() ([]SystemUsbPrinter, error) {
 		printers = append(printers, SystemUsbPrinter{
 			Serial:  data.Serial,
 			IdName:  name,
-			Name:    data.VendorName + " " + data.ProductName,
 			CupsUri: uri,
 			Status:  strings.Contains(statusMap[name], "enabled"),
 			Type:    getPrinterTypeFromCupsURI(uri),
@@ -70,7 +69,6 @@ func GetSystemPrinterStatusMap() (map[string]string, error) {
 		return nil, err
 	}
 
-	
 	statusMap := make(map[string]string)
 	for _, line := range strings.Split(string(out), "\n") {
 		line = strings.TrimSpace(line)
@@ -110,7 +108,8 @@ func PrintViaSystemPrinter(p *Printer, data []byte) error {
 	return nil
 }
 
-func EnsureSystemPrinterOpen(name string) error {
+func EnsureSystemPrinterOpen(p *Printer) error {
+	name := p.cupsName
 	out, err := exec.Command("lpstat", "-p", name).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to get printer status: %v (%s)", err, string(out))
@@ -129,7 +128,7 @@ func AddLanPdfPrinter(ip string) error {
 	printerName := fmt.Sprintf("PDF_NET_%s", ip)
 	uri := fmt.Sprintf("ipp://%s/ipp/print", ip)
 
-	cmd := exec.Command("lpadmin","-p", printerName,"-E","-v", uri,"-m", "everywhere")
+	cmd := exec.Command("lpadmin", "-p", printerName, "-E", "-v", uri, "-m", "everywhere")
 	if err := cmd.Run(); err != nil {
 		if printerExists(printerName) {
 			if rmErr := removePrinter(printerName); rmErr != nil {
@@ -137,6 +136,17 @@ func AddLanPdfPrinter(ip string) error {
 			}
 		}
 		return fmt.Errorf("failed to add CUPS printer: %w", err)
+	}
+
+	return nil
+}
+
+func DeleteSystemPrinter(name string) error {
+	cmd := exec.Command("lpadmin", "-x", name)
+
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to delete printer %s: %v (%s)", name, err, string(out))
 	}
 
 	return nil
@@ -160,18 +170,18 @@ func getPrinterTypeFromCupsURI(uri string) PrinterType {
 type USBInfo struct {
 	VendorName  string
 	ProductName string
-	Serial  string
+	Serial      string
 }
 
 func parseUSBURI(uri string, name string) USBInfo {
 	var info USBInfo
 	info.VendorName = name
-	
+
 	if !strings.HasPrefix(uri, "usb://") {
 		logger.Debugf("CUPS printer %s does not have a serial number in its URI: %s, Name: %s", uri, name)
 		return info
 	}
-	
+
 	var query string
 	uri = strings.TrimPrefix(uri, "usb://")
 	if idx := strings.Index(uri, "?"); idx != -1 {

@@ -175,17 +175,15 @@ func ListSystemPrinters() ([]SystemUsbPrinter, error) {
 	var printersWMI []Win32_Printer
 
 	query := "SELECT Name, DeviceID, WorkOffline, DriverName FROM Win32_Printer"
-	err := wmi.Query(query, &printersWMI)
-	if err != nil {
+	if err := wmi.Query(query, &printersWMI); err != nil {
 		return nil, err
 	}
-	var printers []SystemUsbPrinter
 
+	var printers []SystemUsbPrinter
 	for _, p := range printersWMI {
 		info := SystemUsbPrinter{
 			Serial:   "",
 			IdName:   p.Name,
-			Name:     p.Name,
 			DeviceID: p.DeviceID,
 			Status:   !p.WorkOffline,
 			Type:     TypePDF,
@@ -203,12 +201,11 @@ func PrintViaSystemPrinter(p *Printer, data []byte) error {
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %w", err)
 	}
-	defer os.Remove(file.Name())
 
+	defer os.Remove(file.Name())
 	tmpFile := file.Name()
 
 	defer file.Close()
-
 	if _, err := file.Write(data); err != nil {
 		return fmt.Errorf("failed to write PDF: %w", err)
 	}
@@ -242,7 +239,7 @@ func PrintViaSystemPrinter(p *Printer, data []byte) error {
 		return fmt.Errorf("sumatra print failed: %w", err)
 	}
 
-	logger.Infof("Successfully sent to printer %s", p.idToString())
+	logger.Debugf("Successfully sent to printer %s", p.idToString())
 	return nil
 }
 
@@ -285,6 +282,17 @@ func EnsureSystemPrinterOpen(p *Printer) error {
 	}
 }
 
+func DeleteSystemPrinter(name string) error {
+	cmd := exec.Command("powershell", "-Command", "Remove-Printer -Name \""+name+"\"")
+
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to delete printer %s: %v (%s)", name, err, string(out))
+	}
+
+	return nil
+}
+
 func AddLanPdfPrinter(ip string) error {
 	portName := fmt.Sprintf("IP_%s", ip)
 	printerName := fmt.Sprintf("NET_%s", ip)
@@ -322,6 +330,7 @@ func AddLanPdfPrinter(ip string) error {
 
 	return nil
 }
+
 
 func removePrinter(name string) error {
 	cmd := exec.Command("powershell",

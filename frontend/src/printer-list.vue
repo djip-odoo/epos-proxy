@@ -1,8 +1,8 @@
 <template>
   <div>
     <div
-        class="w-full max-w-full sm:max-w-md md:max-w-lg lg:max-w-xl bg-white/85 rounded-2xl shadow-lg overflow-hidden px-4 sm:px-6 py-2 sm:py-4">
-      <PrinterFilter v-model="activeFilter" @refresh="updatePrinters" :loading="isUpdating"/>
+      class="w-full max-w-full sm:max-w-md md:max-w-lg lg:max-w-xl bg-white/85 rounded-2xl shadow-lg overflow-hidden px-4 sm:px-6 py-2 sm:py-4">
+      <PrinterFilter v-model="activeFilter" @refresh="updatePrinters" :loading="isUpdating" />
       <div v-if="printers.length || unavailablePrinters.length" class="p-6 overflow-y-auto max-h-[60vh]">
         <ul class="divide-y divide-gray-300">
           <li v-for="printer in printers" :key="printer.id" class="text-left first:pt-0 py-6 last:pb-0 relative">
@@ -12,65 +12,39 @@
                 <span class="font-medium text-gray-900 break-all">
                   {{ printer.name }}
                 </span>
-                <button
-                  @click="copyField(printer, 'name')"
-                  class="text-gray-400 hover:text-gray-700 text-xs px-1 cursor-pointer"
-                  title="Copy name"
-                >
-                  <img
-                    v-if="copiedIds[printer.id]?.name"
-                    :src="done_svg"
-                    alt="Copied"
-                    class="w-4 h-4"
-                  />
-                  <img
-                    v-else
-                    :src="copy_svg"
-                    alt="Copy"
-                    class="w-4 h-4"
-                  />
+                <button @click="copyField(printer, 'name')"
+                  class="text-gray-400 hover:text-gray-700 text-xs px-1 cursor-pointer" title="Copy name">
+                  <img v-if="copiedIds[printer.id]?.name" :src="done_svg" alt="Copied" class="w-4 h-4" />
+                  <img v-else :src="copy_svg" alt="Copy" class="w-4 h-4" />
                 </button>
               </div>
-              <span
-                class="px-2 py-1 text-xs font-semibold rounded"
-                :class="printer.type === 'UNKNOWN'
-                  ? 'bg-yellow-500 text-gray-800'
-                  : 'bg-green-500 text-gray-800'"
-              >
+              <span class="px-2 py-1 text-xs font-semibold rounded" :class="printer.type === 'UNKNOWN'
+                ? 'bg-yellow-500 text-gray-800'
+                : 'bg-green-500 text-gray-800'">
                 {{ printer.type === 'PDF' ? 'Office' : printer.type === 'EPOS' ? 'Thermal' : 'Unknown' }}
               </span>
-              <span
-                  v-if="printer.isLAN"
-                  @click="removeLanPrinter(printer)"
-                  class="text-gray-600 hover:text-danger cursor-pointer text-xl font-bold"
-                  title="Remove printer"
-              >×</span>
+              <span v-if="printer.isLAN || printer.type === 'PDF'" @click="removeLanPrinter(printer)"
+                class="text-gray-600 hover:text-danger cursor-pointer text-xl font-bold" title="Remove printer">×</span>
             </div>
             <div class="text-slate-600 mt-2 text-sm break-all">{{ printer.ip }}</div>
-            <PrinterActions
-              :printer="printer"
-              :copiedIds="copiedIds"
-              :testPrintIds="testPrintIds"
-              @copy="copyField"
-              @test="testPrint"
-            />
+            <PrinterActions :printer="printer" :copiedIds="copiedIds" :testPrintIds="testPrintIds" @copy="copyField"
+              @test="testPrint" />
           </li>
 
           <li v-for="printer in unavailablePrinters" :key="printer.name"
-              class="text-left first:pt-0 py-6 last:pb-0 relative">
+            class="text-left first:pt-0 py-6 last:pb-0 relative">
             <div class="flex items-center gap-2">
               <span class="w-3 h-3 rounded-full shrink-0 bg-danger"></span>
               <span class="min-w-0 font-medium text-gray-900">{{ printer.name }}</span>
             </div>
             <div class="text-danger mt-1 text-wrap">Unable to communicate with this printer: {{
-                printer.errorMsg
-              }}
+              printer.errorMsg
+            }}
             </div>
             <div v-if="hasLibUsbErrorFix(printer.errorMsg)" class="flex gap-2 mt-4 flex-wrap">
               <button
-                  class="flex-1 border bg-odoo text-white hover:bg-odoo-dark rounded-lg px-4 py-2 text-center cursor-pointer"
-                  @click="openFixModal(printer)"
-              >{{ getFixErrorText(printer.errorMsg) }}
+                class="flex-1 border bg-odoo text-white hover:bg-odoo-dark rounded-lg px-4 py-2 text-center cursor-pointer"
+                @click="openFixModal(printer)">{{ getFixErrorText(printer.errorMsg) }}
               </button>
             </div>
           </li>
@@ -92,38 +66,26 @@
         <div class="text-red-700 mt-4 text-center">Error: {{ errorMsg }}</div>
       </div>
 
-      <StepModal v-model="showFixModal" :steps="fixSteps"/>
+      <StepModal v-model="showFixModal" :steps="fixSteps" />
 
     </div>
   </div>
-  <PrinterTypeModal
-    v-model="showTypeSelect"
-    @select="selectType"
-  />
+  <PrinterTypeModal v-model="showTypeSelect" @select="selectType" />
   <div class="mt-6 text-center">
-    <div
-        @click="showAddDialog = true"
-        class="border-2 border-dashed border-gray-300 bg-gray-50 rounded-lg px-4 py-3 text-gray-600 hover:border-gray-400 hover:bg-gray-100 cursor-pointer"
-    >+ Add Network Printer
+    <div @click="showAddDialog = true"
+      class="border-2 border-dashed border-gray-300 bg-gray-50 rounded-lg px-4 py-3 text-gray-600 hover:border-gray-400 hover:bg-gray-100 cursor-pointer">
+      + Add Network Printer
     </div>
   </div>
 
-  <NetworkIpDialog :show="showAddDialog" @close="onNetworkDialogClose"/>
+  <NetworkIpDialog :show="showAddDialog" @close="onNetworkDialogClose" />
 
   <teleport to="body">
-    <transition
-        enter-active-class="transition duration-300 ease-out"
-        enter-from-class="opacity-0 translate-x-4"
-        enter-to-class="opacity-100 translate-x-0"
-        leave-active-class="transition duration-200 ease-in"
-        leave-from-class="opacity-100 translate-x-0"
-        leave-to-class="opacity-0 translate-x-4"
-    >
-      <div
-          v-if="toast.show"
-          class="fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-white text-sm max-w-xs"
-          :class="toast.type === 'success' ? 'bg-success' : 'bg-danger'"
-      >
+    <transition enter-active-class="transition duration-300 ease-out" enter-from-class="opacity-0 translate-x-4"
+      enter-to-class="opacity-100 translate-x-0" leave-active-class="transition duration-200 ease-in"
+      leave-from-class="opacity-100 translate-x-0" leave-to-class="opacity-0 translate-x-4">
+      <div v-if="toast.show" class="fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-white text-sm max-w-xs"
+        :class="toast.type === 'success' ? 'bg-success' : 'bg-danger'">
         {{ toast.message }}
       </div>
     </transition>
@@ -131,15 +93,15 @@
 </template>
 
 <script setup>
-import {computed, onMounted, onUnmounted, ref} from 'vue'
-import {CheckLANPrinterStatus, ConfirmRemoveLANPrinter, Status} from '../wailsjs/go/main/App'
-import {brewSteps, linuxSteps, zadigSteps} from "./modal/fix-step";
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { CheckLANPrinterStatus, ConfirmRemoveLANPrinter, Status, ConfirmRemoveSystemPrinter } from '../wailsjs/go/main/App'
+import { brewSteps, linuxSteps, zadigSteps } from "./modal/fix-step";
 import StepModal from "./modal/step-modal.vue";
 import NetworkIpDialog from "./modal/network-ip-dialog.vue";
 import copy_svg from "./assets/images/copy.svg"
 import done_svg from "./assets/images/done.svg"
 import PrinterActions from './components/printer-actions.vue'
-import {copyPrinterFieldValue, handleTestPrint} from "./components/printer-actions.js";
+import { copyPrinterFieldValue, handleTestPrint } from "./components/printer-actions.js";
 import PrinterFilter from './components/top-bar.vue'
 import PrinterTypeModal from "./modal/printer-type-modal.vue";
 
@@ -165,9 +127,9 @@ let isTabVisible = true
 let isUpdating = ref(false)
 
 const copyField = (printer, field) =>
-  copyPrinterFieldValue(printer, field, {copiedIds, showToast})
+  copyPrinterFieldValue(printer, field, { copiedIds, showToast })
 const testPrint = (printer, type) =>
-  handleTestPrint(printer, type, {testPrintIds, selectedPrinter, showTypeSelect, showToast})
+  handleTestPrint(printer, type, { testPrintIds, selectedPrinter, showTypeSelect, showToast })
 
 const handleVisibilityChange = () => {
   isTabVisible = !document.hidden
@@ -197,11 +159,11 @@ async function updatePrinters() {
         checkLanPrinterStatus(printer.lanIp)
       }
     }
-    
+
   } catch (error) {
     console.error('Failed to update printers:', error)
     errorMsg.value = 'Failed to retrieve printer status. Please try again.'
-  }  finally{
+  } finally {
     isUpdating.value = false
   }
 }
@@ -252,7 +214,7 @@ const fixSteps = computed(() => {
   return []
 })
 
-function hasLibUsbErrorFix(error="") {
+function hasLibUsbErrorFix(error = "") {
   return error.toLowerCase().includes('libusb')
 }
 
@@ -293,14 +255,15 @@ function showToast(message, type = 'success') {
 
   toastTimeout = setTimeout(() => {
     toast.value.show = false
-  }, type === 'success' ? 2000: 3000)
+  }, type === 'success' ? 2000 : 3000)
 }
 
 async function removeLanPrinter(printer) {
-  if (!printer.lanIp) return
+  if (!printer.lanIp || !printer.type !== "PDF") return
 
   try {
-    const removed = await ConfirmRemoveLANPrinter(printer.lanIp)
+    const removed =
+      printer.lanIp ? await ConfirmRemoveLANPrinter(printer.lanIp) : await ConfirmRemoveSystemPrinter(printer.name);
     if (removed) updatePrinters()
   } catch (err) {
     console.error('Failed to remove LAN printer:', err)
