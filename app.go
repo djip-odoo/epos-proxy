@@ -87,6 +87,7 @@ type UnavailablePrinter struct {
 	ErrorMsg string `json:"errorMsg"`
 	IsLAN    bool   `json:"isLAN"`
 	LANIp    string `json:"lanIp,omitempty"`
+	Type   string `json:"type"`
 }
 
 type Status struct {
@@ -132,6 +133,7 @@ func (a *App) Status() Status {
 			unavailablePrinters = append(unavailablePrinters, UnavailablePrinter{
 				Name:     info.Name,
 				ErrorMsg: info.Error,
+				Type:     string(info.Type),
 			})
 
 			logger.Debugf("USB printer unavailable: %s (%s)", info.Name, info.Error)
