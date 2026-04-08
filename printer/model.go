@@ -104,6 +104,7 @@ type Info struct {
 type UnavailableInfo struct {
 	Name  string
 	Error string
+	Type  PrinterType
 }
 
 type EndpointInfo struct {

@@ -387,6 +387,7 @@ func mergePrinters(systemPrinters []SystemUsbPrinter, libusbPrinters []LibUsbPri
 			result.Unavailable = append(result.Unavailable, UnavailableInfo{
 				Name:  sysUsb.IdName,
 				Error: "Offline",
+				Type: 	TypePDF,
 			})
 		}
 	}

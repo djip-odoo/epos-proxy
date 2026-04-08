@@ -63,6 +63,7 @@ func listLibUsbPrinters() ([]LibUsbPrinter, []UnavailableInfo, error) {
 			unavailable = append(unavailable, UnavailableInfo{
 				Name:  getPrinterFriendlyName(vid, pid),
 				Error: err.Error(),
+				Type: TypeUNKNOWN,
 			})
 		} else if info != nil {
 			logger.Debugf("Found available USB printer: %s (Serial: %s)", info.Name, info.Serial)
