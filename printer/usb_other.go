@@ -131,7 +131,7 @@ func AddLanPdfPrinter(ip string) error {
 	cmd := exec.Command("lpadmin", "-p", printerName, "-E", "-v", uri, "-m", "everywhere")
 	if err := cmd.Run(); err != nil {
 		if printerExists(printerName) {
-			if rmErr := removePrinter(printerName); rmErr != nil {
+			if rmErr := DeleteSystemPrinter(printerName); rmErr != nil {
 				return fmt.Errorf("lpadmin failed: %v; cleanup also failed: %v", err, rmErr)
 			}
 		}
@@ -150,10 +150,6 @@ func DeleteSystemPrinter(name string) error {
 	}
 
 	return nil
-}
-
-func removePrinter(name string) error {
-	return exec.Command("lpadmin", "-x", name).Run()
 }
 
 func printerExists(name string) bool {

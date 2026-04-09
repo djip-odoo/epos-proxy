@@ -297,6 +297,7 @@ func mergePrinters(systemPrinters []SystemUsbPrinter, libusbPrinters []LibUsbPri
 			if name == "" {
 				continue
 			}
+			logger.Infof("libname: %s, name: %s", libUsb.Name, name)
 			if util.IsMatch(libUsb.Name, name) {
 				matched = true
 				logger.Infof("Printer matched by fuzzy name: %s, %s ", libUsb.Name, name)

@@ -193,9 +193,7 @@ func (a *App) AddLANPrinter(ip string, printerType string) error {
 	if err != nil {
 		return fmt.Errorf("failed to add printer (%s - %s): %w", ip, printerType, err)
 	}
-
 	logger.Debugf("LAN printer added successfully: %s", ip)
-
 	return nil
 }
 
@@ -215,17 +213,16 @@ func (a *App) ConfirmRemoveLANPrinter(ip string) (bool, error) {
 		return false, fmt.Errorf("failed to show confirmation dialog: %w", err)
 	}
 	if result == "Confirm" || result == "Yes" {
-		err := a.config.RemoveLANPrinter(ip)
-		return true, fmt.Errorf("Error removing LAN printer: %s, error: %v", ip, err)
+		if err := a.config.RemoveLANPrinter(ip); err != nil {
+			return false, fmt.Errorf("failed to remove LAN printer: %w", err)
+		}
+		return true, nil
 	}
 	logger.Infof("Remove LAN printer cancelled, Remove printer dialog result: %s", result)
 	return false, nil
 }
 
 func (a *App) ConfirmRemoveSystemPrinter(name string) (bool, error) {
-
-	logger.Infof("Remove LAN printer requested: %s", name)
-
 	result, err := wailsruntime.MessageDialog(a.ctx, wailsruntime.MessageDialogOptions{
 		Type:          wailsruntime.QuestionDialog,
 		Title:         "Remove Printer",
@@ -238,8 +235,10 @@ func (a *App) ConfirmRemoveSystemPrinter(name string) (bool, error) {
 		return false, fmt.Errorf("failed to show confirmation dialog: %w", err)
 	}
 	if result == "Confirm" || result == "Yes" {
-		err := printer.DeleteSystemPrinter(name)
-		return true, fmt.Errorf("Error removing LAN printer: %s, error: %v", name, err)
+		if err := printer.DeleteSystemPrinter(name); err != nil {
+			return false, fmt.Errorf("failed to remove system printer: %w", err)
+		}
+		return true, nil
 	}
 	logger.Infof("Remove LAN printer cancelled, Remove printer dialog result: %s", result)
 	return false, nil

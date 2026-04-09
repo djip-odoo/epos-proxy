@@ -331,15 +331,6 @@ func AddLanPdfPrinter(ip string) error {
 	return nil
 }
 
-
-func removePrinter(name string) error {
-	cmd := exec.Command("powershell",
-		"-Command",
-		fmt.Sprintf(`Remove-Printer -Name "%s"`, name),
-	)
-	return cmd.Run()
-}
-
 func removePrinterPort(name string) error {
 	cmd := exec.Command("powershell",
 		"-Command",
@@ -360,15 +351,4 @@ func printerExists(name string) bool {
 		fmt.Sprintf(`Get-Printer -Name "%s" -ErrorAction SilentlyContinue | Out-String`, name)).CombinedOutput()
 
 	return strings.TrimSpace(string(out)) != ""
-}
-
-// ---------------- SERIAL EXTRACTION ----------------
-
-func extractSerial(deviceID string) string {
-	// Example: USB\VID_04B8&PID_0202\ABC123
-	parts := strings.Split(deviceID, "\\")
-	if len(parts) > 0 {
-		return parts[len(parts)-1]
-	}
-	return ""
 }

@@ -23,7 +23,7 @@
                 : 'bg-green-500 text-gray-800'">
                 {{ printer.type === 'PDF' ? 'Office' : printer.type === 'EPOS' ? 'Thermal' : 'Unknown' }}
               </span>
-              <span v-if="printer.isLAN || printer.type === 'PDF'" @click="removeLanPrinter(printer)"
+              <span v-if="printer.isLAN || printer.type === 'PDF'" @click="removePrinter(printer)"
                 class="text-gray-600 hover:text-danger cursor-pointer text-xl font-bold" title="Remove printer">×</span>
             </div>
             <div class="text-slate-600 mt-2 text-sm break-all">{{ printer.ip }}</div>
@@ -31,23 +31,38 @@
               @test="testPrint" />
           </li>
 
-          <li v-for="printer in unavailablePrinters" :key="printer.name"
-            class="text-left first:pt-0 py-6 last:pb-0 relative">
-            <div class="flex items-center gap-2">
-              <span class="w-3 h-3 rounded-full shrink-0 bg-danger"></span>
-              <span class="min-w-0 font-medium text-gray-900">{{ printer.name }}</span>
-            </div>
-            <div class="text-danger mt-1 text-wrap">Unable to communicate with this printer: {{
-              printer.errorMsg
-            }}
-            </div>
-            <div v-if="hasLibUsbErrorFix(printer.errorMsg)" class="flex gap-2 mt-4 flex-wrap">
-              <button
-                class="flex-1 border bg-odoo text-white hover:bg-odoo-dark rounded-lg px-4 py-2 text-center cursor-pointer"
-                @click="openFixModal(printer)">{{ getFixErrorText(printer.errorMsg) }}
-              </button>
-            </div>
-          </li>
+        <li
+          v-for="printer in unavailablePrinters"
+          :key="printer.name"
+          class="text-left first:pt-0 py-6 last:pb-0 relative"
+        >
+          <span
+            v-if="String(printer.errorMsg).endsWith('Offline')"
+            @click="removePrinter(printer)"
+            class="absolute top-2 right-2 text-gray-600 hover:text-danger cursor-pointer text-xl font-bold"
+            title="Remove printer"
+          >
+            ×
+          </span>
+
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full shrink-0 bg-danger"></span>
+            <span class="min-w-0 font-medium text-gray-900">{{ printer.name }}</span>
+          </div>
+
+          <div class="text-danger mt-1 text-wrap">
+            Unable to communicate with this printer: {{ printer.errorMsg }}
+          </div>
+
+          <div v-if="hasLibUsbErrorFix(printer.errorMsg)" class="flex gap-2 mt-4 flex-wrap">
+            <button
+              class="flex-1 border bg-odoo text-white hover:bg-odoo-dark rounded-lg px-4 py-2 text-center cursor-pointer"
+              @click="openFixModal(printer)"
+            >
+              {{ getFixErrorText(printer.errorMsg) }}
+            </button>
+          </div>
+        </li>
 
         </ul>
       </div>
@@ -143,6 +158,7 @@ function selectType(type) {
 }
 
 async function updatePrinters() {
+  debugger;
   if (isUpdating.value) return
 
   isUpdating.value = true
@@ -258,13 +274,14 @@ function showToast(message, type = 'success') {
   }, type === 'success' ? 2000 : 3000)
 }
 
-async function removeLanPrinter(printer) {
-  if (!printer.lanIp || !printer.type !== "PDF") return
+async function removePrinter(printer) {
+  if (!printer.lanIp && printer.type !== "PDF" && !String(printer.errorMsg).endsWith('Offline')) return
 
   try {
     const removed =
       printer.lanIp ? await ConfirmRemoveLANPrinter(printer.lanIp) : await ConfirmRemoveSystemPrinter(printer.name);
     if (removed) updatePrinters()
+    else showToast('Failed to remove printer', 'danger')
   } catch (err) {
     console.error('Failed to remove LAN printer:', err)
   }
