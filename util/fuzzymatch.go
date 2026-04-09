@@ -10,20 +10,27 @@ import (
 func normalize(s string) string {
 	s = strings.ToLower(s)
 
-	// remove special chars
 	reg := regexp.MustCompile(`[^a-z0-9\s]+`)
 	s = reg.ReplaceAllString(s, " ")
 
-	// remove noise words
 	noise := []string{"printer", "receipt", "usb", "series"}
 	for _, n := range noise {
 		s = strings.ReplaceAll(s, n, "")
 	}
 
-	// collapse spaces
-	s = strings.Join(strings.Fields(s), " ")
+	// collapse + deduplicate tokens
+	tokens := strings.Fields(s)
+	seen := make(map[string]bool)
+	result := make([]string, 0)
 
-	return s
+	for _, t := range tokens {
+		if !seen[t] {
+			seen[t] = true
+			result = append(result, t)
+		}
+	}
+
+	return strings.Join(result, " ")
 }
 
 // ---------------- TOKEN SIMILARITY ----------------
@@ -130,7 +137,7 @@ func matchScore(a, b string) float64 {
 func IsMatch(a, b string) bool {
 	score := matchScore(a, b)
 
-	if score > 0.85 {
+	if score > 0.75 {
 		return true
 	}
 	return false
