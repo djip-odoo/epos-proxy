@@ -70,7 +70,6 @@ func detectByVidPid(vidPid string) (PrinterType, bool) {
 	return TypeUNKNOWN, false
 }
 
-
 func LibUsbDetectPrinterType(dev *gousb.Device) (PrinterType, error) {
 	id, err := getPrinterDeviceID(dev)
 	if err != nil {
@@ -79,7 +78,7 @@ func LibUsbDetectPrinterType(dev *gousb.Device) (PrinterType, error) {
 
 	idUpper := strings.ToUpper(id)
 	switch {
-		case strings.Contains(idUpper, "ESC/POS"),
+	case strings.Contains(idUpper, "ESC/POS"),
 		strings.Contains(idUpper, "ESCPOS"),
 		strings.Contains(idUpper, "ESC/P"):
 		return TypeEPOS, nil
@@ -90,7 +89,7 @@ func LibUsbDetectPrinterType(dev *gousb.Device) (PrinterType, error) {
 		strings.Contains(idUpper, "POSTSCRIPT"),
 		strings.Contains(idUpper, "PS"):
 		return TypePDF, nil
-		
+
 	default:
 		logger.Infof("CMD: %s, ID: %s", idUpper, id)
 		return TypeUNKNOWN, nil
@@ -99,18 +98,33 @@ func LibUsbDetectPrinterType(dev *gousb.Device) (PrinterType, error) {
 
 func getPrinterDeviceID(dev *gousb.Device) (string, error) {
 	buf := make([]byte, 1024)
+	desc := dev.Desc
+	for _, cfg := range desc.Configs {
+		for _, iFace := range cfg.Interfaces {
+			for _, alt := range iFace.AltSettings {
 
-	// Try different interface numbers (some printers use interface 0, some 1)
-	for iface := 0; iface < 5; iface++ {
-		n, err := dev.Control(0xA1, 0, 0, uint16(iface), buf)
-		if err == nil && n > 2 {
-			length := int(buf[0])<<8 | int(buf[1])
-			if length > n-2 {
-				length = n - 2
+				if alt.Class != gousb.ClassPrinter {
+					continue
+				}
+
+				n, err := dev.Control(
+					0xA1,
+					0,
+					0,
+					uint16(iFace.Number),
+					buf,
+				)
+
+				if err == nil && n > 2 {
+					length := int(buf[0])<<8 | int(buf[1])
+					if length > n-2 {
+						length = n - 2
+					}
+					return string(buf[2 : 2+length]), nil
+				}
 			}
-			return string(buf[2 : 2+length]), nil
 		}
 	}
 
-	return "", fmt.Errorf("GET_DEVICE_ID failed on all interfaces")
+	return "", fmt.Errorf("device id not found")
 }

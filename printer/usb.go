@@ -127,7 +127,6 @@ func GetPrinterInfo(ctx *gousb.Context, descToFind *gousb.DeviceDesc) (*LibUsbPr
 	return info, nil
 }
 
-
 func encodePrinterID(serial string, path string, cupsName string) (string, error) {
 	parts := []string{}
 
@@ -135,7 +134,7 @@ func encodePrinterID(serial string, path string, cupsName string) (string, error
 		parts = append(parts, "s:"+serial)
 	} else if path != "" {
 		parts = append(parts, "p:"+path)
-	} 
+	}
 
 	if cupsName != "" {
 		parts = append(parts, "c:"+cupsName)

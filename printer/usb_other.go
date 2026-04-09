@@ -52,11 +52,12 @@ func ListSystemPrinters() ([]SystemUsbPrinter, error) {
 		uri = strings.TrimSpace(uri)
 		// we will only use locally added printer
 		if !strings.HasPrefix(uri, "usb://") &&
-		!strings.HasPrefix(uri, "ipp://") &&
-		!strings.HasPrefix(uri, "ipps://") {
+			!strings.HasPrefix(uri, "ipp://") &&
+			!strings.HasPrefix(uri, "cups-pdf:/") &&
+			!strings.HasPrefix(uri, "ipps://") {
 			continue
 		}
-			
+
 		data := parseUSBURI(uri)
 		printers = append(printers, SystemUsbPrinter{
 			Serial:  data.Serial,
