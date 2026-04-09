@@ -50,7 +50,14 @@ func ListSystemPrinters() ([]SystemUsbPrinter, error) {
 
 		name = strings.TrimSpace(name)
 		uri = strings.TrimSpace(uri)
-		data := parseUSBURI(uri, name)
+		// we will only use locally added printer
+		if !strings.HasPrefix(uri, "usb://") &&
+		!strings.HasPrefix(uri, "ipp://") &&
+		!strings.HasPrefix(uri, "ipps://") {
+			continue
+		}
+			
+		data := parseUSBURI(uri)
 		printers = append(printers, SystemUsbPrinter{
 			Serial:  data.Serial,
 			IdName:  name,
@@ -112,7 +119,7 @@ func EnsureSystemPrinterOpen(p *Printer) error {
 	name := p.cupsName
 	out, err := exec.Command("lpstat", "-p", name).CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("failed to get printer status: %v (%s)", err, string(out))
+		return fmt.Errorf("failed to get printer status: %v (%s)   name: %v", err, string(out), p)
 	}
 
 	status := string(out)
@@ -169,15 +176,8 @@ type USBInfo struct {
 	Serial      string
 }
 
-func parseUSBURI(uri string, name string) USBInfo {
+func parseUSBURI(uri string) USBInfo {
 	var info USBInfo
-	info.VendorName = name
-
-	if !strings.HasPrefix(uri, "usb://") {
-		logger.Debugf("CUPS printer %s does not have a serial number in its URI: %s, Name: %s", uri, name)
-		return info
-	}
-
 	var query string
 	uri = strings.TrimPrefix(uri, "usb://")
 	if idx := strings.Index(uri, "?"); idx != -1 {
@@ -185,11 +185,11 @@ func parseUSBURI(uri string, name string) USBInfo {
 		uri = uri[:idx]
 	}
 
-	parts := strings.Split(uri, "/")
-	if len(parts) >= 2 {
-		info.VendorName = parts[0]
-		info.ProductName = parts[1]
-	}
+	// parts := strings.Split(uri, "/")
+	// if len(parts) >= 2 {
+	// 	info.VendorName = parts[0]
+	// 	info.ProductName = parts[1]
+	// }
 
 	if query != "" {
 		for _, q := range strings.Split(query, "&") {

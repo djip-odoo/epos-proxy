@@ -2,13 +2,17 @@ package printer
 
 import (
 	"epos-proxy/logger"
+	"fmt"
 	"strings"
+
+	"github.com/google/gousb"
 )
 
 var vidPidTypeMap = map[string]PrinterType{
 	"2aaf:6015": TypeEPOS, // Essae thermal
 	"04b8:0e32": TypeEPOS, // Epson thermal
 	"2d84:c7c8": TypeEPOS, // Zhuhai Poskey Technology
+	"4b43:3830": TypeEPOS, // Caysn CN811-UWB
 }
 
 var eposKeywords = []string{
@@ -64,4 +68,49 @@ func detectByVidPid(vidPid string) (PrinterType, bool) {
 
 	logger.Infof("Set Unknown for VID:PID (%s)", vidPid)
 	return TypeUNKNOWN, false
+}
+
+
+func LibUsbDetectPrinterType(dev *gousb.Device) (PrinterType, error) {
+	id, err := getPrinterDeviceID(dev)
+	if err != nil {
+		return "UNKNOWN", err
+	}
+
+	idUpper := strings.ToUpper(id)
+	switch {
+		case strings.Contains(idUpper, "ESC/POS"),
+		strings.Contains(idUpper, "ESCPOS"),
+		strings.Contains(idUpper, "ESC/P"):
+		return TypeEPOS, nil
+
+	case strings.Contains(idUpper, "PDF"),
+		strings.Contains(idUpper, "PCL"),
+		strings.Contains(idUpper, "PCLXL"),
+		strings.Contains(idUpper, "POSTSCRIPT"),
+		strings.Contains(idUpper, "PS"):
+		return TypePDF, nil
+		
+	default:
+		logger.Infof("CMD: %s, ID: %s", idUpper, id)
+		return TypeUNKNOWN, nil
+	}
+}
+
+func getPrinterDeviceID(dev *gousb.Device) (string, error) {
+	buf := make([]byte, 1024)
+
+	// Try different interface numbers (some printers use interface 0, some 1)
+	for iface := 0; iface < 5; iface++ {
+		n, err := dev.Control(0xA1, 0, 0, uint16(iface), buf)
+		if err == nil && n > 2 {
+			length := int(buf[0])<<8 | int(buf[1])
+			if length > n-2 {
+				length = n - 2
+			}
+			return string(buf[2 : 2+length]), nil
+		}
+	}
+
+	return "", fmt.Errorf("GET_DEVICE_ID failed on all interfaces")
 }

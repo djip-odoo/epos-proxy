@@ -113,6 +113,11 @@ type EndpointInfo struct {
 	outEndpoint      int
 }
 
+type PrinterUSBInfo struct {
+	DeviceID string
+	Endpoint EndpointInfo
+}
+
 type Printers struct {
 	Available   []Info
 	Unavailable []UnavailableInfo

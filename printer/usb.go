@@ -118,10 +118,15 @@ func GetPrinterInfo(ctx *gousb.Context, descToFind *gousb.DeviceDesc) (*LibUsbPr
 	info.Name = fmt.Sprintf("%s %s", vendorName, productName)
 	info.Serial, _ = device.SerialNumber()
 	info.Path = PathToString(descToFind)
-	info.Type = TypeUNKNOWN
+	info.Type, err = LibUsbDetectPrinterType(device)
+	if err != nil {
+		info.Type = TypeUNKNOWN
+		logger.Errorf("failed to detect printer type: %w", err)
+	}
 	info.VidPid = fmt.Sprintf("%04X:%04X", uint16(descToFind.Vendor), uint16(descToFind.Product))
 	return info, nil
 }
+
 
 func encodePrinterID(serial string, path string, cupsName string) (string, error) {
 	parts := []string{}
@@ -130,7 +135,9 @@ func encodePrinterID(serial string, path string, cupsName string) (string, error
 		parts = append(parts, "s:"+serial)
 	} else if path != "" {
 		parts = append(parts, "p:"+path)
-	} else if cupsName != "" {
+	} 
+
+	if cupsName != "" {
 		parts = append(parts, "c:"+cupsName)
 	}
 
@@ -236,7 +243,7 @@ func mergePrinters(systemPrinters []SystemUsbPrinter, libusbPrinters []LibUsbPri
 					if err != nil {
 						logger.Errorf("Failed to encode printer ID: %v", err)
 					} else {
-						Type := sysUsb.Type
+						Type := libUsb.Type
 						if Type == TypeUNKNOWN {
 							Type = DetectPrinterType(sysUsb.IdName, libUsb.VidPid)
 						}
