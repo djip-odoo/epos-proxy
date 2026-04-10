@@ -3,6 +3,7 @@ package printer
 import (
 	"epos-proxy/logger"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/google/gousb"
@@ -14,6 +15,9 @@ var vidPidTypeMap = map[string]PrinterType{
 	"2d84:c7c8": TypeEPOS, // Zhuhai Poskey Technology
 	"4b43:3830": TypeEPOS, // Caysn CN811-UWB
 }
+
+var onlyAlphabetsRegex = regexp.MustCompile(`[^A-Z]+`)
+var CMD_KEY = []string{"CMD:", "COMMAND SET:", "COMMANDSET:", "COMMAND:", "COMMANDS:"}
 
 var eposKeywords = []string{
 	// Epson
@@ -73,27 +77,62 @@ func detectByVidPid(vidPid string) (PrinterType, bool) {
 func LibUsbDetectPrinterType(dev *gousb.Device) (PrinterType, error) {
 	id, err := getPrinterDeviceID(dev)
 	if err != nil {
-		return "UNKNOWN", err
+		return TypeUNKNOWN, err
+	}
+
+	cmds := extractCMD(id)
+
+	for _, c := range cmds {
+		switch c {
+		case "ESCPOS":
+			return TypeEPOS, nil
+
+		case "PCL", "PCLXL", "POSTSCRIPT", "PDF":
+			return TypePDF, nil
+		}
+	}
+
+	logger.Infof("CMD: %v, ID: %s", cmds, id)
+	return TypeUNKNOWN, nil
+}
+
+func extractCMD(id string) []string {
+	if id == "" {
+		return nil
 	}
 
 	idUpper := strings.ToUpper(id)
-	switch {
-	case strings.Contains(idUpper, "ESC/POS"),
-		strings.Contains(idUpper, "ESCPOS"),
-		strings.Contains(idUpper, "ESC/P"):
-		return TypeEPOS, nil
+	parts := strings.Split(idUpper, ";")
 
-	case strings.Contains(idUpper, "PDF"),
-		strings.Contains(idUpper, "PCL"),
-		strings.Contains(idUpper, "PCLXL"),
-		strings.Contains(idUpper, "POSTSCRIPT"),
-		strings.Contains(idUpper, "PS"):
-		return TypePDF, nil
+	var result []string
+	seen := make(map[string]bool)
 
-	default:
-		logger.Infof("CMD: %s, ID: %s", idUpper, id)
-		return TypeUNKNOWN, nil
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		for _, c := range CMD_KEY {
+			if strings.HasPrefix(p, c) {
+
+				idx := strings.IndexByte(p, ':')
+				if idx == -1 {
+					continue
+				}
+
+				raw := strings.TrimSpace(p[idx+1:])
+				for _, c := range strings.Split(raw, ",") {
+					n := onlyAlphabetsRegex.ReplaceAllString(strings.ToUpper(strings.TrimSpace(c)), "")
+					if n != "" && !seen[n] {
+						seen[n] = true
+						result = append(result, n)
+					}
+				}
+			}
+		}
 	}
+
+	return result
 }
 
 func getPrinterDeviceID(dev *gousb.Device) (string, error) {
