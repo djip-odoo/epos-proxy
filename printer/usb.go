@@ -269,12 +269,15 @@ func mergePrinters(systemPrinters []SystemUsbPrinter, libusbPrinters []LibUsbPri
 				logger.Errorf("Failed to encode printer ID: %v", err)
 				continue
 			}
-			if !strings.HasPrefix(sysUsb.IdName, "PDF_NET_") && sysUsb.Type == TypePDF {
-				matchedSystemPrinterName = append(matchedSystemPrinterName, sysUsb.IdName)
-			}
 			Type := sysUsb.Type
 			if Type == TypeUNKNOWN {
 				Type = DetectPrinterType(sysUsb.IdName, "")
+			}
+			if Type == TypeEPOS {
+				continue
+			}
+			if !strings.HasPrefix(sysUsb.IdName, "PDF_NET_") {
+				matchedSystemPrinterName = append(matchedSystemPrinterName, sysUsb.IdName)
 			}
 			if sysUsb.Status {
 				result.Available = append(result.Available, Info{
@@ -297,6 +300,12 @@ func mergePrinters(systemPrinters []SystemUsbPrinter, libusbPrinters []LibUsbPri
 		if matchedUSB[i] {
 			continue
 		}
+
+		// libUsb.Type detected by COMMANDS supported by printer
+		if libUsb.Type == TypePDF {
+			continue
+		}
+
 		matched := false
 		// skip those which are normal standard printer
 		for _, name := range matchedSystemPrinterName {
@@ -321,14 +330,10 @@ func mergePrinters(systemPrinters []SystemUsbPrinter, libusbPrinters []LibUsbPri
 			continue
 		}
 
-		Type := TypeEPOS
-		if runtime.GOOS != "windows" {
-			Type = DetectPrinterType(libUsb.Name, libUsb.VidPid)
-		}
 		result.Available = append(result.Available, Info{
 			Id:   id,
 			Name: libUsb.Name,
-			Type: Type,
+			Type: DetectPrinterType(libUsb.Name, libUsb.VidPid),
 		})
 	}
 	return result, nil
