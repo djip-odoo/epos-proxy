@@ -181,6 +181,10 @@ func ListSystemPrinters() ([]SystemUsbPrinter, error) {
 
 	var printers []SystemUsbPrinter
 	for _, p := range printersWMI {
+		if p.WorkOffline{
+			continue;
+		}
+
 		info := SystemUsbPrinter{
 			Serial:   "",
 			IdName:   p.Name,

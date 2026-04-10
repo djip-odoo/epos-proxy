@@ -275,12 +275,6 @@ func mergePrinters(systemPrinters []SystemUsbPrinter, libusbPrinters []LibUsbPri
 					Name: sysUsb.IdName,
 					Type: Type,
 				})
-			} else {
-				result.Unavailable = append(result.Unavailable, UnavailableInfo{
-					Name:  sysUsb.IdName,
-					Error: "Offline",
-					Type:  Type,
-				})
 			}
 		}
 	}
