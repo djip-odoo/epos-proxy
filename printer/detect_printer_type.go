@@ -16,9 +16,6 @@ var vidPidTypeMap = map[string]PrinterType{
 	"4b43:3830": TypeEPOS, // Caysn CN811-UWB
 }
 
-var onlyAlphabetsRegex = regexp.MustCompile(`[^A-Z]+`)
-var CMD_KEY = []string{"CMD:", "COMMAND SET:", "COMMANDSET:", "COMMAND:", "COMMANDS:"}
-
 var eposKeywords = []string{
 	// Epson
 	"tm-t", "tm-m", "tm-p", "tm-u", "tm-l", "m30",
@@ -73,6 +70,11 @@ func detectByVidPid(vidPid string) (PrinterType, bool) {
 	logger.Infof("Set Unknown for VID:PID (%s)", vidPid)
 	return TypeUNKNOWN, false
 }
+
+//  -----------------  LIBUSB ----------------------
+
+var onlyAlphabetsRegex = regexp.MustCompile(`[^A-Z]+`)
+var CMD_KEY = []string{"CMD:", "COMMAND SET:", "COMMANDSET:", "COMMAND:", "COMMANDS:"}
 
 func LibUsbDetectPrinterType(dev *gousb.Device) (PrinterType, error) {
 	id, err := getPrinterDeviceID(dev)

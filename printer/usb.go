@@ -294,47 +294,50 @@ func mergePrinters(systemPrinters []SystemUsbPrinter, libusbPrinters []LibUsbPri
 			}
 		}
 	}
+	appendLibusbEposPrinterOnly(libusbPrinters, matchedUSB, result, matchedSystemPrinterName)
 
 	// standalone libusb printer
-	for i, libUsb := range libusbPrinters {
-		if matchedUSB[i] {
-			continue
-		}
-
-		// libUsb.Type detected by COMMANDS supported by printer
-		if libUsb.Type == TypePDF {
-			continue
-		}
-
-		matched := false
-		// skip those which are normal standard printer
-		for _, name := range matchedSystemPrinterName {
-			if name == "" {
-				continue
-			}
-			logger.Infof("libname: %s, name: %s", libUsb.Name, name)
-			if util.IsMatch(libUsb.Name, name) {
-				matched = true
-				logger.Infof("Printer matched by fuzzy name: %s, %s ", libUsb.Name, name)
-				break
-			}
-		}
-		if matched {
-			continue
-		}
-		logger.Debugf("USB-only printer detected: %s", libUsb.Name)
-
-		id, err := encodePrinterID(libUsb.Serial, libUsb.Path, "")
-		if err != nil {
-			logger.Errorf("Failed to encode printer ID: %v", err)
-			continue
-		}
-
-		result.Available = append(result.Available, Info{
-			Id:   id,
-			Name: libUsb.Name,
-			Type: DetectPrinterType(libUsb.Name, libUsb.VidPid),
-		})
-	}
 	return result, nil
 }
+
+func appendLibusbEposPrinterOnly(libusbPrinters []LibUsbPrinter, matchedUSB map[int]bool, result *Printers, matchedSystemPrinterName []string){
+	for i, libUsb := range libusbPrinters {
+	if matchedUSB[i] {
+		continue
+	}
+
+	// libUsb.Type detected by COMMANDS supported by printer
+	if libUsb.Type == TypePDF {
+		continue
+	}
+
+	matched := false
+	// skip those which are normal standard printer
+	for _, name := range matchedSystemPrinterName {
+		if name == "" {
+			continue
+		}
+		logger.Infof("libname: %s, name: %s", libUsb.Name, name)
+		if util.IsMatch(libUsb.Name, name) {
+			matched = true
+			logger.Infof("Printer matched by fuzzy name: %s, %s ", libUsb.Name, name)
+			break
+		}
+	}
+	if matched {
+		continue
+	}
+	logger.Debugf("USB-only printer detected: %s", libUsb.Name)
+
+	id, err := encodePrinterID(libUsb.Serial, libUsb.Path, "")
+	if err != nil {
+		logger.Errorf("Failed to encode printer ID: %v", err)
+		continue
+	}
+
+	result.Available = append(result.Available, Info{
+		Id:   id,
+		Name: libUsb.Name,
+		Type: DetectPrinterType(libUsb.Name, libUsb.VidPid),
+	})
+}}
