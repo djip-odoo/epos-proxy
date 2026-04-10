@@ -127,7 +127,7 @@ func GetPrinterInfo(ctx *gousb.Context, descToFind *gousb.DeviceDesc) (*LibUsbPr
 	return info, nil
 }
 
-func encodePrinterID(serial string, path string, cupsName string) (string, error) {
+func encodePrinterID(serial string, path string, cupsName string) (string) {
 	parts := []string{}
 
 	if serial != "" {
@@ -141,13 +141,13 @@ func encodePrinterID(serial string, path string, cupsName string) (string, error
 	}
 
 	if len(parts) == 0 {
-		err := fmt.Errorf("cannot encode printer ID: no identifier provided (serial, path, or CUPS name)")
-		return "", err
+		logger.Errorf("cannot encode printer ID: no identifier provided (serial, path, or CUPS name)")
+		return ""
 	}
 
 	base := strings.Join(parts, "|")
 
-	return base64.RawURLEncoding.EncodeToString([]byte(base)), nil
+	return base64.RawURLEncoding.EncodeToString([]byte(base))
 }
 
 var ErrInvalidPrinterID = errors.New("invalid printer ID format")
@@ -238,18 +238,11 @@ func mergePrinters(systemPrinters []SystemUsbPrinter, libusbPrinters []LibUsbPri
 				// Serial match
 				if libUsb.Serial != "" && sysUsb.Serial != "" && libUsb.Serial == sysUsb.Serial {
 					logger.Infof("Matched by SERIAL: %s ↔ %s", libUsb.Serial, sysUsb.Serial)
-					id, err := encodePrinterID(libUsb.Serial, libUsb.Path, sysUsb.IdName)
-					if err != nil {
-						logger.Errorf("Failed to encode printer ID: %v", err)
-					} else {
-						Type := libUsb.Type
-						if Type == TypeUNKNOWN {
-							Type = DetectPrinterType(sysUsb.IdName, libUsb.VidPid)
-						}
+					if id := encodePrinterID(libUsb.Serial, libUsb.Path, sysUsb.IdName); id != "" {
 						result.Available = append(result.Available, Info{
 							Id:   id,
 							Name: sysUsb.IdName,
-							Type: Type,
+							Type: DetectPrinterType(sysUsb.IdName, libUsb.VidPid, libUsb.Type),
 						})
 					}
 					matchedUSB[i] = true
@@ -264,15 +257,12 @@ func mergePrinters(systemPrinters []SystemUsbPrinter, libusbPrinters []LibUsbPri
 		if !found {
 			logger.Debugf("No USB match for CUPS printer: %s", sysUsb.IdName)
 
-			id, err := encodePrinterID("", "", sysUsb.IdName)
-			if err != nil {
-				logger.Errorf("Failed to encode printer ID: %v", err)
+			id := encodePrinterID("", "", sysUsb.IdName)
+			if id == "" {
 				continue
 			}
-			Type := sysUsb.Type
-			if Type == TypeUNKNOWN {
-				Type = DetectPrinterType(sysUsb.IdName, "")
-			}
+
+			Type :=  DetectPrinterType(sysUsb.IdName, "", sysUsb.Type)
 			if Type == TypeEPOS {
 				continue
 			}
@@ -295,8 +285,6 @@ func mergePrinters(systemPrinters []SystemUsbPrinter, libusbPrinters []LibUsbPri
 		}
 	}
 	appendLibusbEposPrinterOnly(libusbPrinters, matchedUSB, result, matchedSystemPrinterName)
-
-	// standalone libusb printer
 	return result, nil
 }
 
@@ -329,15 +317,14 @@ func appendLibusbEposPrinterOnly(libusbPrinters []LibUsbPrinter, matchedUSB map[
 	}
 	logger.Debugf("USB-only printer detected: %s", libUsb.Name)
 
-	id, err := encodePrinterID(libUsb.Serial, libUsb.Path, "")
-	if err != nil {
-		logger.Errorf("Failed to encode printer ID: %v", err)
+	id := encodePrinterID(libUsb.Serial, libUsb.Path, "")
+	if id == "" {
 		continue
 	}
 
 	result.Available = append(result.Available, Info{
 		Id:   id,
 		Name: libUsb.Name,
-		Type: DetectPrinterType(libUsb.Name, libUsb.VidPid),
+		Type: DetectPrinterType(libUsb.Name, libUsb.VidPid, libUsb.Type),
 	})
 }}

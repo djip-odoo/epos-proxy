@@ -34,7 +34,11 @@ var eposKeywords = []string{
 	"ct-s2", "ct-s3", "ct-s6", "ct-s8",
 }
 
-func DetectPrinterType(printerName string, vidPid string) PrinterType {
+func DetectPrinterType(printerName string, vidPid string, Type PrinterType) PrinterType {
+	if Type != TypeUNKNOWN {
+		return Type
+	}
+
 	if vidPid != "" {
 		if t, ok := detectByVidPid(vidPid); ok {
 			logger.Debugf("Detected by VID:PID (%s)", vidPid)
