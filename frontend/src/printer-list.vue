@@ -61,7 +61,9 @@
       </div>
       <div v-else-if="!printers.length && !unavailablePrinters.length" class="p-6">
         <div class="font-medium text-lg text-center">No printers found</div>
-        <div class="mt-2 text-gray-600 text-center">Make sure your printer is powered on and connected via USB.</div>
+        <div class="mt-2 text-gray-600 text-center">Make sure your printer is powered on, properly connected
+          (USB/Wi-Fi) or <b>change the category.</b>
+        </div>
       </div>
 
       <div v-if="errorMsg">
@@ -124,19 +126,22 @@ const toast = ref({ show: false, message: '', type: 'success' })
 
 let toastTimeout = null
 let intervalId = null
-let isTabVisible = true
 let isUpdating = false
 
-const handleVisibilityChange = () => {
-  isTabVisible = !document.hidden
-  if (isTabVisible) updatePrinters()
+const handleFocus = () => {
+  startPolling()
 }
 
-function updatePrinters() {
+const handleBlur = () => {
+  stopPolling()
+}
+
+async function updatePrinters() {
   if (isUpdating) return
 
   isUpdating = true
-  Status().then((res) => {
+  try {
+    const res = await Status()
     printers.value = res.printers
     unavailablePrinters.value = res.unavailablePrinters
     errorMsg.value = res.errorMsg
@@ -149,9 +154,13 @@ function updatePrinters() {
         checkLanPrinterStatus(printer.lanIp)
       }
     }
-  }).finally(() => {
+
+  } catch (error) {
+    console.error('Failed to update printers:', error)
+    errorMsg.value = 'Failed to retrieve printer status. Please try again.'
+  } finally {
     isUpdating = false
-  })
+  }
 }
 
 function checkLanPrinterStatus(ip) {
@@ -179,18 +188,31 @@ function getPrinterStatusClass(printer) {
 }
 
 onMounted(() => {
-  isTabVisible = true
-  document.addEventListener('visibilitychange', handleVisibilityChange)
-  updatePrinters()
-  intervalId = setInterval(() => {
-    if (isTabVisible) updatePrinters()
-  }, 5000)
+  window.addEventListener('focus', handleFocus)
+  window.addEventListener('blur', handleBlur)
+
+  if (document.hasFocus()) {
+    startPolling()
+  }
 })
 
 onUnmounted(() => {
-  clearInterval(intervalId)
-  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  stopPolling()
+  window.removeEventListener('focus', handleFocus)
+  window.removeEventListener('blur', handleBlur)
 })
+
+const startPolling = () => {
+  if (intervalId) return
+  updatePrinters()
+  intervalId = setInterval(updatePrinters, 5000)
+}
+
+const stopPolling = () => {
+  if (!intervalId) return
+  clearInterval(intervalId)
+  intervalId = null
+}
 
 const fixSteps = computed(() => {
   if (!showFixModal.value) {
