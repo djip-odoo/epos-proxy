@@ -1,0 +1,77 @@
+------------------- low level access of normal printer -----------------
+gs -dNOPAUSE -dBATCH -dSAFER -sDEVICE=ps2write \
+   -sOutputFile=output.ps input.pdf
+
+
+pdf2ps input.pdf output.ps
+
+
+gs -dNOPAUSE -dBATCH -dSAFER -sDEVICE=pxlcolor \
+   -r600 -sOutputFile=output.pcl ./file.pdf
+
+
+echo -e '\x1B%-12345X@PJL INFO CONFIG\r\n' | nc -w 3 192.168.106.161 9100
+echo -e '\x1B%-12345X@PJL INFO ID\r\n' | nc -w 3 192.168.106.161 9100
+
+
+
+--------------------  epson deviceid ----------------
+
+Printer found: vid=04b8,pid=0e32,bus=1,addr=5 (VID:PID 30346238:30653332)
+IEEE 1284 Device ID:
+MFG:EPSON;CMD:ESC/POS;MDL:TM-m30III;CLS:PRINTER;DES:EPSON TM-m30III;CID:EpsonTM00001021;
+
+Supported Languages:
+  → CMD:ESC/POS
+
+----------------------------  TVS bluetooth printer ------------------------------------------
+
+
+Printer found: vid=2d84,pid=c7c8,bus=1,addr=12 (VID:PID 32643834:63376338)
+IEEE 1284 Device ID:
+MFG:4BARCODE;CMD:TSPL2;MDL:4B-2033PA;CLS:PRINTER;
+
+Supported Languages:
+  → CMD:TSPL2
+
+---------------------------- zebra -------------------------------
+
+Printer found: vid=0a5f,pid=0187,bus=3,addr=5 (VID:PID 30613566:30313837)
+IEEE 1284 Device ID:
+MANUFACTURER:Zebra Technologies ;COMMAND SET:ZPL;MODEL:ZTC ZD421-300dpi ZPL;CLASS:PRINTER;OPTIONS:XML;
+
+Supported Languages:
+  → COMMAND SET:ZPL
+
+
+
+-------------------- Hp laserJet ----------------
+
+Printer found: vid=03f0,pid=df2a,bus=1,addr=16 (VID:PID 30336630:64663261)
+IEEE 1284 Device ID:
+MFG:HP;MDL:HP LaserJet Pro M329;CMD:PCL5c,PCLXL,POSTSCRIPT,NATIVEOFFICE,PDF,PJL,Automatic,JPEG,AppleRaster,PWGRaster,PCLM,NATIVEOFFICE,NATIVEOFFICE,NATIVEOFFICE,NATIVEOFFICE,NATIVEOFFICE,802.11,802.3,DESKJET,DYN;CLS:PRINTER;DES:W1A24A;CID:HPLJPDLV1;LEDMDIS:USB#FF#04#01,USB#FF#CC#00;MCT:MF;MCL:DI;MCV:5.0;SN:INEFT3401K;S:038888C48400000100101000000;Z:05000001,12000,17000000,181;
+
+Supported Languages:
+  → CMD:PCL5c,PCLXL,POSTSCRIPT,NATIVEOFFICE,PDF,PJL,Automatic,JPEG,AppleRaster,PWGRaster,PCLM,NATIVEOFFICE,NATIVEOFFICE,NATIVEOFFICE,NATIVEOFFICE,NATIVEOFFICE,802.11,802.3,DESKJET,DYN
+
+
+------------- shreyansh ------------
+
+Printer found: vid=4b43,pid=3830,bus=1,addr=19 (VID:PID 34623433:33383330)
+IEEE 1284 Device ID:
+MFG:Caysn;MDL:CN811-UWB;CLS:PRINTER;SN:203B0C837ECD;
+
+Supported Languages:
+
+
+
+-------------------------------------  lpstat -v ---------------------------------------
+device for 4B-2033PA: usb://4BARCODE/4B-2033PA?serial=00000000000011
+device for CN811-UWB: usb://Caysn/CN811-UWB?serial=203B0C837ECD
+device for HP_LaserJet_Pro_M329: usb://HP/LaserJet%20Pro%20M329?serial=INEFT3401K&interface=1
+device for HP_LaserJet_Pro_M329_ACC423: implicitclass://HP_LaserJet_Pro_M329_ACC423/
+device for PDF: cups-pdf:/
+device for PDF_NET_192.168.106.161: ipp://192.168.106.161/ipp/print
+device for PR-55: usb://Essae/PR-55?serial=PR-55025230494
+device for TM-m30III: usb://EPSON/TM-m30III?serial=584257410042360000
+

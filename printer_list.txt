@@ -1,0 +1,175 @@
+Epson TM-T20 - EPOS
+Epson TM-T20II - EPOS
+Epson TM-T20III - EPOS
+Epson TM-T82 - EPOS
+Epson TM-T82II - EPOS
+Epson TM-T82III - EPOS
+Epson TM-T88IV - EPOS
+Epson TM-T88V - EPOS
+Epson TM-T88VI - EPOS
+Epson TM-U220 - EPOS
+Epson TM-m10 - EPOS
+Epson TM-m30 - EPOS
+Epson TM-m30II - EPOS
+Epson TM-P20 - EPOS
+Epson TM-P80 - EPOS
+Bixolon SRP-350 - EPOS
+Bixolon SRP-350II - EPOS
+Bixolon SRP-350III - EPOS
+Bixolon SRP-330 - EPOS
+Bixolon SRP-275 - EPOS
+Bixolon SPP-R200 - EPOS
+Bixolon SPP-R310 - EPOS
+TVS RP 3160 - EPOS
+TVS RP 3200 - EPOS
+TVS RP 45 - EPOS
+TVS MSP 250 Star - EPOS
+Rongta RP80 - EPOS
+Rongta RP58 - EPOS
+Rongta RPP200 - EPOS
+Rongta RPP300 - EPOS
+Xprinter XP-58 - EPOS
+Xprinter XP-80 - EPOS
+Xprinter XP-Q200 - EPOS
+Xprinter XP-DT108B - EPOS
+Citizen CT-S310 - EPOS
+Citizen CT-S601 - EPOS
+Citizen CT-S801 - EPOS
+Citizen CMP-20 - EPOS
+Citizen CMP-30 - EPOS
+Sewoo LK-TL100 - EPOS
+Sewoo LK-P20 - EPOS
+Sewoo LK-P30 - EPOS
+Sunmi V2 Printer - EPOS
+Sunmi V2 Pro Printer - EPOS
+HOIN HOP-E300 - EPOS
+Zjiang ZJ-5890K - EPOS
+Gprinter GP-5890X - EPOS
+GP-80250I Thermal Printer - EPOS
+
+HP LaserJet Pro M102w - PDF
+HP LaserJet Pro MFP M126nw - PDF
+HP LaserJet P1108 - PDF
+HP DeskJet 2130 - PDF
+HP Ink Tank 315 - PDF
+HP Smart Tank 515 - PDF
+HP OfficeJet Pro 9020 - PDF
+Canon LBP2900 - PDF
+Canon LBP6030 - PDF
+Canon PIXMA G2010 - PDF
+Canon PIXMA G3010 - PDF
+Canon imageCLASS MF241d - PDF
+Brother HL-L2321D - PDF
+Brother HL-L2351DW - PDF
+Brother DCP-L2520D - PDF
+Brother DCP-T720DW - PDF
+Brother MFC-L2701DW - PDF
+Epson EcoTank L3150 - PDF
+Epson EcoTank L3250 - PDF
+Epson L130 - PDF
+Epson L805 - PDF
+Epson WorkForce WF-2830 - PDF
+Samsung ML-2161 - PDF
+Samsung ML-1640 - PDF
+Samsung Xpress M2020W - PDF
+Xerox Phaser 3020 - PDF
+Xerox WorkCentre 3025 - PDF
+Xerox B210 - PDF
+
+Zebra ZD220 - LABEL
+Zebra ZD230 - LABEL
+Zebra ZD420 - LABEL
+Zebra ZD421 - LABEL
+Zebra ZD620 - LABEL
+Zebra GK420d - LABEL
+Zebra GK420t - LABEL
+Zebra GX430t - LABEL
+Zebra ZT230 - LABEL
+Zebra ZT410 - LABEL
+Zebra ZT411 - LABEL
+TSC TE244 - LABEL
+TSC TE200 - LABEL
+TSC TE210 - LABEL
+TSC TTP-244 Pro - LABEL
+TSC TTP-247 - LABEL
+TSC DA210 - LABEL
+TSC DA310 - LABEL
+TSC MH240 - LABEL
+TSC MX240P - LABEL
+Brother QL-700 - LABEL
+Brother QL-800 - LABEL
+Brother QL-810W - LABEL
+Brother QL-820NWB - LABEL
+Brother QL-1110NWB - LABEL
+Brother TD-2120N - LABEL
+Brother TD-2130N - LABEL
+Brother TD-4420DN - LABEL
+DYMO LabelWriter 450 - LABEL
+DYMO LabelWriter 450 Turbo - LABEL
+DYMO LabelWriter 550 - LABEL
+DYMO LabelWriter 550 Turbo - LABEL
+DYMO LabelWriter 4XL - LABEL
+Godex G500 - LABEL
+Godex G530 - LABEL
+Godex EZ1100 - LABEL
+Godex EZ1200 - LABEL
+Godex RT700 - LABEL
+Godex RT730 - LABEL
+Honeywell PC42t - LABEL
+Honeywell PC42d - LABEL
+Honeywell PC43t - LABEL
+Honeywell PM42 - LABEL
+Honeywell PM43 - LABEL
+Honeywell PX4i - LABEL
+Honeywell PX6i - LABEL
+Citizen CL-E300 - LABEL
+Citizen CL-E321 - LABEL
+Citizen CL-S521 - LABEL
+Citizen CL-S621 - LABEL
+Citizen CL-S700 - LABEL
+SATO WS2 - LABEL
+SATO WS4 - LABEL
+SATO CL4NX - LABEL
+SATO CG2 - LABEL
+SATO CG4 - LABEL
+Epson LabelWorks LW-300 - LABEL
+Epson LabelWorks LW-400 - LABEL
+Epson LabelWorks LW-700 - LABEL
+Epson ColorWorks C3500 - LABEL
+Epson ColorWorks C4000 - LABEL
+Xprinter XP-420B - LABEL
+Xprinter XP-470B - LABEL
+Rongta RP410 - LABEL
+Rongta RP420 - LABEL
+Gprinter GP-3120TU - LABEL
+Gprinter GP-1224D - LABEL
+Munbyn ITPP941 - LABEL
+Munbyn ITPP941B - LABEL
+
+
+odoo@djip-laptop ~> lpstat -v
+Normal printers
+device for HP_LaserJet_Pro_M329_ACC423: implicitclass://HP_LaserJet_Pro_M329_ACC423/
+device for PDF: cups-pdf:/
+device for PDF_NET_192.168.106.161: ipp://192.168.106.161/ipp/print
+
+Thermal printers
+device for CN811-UWB: usb://Caysn/CN811-UWB?serial=203B0C837ECD
+device for PR-55: usb://Essae/PR-55?serial=PR-55025230494
+device for TM-m30III: usb://EPSON/TM-m30III?serial=584257410042360000
+fish
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

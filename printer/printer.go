@@ -4,9 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"os"
-	"os/exec"
-	"strings"
 	"time"
 
 	"epos-proxy/logger"
@@ -14,7 +11,7 @@ import (
 	"github.com/google/gousb"
 )
 
-func newPrinter(id string) *Printer {
+func newPrinter(id string, category PrinterCategory) *Printer {
 	// Check if this is a LAN printer
 	if lanIP, ok := DecodeLANPrinterID(id); ok {
 		p := &Printer{
@@ -36,6 +33,8 @@ func newPrinter(id string) *Printer {
 		connectionType: PrinterTypeUSB,
 		id:             printerID,
 		jobs:           make(chan Job, QueueSize),
+		cupsName:       printerID.CupsName,
+		category:       category,
 	}
 
 	logger.Debugf("Created new USB printer instance for ID: %s", p.idToString())
@@ -55,9 +54,13 @@ func (p *Printer) Enqueue(fn JobFunc, reply chan JobResult) error {
 	}
 }
 
-func (p *Printer) Write(data []byte) error {
+func (p *Printer) Write(data []byte, category PrinterCategory) error {
 	if err := p.ensureOpen(); err != nil {
 		return err
+	}
+
+	if category == PrinterOffice {
+		return p.printViaSystemPrinter(data)
 	}
 
 	p.mu.Lock()
@@ -106,6 +109,9 @@ func (p *Printer) ensureOpen() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
+	if p.category == PrinterOffice {
+		return p.ensureSystemPrinterOpen()
+	}
 	if p.connectionType == PrinterTypeLAN {
 		return p.ensureOpenLANLocked()
 	}
@@ -177,7 +183,7 @@ func (p *Printer) ensureOpenUSBLocked() error {
 		} else if p.id.Serial != "" {
 			match = serial == p.id.Serial
 		} else if p.id.Path != "" {
-			match = PathToString(d.Desc) == p.id.Path
+			match = pathToString(d.Desc) == p.id.Path
 		}
 
 		if match && target == nil {
@@ -273,7 +279,7 @@ func (p *Printer) idToString() string {
 		return fmt.Sprintf("LAN:%s", p.lanIP)
 	}
 	if p.id != nil {
-		return fmt.Sprintf("USB:%s", p.id.Serial)
+		return fmt.Sprintf("USB:%s, %s, %s", p.id.Serial, p.id.Path, p.cupsName)
 	}
 	return "USB:unknown"
 }
