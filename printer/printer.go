@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"epos-proxy/logger"
@@ -11,7 +12,7 @@ import (
 	"github.com/google/gousb"
 )
 
-func newPrinter(id string) *Printer {
+func newPrinter(id string, category PrinterCategory) *Printer {
 	// Check if this is a LAN printer
 	if lanIP, ok := DecodeLANPrinterID(id); ok {
 		p := &Printer{
@@ -33,6 +34,14 @@ func newPrinter(id string) *Printer {
 		connectionType: PrinterTypeUSB,
 		id:             printerID,
 		jobs:           make(chan Job, QueueSize),
+		idName:         printerID.IdName,
+		category:       category,
+	}
+
+	if category == PrinterOffice && printerID.IdName == "" {
+		if err := p.fetchSystemPrinterName(); err != nil {
+			logger.Errorf("Error: %v", err)
+		}
 	}
 
 	logger.Debugf("Created new USB printer instance for ID: %s", p.idToString())
@@ -52,9 +61,13 @@ func (p *Printer) Enqueue(fn JobFunc, reply chan JobResult) error {
 	}
 }
 
-func (p *Printer) Write(data []byte) error {
+func (p *Printer) Write(data []byte, category PrinterCategory) error {
 	if err := p.ensureOpen(); err != nil {
 		return err
+	}
+
+	if category == PrinterOffice {
+		return p.printViaSystemPrinter(data)
 	}
 
 	p.mu.Lock()
@@ -102,6 +115,15 @@ func (p *Printer) loop() {
 func (p *Printer) ensureOpen() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
+	if p.category == PrinterOffice {
+		if strings.HasPrefix(p.idName, "PDF_NETWORK_") {
+			if err := p.ensureOpenLANLocked(); err != nil {
+				return fmt.Errorf("Printer is not open, err: %v", err)
+			}
+		}
+		return p.ensureSystemPrinterOpen()
+	}
 
 	if p.connectionType == PrinterTypeLAN {
 		return p.ensureOpenLANLocked()
@@ -270,7 +292,7 @@ func (p *Printer) idToString() string {
 		return fmt.Sprintf("LAN:%s", p.lanIP)
 	}
 	if p.id != nil {
-		return fmt.Sprintf("USB:%s", p.id.Serial)
+		return fmt.Sprintf("USB:%s, %s, %s", p.id.Serial, p.id.Path, p.idName)
 	}
 	return "USB:unknown"
 }

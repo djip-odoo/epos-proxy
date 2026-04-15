@@ -24,6 +24,29 @@
               @keyup.enter="submit"
               ref="inputRef"
           />
+          <div class="mb-4">
+          <div class="text-sm font-medium text-gray-700 mb-2">Printer Type</div>
+          <div class="flex gap-3">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                value="EPOS"
+                v-model="printerType"
+                class="accent-odoo"
+              />
+              <span class="text-sm">Receipt/Label</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                value="PDF"
+                v-model="printerType"
+                class="accent-odoo"
+              />
+              <span class="text-sm">Office (PDF)</span>
+            </label>
+          </div>
+        </div>
           <div v-if="error" class="text-danger text-sm mb-3">{{ error }}</div>
           <button
               @click="submit"
@@ -52,11 +75,13 @@ const ipInput = ref('')
 const error = ref(null)
 const loading = ref(false)
 const inputRef = ref(null)
+const printerType = ref('EPOS')
 
 watch(() => props.show, (val) => {
   if (val) {
     ipInput.value = ''
     error.value = null
+    printerType.value = 'EPOS'
     nextTick(() => inputRef.value?.focus())
   }
 })
@@ -77,7 +102,7 @@ async function submit() {
   error.value = null
 
   try {
-    await AddLANPrinter(ip)
+    await AddLANPrinter(ip, printerType.value)
     close(true)
   } catch (err) {
     console.log(err)
