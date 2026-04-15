@@ -70,9 +70,9 @@ type PrinterID struct {
 type PrinterType string
 
 const (
-	TypeEPOS PrinterType = "EPOS"
-	TypePDF  PrinterType = "PDF"
-	TypeAny  PrinterType = "ANY"
+	TypeTHERMAL PrinterType = "THERMAL"
+	TypeOFFICE  PrinterType = "OFFICE"
+	TypeANY     PrinterType = "ANY"
 )
 
 type SystemUsbPrinter struct {
@@ -98,8 +98,8 @@ type LibUsbPrinter struct {
 type Info struct {
 	Id      string
 	Name    string
-	Type    PrinterType
-	Variant string
+	Type    PrinterType // Based on supported command languages
+	Variant string      // Determined during record creation
 	IsLAN   bool
 	IP      string
 }

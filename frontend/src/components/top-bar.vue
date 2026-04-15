@@ -12,10 +12,10 @@
 
 <script setup>
 const emit = defineEmits(['refresh'])
-const modelValue = defineModel({ type: String, default: 'EPOS' })
+const modelValue = defineModel({ type: String, default: 'THERMAL' })
 const tabs = [
-  { label: 'Receipt/Label', value: 'EPOS' },
-  { label: 'Office', value: 'PDF' },
+  { label: 'Receipt/Label', value: 'THERMAL' },
+  { label: 'Office', value: 'OFFICE' },
   { label: 'Other', value: 'ANY' }
 ]
 

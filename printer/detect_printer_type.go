@@ -10,14 +10,14 @@ import (
 )
 
 var vidPidTypeMap = map[string]PrinterType{
-	"2aaf:6015": TypeEPOS, // Essae thermal
-	"04b8:0e32": TypeEPOS, // Epson thermal
-	"2d84:c7c8": TypeEPOS, // Zhuhai Poskey Technology
-	"4b43:3830": TypeEPOS, // Caysn CN811-UWB
+	"2aaf:6015": TypeTHERMAL, // Essae thermal
+	"04b8:0e32": TypeTHERMAL, // Epson thermal
+	"2d84:c7c8": TypeTHERMAL, // Zhuhai Poskey Technology
+	"4b43:3830": TypeTHERMAL, // Caysn CN811-UWB
 }
 
 func detectPrinterType(printerName string, vidPid string, Type PrinterType) PrinterType {
-	if Type != TypeAny {
+	if Type != TypeANY {
 		return Type
 	}
 
@@ -28,7 +28,7 @@ func detectPrinterType(printerName string, vidPid string, Type PrinterType) Prin
 		}
 	}
 
-	return TypeAny
+	return TypeANY
 }
 
 func _detectByVidPid(vidPid string) (PrinterType, bool) {
@@ -37,7 +37,7 @@ func _detectByVidPid(vidPid string) (PrinterType, bool) {
 	}
 
 	logger.Debugf("Set any for VID:PID (%s)", vidPid)
-	return TypeAny, false
+	return TypeANY, false
 }
 
 //  -----------------  LIBUSB ----------------------
@@ -51,24 +51,24 @@ func libUsbDetectPrinterType(dev *gousb.Device) PrinterType {
 	id, err := _getPrinterDeviceID(dev)
 	if err != nil {
 		logger.Errorf("failed to detect printer type: %v", err)
-		return TypeAny
+		return TypeANY
 	}
 
 	cmds := _extractCMD(id)
 	for _, c := range cmds {
 		if _, ok := PDF_CMDS[c]; ok {
-			return TypePDF
+			return TypeOFFICE
 		}
 	}
 
 	for _, c := range cmds {
 		if _, ok := EPOS_CMDS[c]; ok {
-			return TypeEPOS
+			return TypeTHERMAL
 		}
 	}
 
 	logger.Debugf("CMD: %v, ID: %s", cmds, id)
-	return TypeAny
+	return TypeANY
 }
 
 func _extractCMD(id string) []string {

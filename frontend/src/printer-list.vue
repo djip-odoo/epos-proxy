@@ -25,7 +25,7 @@
               <span class="px-2 py-1 text-xs font-semibold rounded" :class="printer.type === 'ANY'
                 ? 'bg-yellow-500 text-gray-800'
                 : 'bg-green-500 text-gray-800'">
-                {{ printer.type === 'PDF' ? 'Office' : printer.type === 'EPOS' ? 'Thermal' : 'Any' }}
+                {{ printer.type === "THERMAL" ? "RECEIPT / LABEL" : printer.type}}
               </span>
               <span v-if="printer.isLAN || String(printer.name).startsWith('PDF_NETWORK_')"
                 @click="removePrinter(printer)" class="text-gray-600 hover:text-danger cursor-pointer text-xl font-bold"
@@ -121,7 +121,7 @@ const unavailablePrinters = ref([])
 const errorMsg = ref(null)
 const loading = ref(true)
 const copiedIds = ref({})
-const activeFilter = ref('EPOS')
+const activeFilter = ref('THERMAL')
 const testPrintIds = ref({})
 const lanStatus = ref({})
 const pendingChecks = ref(new Set())

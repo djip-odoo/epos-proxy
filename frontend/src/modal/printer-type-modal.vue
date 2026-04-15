@@ -11,12 +11,12 @@
         <div class="flex gap-3">
           <button
             class="flex-1 bg-gray-200 rounded-lg py-2 hover:bg-odoo hover:text-white cursor-pointer disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed disabled:hover:bg-gray-300"
-            @click="select('EPOS')" :disabled="selectedPrinter.variant === 'PDF'">
+            @click="select('THERMAL')" :disabled="selectedPrinter.variant === 'OFFICE'">
             Receipt/Label
           </button>
           <button
             class="flex-1 bg-gray-200 rounded-lg py-2 hover:bg-odoo hover:text-white cursor-pointer disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed disabled:hover:bg-gray-300"
-            @click="select('PDF')" :disabled="selectedPrinter.variant === 'EPOS'">
+            @click="select('OFFICE')" :disabled="selectedPrinter.variant === 'THERMAL'">
             Office (PDF)
           </button>
         </div>

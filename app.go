@@ -156,7 +156,7 @@ func (a *App) Status() Status {
 			Ip:    a.GetPrinterIp(info.Id),
 			IsLAN: true,
 			LANIp: info.IP,
-			Type:  string(printer.TypeEPOS),
+			Type:  string(printer.TypeTHERMAL),
 		})
 	}
 
@@ -184,10 +184,10 @@ func (a *App) AddLANPrinter(ip string, printerType string) error {
 	}
 
 	switch printerType {
-	case "EPOS":
+	case "THERMAL":
 		err = a.config.AddLanEposPrinter(ip)
 
-	case "PDF":
+	case "OFFICE":
 		err = printer.AddLanPdfPrinter(ip)
 
 	default:

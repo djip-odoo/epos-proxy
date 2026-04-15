@@ -186,7 +186,7 @@ func listSystemPrinters() ([]SystemUsbPrinter, error) {
 			IdName:   p.Name,
 			DeviceID: p.DeviceID,
 			Status:   !p.WorkOffline,
-			Type:     TypePDF,
+			Type:     TypeOFFICE,
 			IsLAN:    isLAN,
 			IP:       util.Ternary(isLAN, strings.TrimPrefix(p.Name, "PDF_NETWORK_"), ""),
 		}

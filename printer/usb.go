@@ -63,7 +63,7 @@ func listLibUsbPrinters() ([]LibUsbPrinter, []UnavailableInfo, error) {
 			unavailable = append(unavailable, UnavailableInfo{
 				Name:  getPrinterFriendlyName(vid, pid),
 				Error: err.Error(),
-				Type:  TypeAny,
+				Type:  TypeANY,
 			})
 		} else if info != nil {
 			logger.Debugf("Found available USB printer: %s (Serial: %s)", info.Name, info.Serial)
@@ -166,7 +166,7 @@ func mergePrinters(systemPrinters []SystemUsbPrinter, libusbPrinters []LibUsbPri
 						result.Available = append(result.Available, Info{
 							Id:      id,
 							Name:    sysUsb.IdName,
-							Variant: string(TypeAny),
+							Variant: string(TypeANY),
 							Type:    detectPrinterType(sysUsb.IdName, libUsb.VidPid, libUsb.Type),
 						})
 					}
@@ -187,7 +187,7 @@ func mergePrinters(systemPrinters []SystemUsbPrinter, libusbPrinters []LibUsbPri
 			}
 
 			Type := detectPrinterType(sysUsb.IdName, "", sysUsb.Type)
-			if Type == TypeEPOS {
+			if Type == TypeTHERMAL {
 				continue
 			}
 			if !strings.HasPrefix(sysUsb.IdName, "PDF_NETWORK_") {
@@ -199,7 +199,7 @@ func mergePrinters(systemPrinters []SystemUsbPrinter, libusbPrinters []LibUsbPri
 					Id:      id,
 					Name:    sysUsb.IdName,
 					Type:    Type,
-					Variant: string(TypePDF),
+					Variant: string(TypeOFFICE),
 					IsLAN:   sysUsb.IsLAN,
 					IP:      sysUsb.IP,
 				})
@@ -217,7 +217,7 @@ func appendLibusbEposPrinterOnly(libusbPrinters []LibUsbPrinter, matchedUSB map[
 		}
 
 		// libUsb.Type detected by COMMANDS supported by printer
-		if libUsb.Type == TypePDF {
+		if libUsb.Type == TypeOFFICE {
 			continue
 		}
 
@@ -246,7 +246,7 @@ func appendLibusbEposPrinterOnly(libusbPrinters []LibUsbPrinter, matchedUSB map[
 		result.Available = append(result.Available, Info{
 			Id:      id,
 			Name:    libUsb.Name,
-			Variant: string(TypeEPOS),
+			Variant: string(TypeTHERMAL),
 			Type:    detectPrinterType(libUsb.Name, libUsb.VidPid, libUsb.Type),
 		})
 	}

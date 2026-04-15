@@ -54,7 +54,7 @@ export async function handleTestPrint(printer, type, { testPrintIds, selectedPri
 
 async function executePrint(printer, showToast, type) {
   try {
-    if (type === 'EPOS') {
+    if (type === 'THERMAL') {
       const response = await sendEposPrint(printer.ip, printer.name)
       const xml = await response.text()
       const parser = new DOMParser()
@@ -70,7 +70,7 @@ async function executePrint(printer, showToast, type) {
       }
 
       showToast(`Test print sent`, 'success')
-    } else if (type === 'PDF') {
+    } else if (type === 'OFFICE') {
       const response = await sendPdf(printer.ip, printer.name);
       if (!response.ok) throw new Error('Network response was not ok')
       showToast(`Test print sent to ${printer.name}`, 'success')

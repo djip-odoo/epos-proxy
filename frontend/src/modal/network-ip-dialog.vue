@@ -30,7 +30,7 @@
             <label class="flex items-center gap-2 cursor-pointer">
               <input
                 type="radio"
-                value="EPOS"
+                value="THERMAL"
                 v-model="printerType"
                 class="accent-odoo"
               />
@@ -39,7 +39,7 @@
             <label class="flex items-center gap-2 cursor-pointer">
               <input
                 type="radio"
-                value="PDF"
+                value="OFFICE"
                 v-model="printerType"
                 class="accent-odoo"
               />
@@ -75,13 +75,13 @@ const ipInput = ref('')
 const error = ref(null)
 const loading = ref(false)
 const inputRef = ref(null)
-const printerType = ref('EPOS')
+const printerType = ref('THERMAL')
 
 watch(() => props.show, (val) => {
   if (val) {
     ipInput.value = ''
     error.value = null
-    printerType.value = 'EPOS'
+    printerType.value = 'THERMAL'
     nextTick(() => inputRef.value?.focus())
   }
 })
