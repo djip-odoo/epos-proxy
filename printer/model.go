@@ -16,6 +16,13 @@ const (
 	PrinterTypeLAN
 )
 
+type PrinterCategory int
+
+const (
+	PrinterThermal PrinterCategory = iota
+	PrinterOffice
+)
+
 const (
 	QueueSize    = 100
 	WriteTimeout = 30 * time.Second
@@ -30,7 +37,6 @@ type JobResult struct {
 }
 
 type JobFunc func(p *Printer) JobResult
-
 type Job struct {
 	run   JobFunc
 	reply chan JobResult
@@ -38,6 +44,7 @@ type Job struct {
 
 type Printer struct {
 	connectionType PrinterConnectionType
+	category       PrinterCategory
 	id             *PrinterID
 	lanIP          string
 	mu             sync.Mutex
@@ -50,24 +57,57 @@ type Printer struct {
 	// LAN fields
 	tcpConn net.Conn
 	jobs    chan Job
+	// For office printer (e.g CupsName(Linux/Mac), Name(Windows))
+	idName string
 }
 
 type PrinterID struct {
 	Serial string
 	Path   string
+	IdName string
+}
+
+type PrinterType string
+
+const (
+	TypeTHERMAL PrinterType = "THERMAL"
+	TypeOFFICE  PrinterType = "OFFICE"
+	TypeANY     PrinterType = "ANY"
+)
+
+type SystemUsbPrinter struct {
+	Serial     string
+	IdName     string
+	DeviceID   string
+	Status     bool
+	Type       PrinterType
+	CupsUri    string // linux
+	DriverName string // win
+	IsLAN      bool
+	IP         string
+}
+
+type LibUsbPrinter struct {
+	Serial string
+	Path   string
+	Name   string
+	Type   PrinterType
+	VidPid string
 }
 
 type Info struct {
-	ProductName string
-	VendorName  string
-	Serial      string
-	Id          string
-	Path        string
+	Id      string
+	Name    string
+	Type    PrinterType // Based on supported command languages
+	Variant string      // Determined during record creation
+	IsLAN   bool
+	IP      string
 }
 
 type UnavailableInfo struct {
 	Name  string
 	Error string
+	Type  PrinterType
 }
 
 type EndpointInfo struct {
