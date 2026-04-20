@@ -3,6 +3,25 @@
     <div
         class="w-full max-w-full sm:max-w-md md:max-w-lg lg:max-w-xl bg-white/85 rounded-2xl shadow-lg overflow-hidden px-4 sm:px-6 py-2 sm:py-4">
 
+      <div class="w-full flex justify-end">
+        <button
+          @click="updatePrinters"
+          :disabled="isUpdating"
+          class="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-odoo text-white hover:bg-odoo-dark disabled:opacity-50 transition"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 122.61 122.88"
+            fill="currentColor"
+            :class="{ 'animate-spin': isUpdating }"
+          >
+            <path d="M111.9,61.57a5.36,5.36,0,0,1,10.71,0A61.3,61.3,0,0,1,17.54,104.48v12.35a5.36,5.36,0,0,1-10.72,0V89.31A5.36,5.36,0,0,1,12.18,84H40a5.36,5.36,0,1,1,0,10.71H23a50.6,50.6,0,0,0,88.87-33.1ZM106.6,5.36a5.36,5.36,0,1,1,10.71,0V33.14A5.36,5.36,0,0,1,112,38.49H84.44a5.36,5.36,0,1,1,0-10.71H99A50.6,50.6,0,0,0,10.71,61.57,5.36,5.36,0,1,1,0,61.57,61.31,61.31,0,0,1,91.07,8,61.83,61.83,0,0,1,106.6,20.27V5.36Z"/>
+          </svg>
+          Refresh
+        </button>
+      </div>
       <div v-if="printers.length || unavailablePrinters.length" class="p-6">
         <ul class="divide-y divide-gray-300">
 
@@ -61,8 +80,27 @@
       </div>
       <div v-else-if="!printers.length && !unavailablePrinters.length" class="p-6">
         <div class="font-medium text-lg text-center">No printers found</div>
-        <div class="mt-2 text-gray-600 text-center">Make sure your printer is powered on and connected via USB.</div>
-      </div>
+          <div class="mt-2 text-gray-600 text-center flex items-center justify-center gap-2 flex-wrap">
+            <span>Make sure your printer is powered on and connected via USB, then click</span>
+            <button
+              @click="updatePrinters"
+              :disabled="isUpdating"
+              class="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-odoo text-white hover:bg-odoo-dark disabled:opacity-50 transition"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 122.61 122.88"
+                fill="currentColor"
+                :class="{ 'animate-spin': isUpdating }"
+              >
+                <path d="M111.9,61.57a5.36,5.36,0,0,1,10.71,0A61.3,61.3,0,0,1,17.54,104.48v12.35a5.36,5.36,0,0,1-10.72,0V89.31A5.36,5.36,0,0,1,12.18,84H40a5.36,5.36,0,1,1,0,10.71H23a50.6,50.6,0,0,0,88.87-33.1ZM106.6,5.36a5.36,5.36,0,1,1,10.71,0V33.14A5.36,5.36,0,0,1,112,38.49H84.44a5.36,5.36,0,1,1,0-10.71H99A50.6,50.6,0,0,0,10.71,61.57,5.36,5.36,0,1,1,0,61.57,61.31,61.31,0,0,1,91.07,8,61.83,61.83,0,0,1,106.6,20.27V5.36Z"/>
+              </svg>
+              Refresh
+            </button>
+          </div>
+        </div>
 
       <div v-if="errorMsg">
         <div class="text-red-700 mt-4 text-center">Error: {{ errorMsg }}</div>
@@ -103,7 +141,7 @@
 </template>
 
 <script setup>
-import {computed, onMounted, onUnmounted, ref} from 'vue'
+import {computed, onMounted, ref} from 'vue'
 import {CheckLANPrinterStatus, ConfirmRemoveLANPrinter, Status} from '../wailsjs/go/main/App'
 import {brewSteps, linuxSteps, zadigSteps} from "./modal/fix-step";
 import StepModal from "./modal/step-modal.vue";
@@ -123,20 +161,14 @@ const showAddDialog = ref(false)
 const toast = ref({ show: false, message: '', type: 'success' })
 
 let toastTimeout = null
-let intervalId = null
-let isTabVisible = true
-let isUpdating = false
+let isUpdating = ref(false)
 
-const handleVisibilityChange = () => {
-  isTabVisible = !document.hidden
-  if (isTabVisible) updatePrinters()
-}
+async function updatePrinters() {
+  if (isUpdating.value) return
 
-function updatePrinters() {
-  if (isUpdating) return
-
-  isUpdating = true
-  Status().then((res) => {
+  isUpdating.value = true
+  try {
+    const res = await Status()
     printers.value = res.printers
     unavailablePrinters.value = res.unavailablePrinters
     errorMsg.value = res.errorMsg
@@ -146,26 +178,34 @@ function updatePrinters() {
     // Check status for each LAN printer
     for (const printer of res.printers) {
       if (printer.isLAN && printer.lanIp) {
-        checkLanPrinterStatus(printer.lanIp)
+        await checkLanPrinterStatus(printer.lanIp)
       }
     }
-  }).finally(() => {
-    isUpdating = false
-  })
+
+  } catch (error) {
+    console.error('Failed to update printers:', error)
+    errorMsg.value = 'Failed to retrieve printer status. Please try again.'
+  } finally {
+    isUpdating.value = false
+  }
 }
 
-function checkLanPrinterStatus(ip) {
+async function checkLanPrinterStatus(ip) {
   if (pendingChecks.value.has(ip)) return
 
   pendingChecks.value.add(ip)
   if (lanStatus.value[ip] === undefined) {
     lanStatus.value[ip] = 'loading'
   }
-  CheckLANPrinterStatus(ip).then((online) => {
+  try {
+    const online = await CheckLANPrinterStatus(ip)
     lanStatus.value[ip] = online ? 'online' : 'offline'
-  }).finally(() => {
+  } catch (error) {
+    console.error(`LAN status check failed for ${ip}:`, error)
+    lanStatus.value[ip] = 'offline'
+  } finally {
     pendingChecks.value.delete(ip)
-  })
+  }
 }
 
 function getPrinterStatusClass(printer) {
@@ -179,17 +219,7 @@ function getPrinterStatusClass(printer) {
 }
 
 onMounted(() => {
-  isTabVisible = true
-  document.addEventListener('visibilitychange', handleVisibilityChange)
   updatePrinters()
-  intervalId = setInterval(() => {
-    if (isTabVisible) updatePrinters()
-  }, 5000)
-})
-
-onUnmounted(() => {
-  clearInterval(intervalId)
-  document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 
 const fixSteps = computed(() => {
