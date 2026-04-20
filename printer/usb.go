@@ -12,8 +12,11 @@ import (
 	"github.com/google/gousb"
 )
 
-var supportedVendorIDs = map[gousb.ID]string{
-	0x04B8: "Epson",
+var supportedPrinters = map[gousb.ID]map[gousb.ID]bool{
+	0x04B8: { // Epson
+		0x0202: true,
+		0x0203: true,
+	},
 }
 
 type Info struct {
@@ -197,15 +200,12 @@ func decodePrinterID(id string) (*PrinterID, error) {
 }
 
 func findPrinterEndpoint(dev *gousb.DeviceDesc) (EndpointInfo, bool) {
-	// _, supportedVendor := supportedVendorIDs[dev.Vendor]
-	// if !supportedVendor {
-	//	return EndpointInfo{}, false
-	//}
+	_, supportedPrinterVIDPID := supportedPrinters[dev.Vendor][dev.Product]
 
 	for cfgNum, cfg := range dev.Configs {
 		for _, iFace := range cfg.Interfaces {
 			for _, alt := range iFace.AltSettings {
-				if alt.Class != gousb.ClassPrinter {
+				if alt.Class != gousb.ClassPrinter && !supportedPrinterVIDPID {
 					continue
 				}
 				for _, ep := range alt.Endpoints {
