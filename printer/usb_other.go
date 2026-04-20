@@ -47,17 +47,21 @@ func listSystemPrinters() ([]SystemUsbPrinter, error) {
 		}
 
 		name = strings.TrimSpace(name)
+		if !strings.Contains(statusMap[name], "enabled") {
+			continue
+		}
+
 		uri = strings.TrimSpace(uri)
 
-		// if !strings.HasPrefix(uri, "usb://") &&
-		// 	!strings.HasPrefix(uri, "ipp://") &&
-		// 	!strings.HasPrefix(uri, "cups-pdf:/") &&
-		// 	!strings.HasPrefix(uri, "ipps://") {
-		// 	continue
-		// }
+		if strings.HasPrefix(uri, "ipp://") ||
+			strings.HasPrefix(uri, "implicitclass://") ||
+			strings.HasPrefix(uri, "ipps://") {
+			continue
+		}
 
 		data := parseUSBURI(uri)
 		isLAN := strings.HasPrefix(name, "PDF_NETWORK_")
+
 		printers = append(printers, SystemUsbPrinter{
 			Serial:  data.Serial,
 			IdName:  name,

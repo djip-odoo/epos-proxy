@@ -168,6 +168,7 @@ type Win32_Printer struct {
 func listSystemPrinters() ([]SystemUsbPrinter, error) {
 	var printersWMI []Win32_Printer
 
+	// SELECT Name, DeviceID, PortName, Network, Local, Shared FROM Win32_Printer
 	query := "SELECT Name, DeviceID, WorkOffline FROM Win32_Printer"
 	if err := wmi.Query(query, &printersWMI); err != nil {
 		return nil, err
@@ -175,6 +176,10 @@ func listSystemPrinters() ([]SystemUsbPrinter, error) {
 
 	var printers []SystemUsbPrinter
 	for _, p := range printersWMI {
+		if p.WorkOffline {
+			continue
+		}
+
 		isLAN := strings.HasPrefix(p.Name, "PDF_NETWORK_")
 		info := SystemUsbPrinter{
 			Serial:   "",

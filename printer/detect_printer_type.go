@@ -16,45 +16,42 @@ var vidPidTypeMap = map[string]PrinterType{
 	"4b43:3830": TypeTHERMAL, // Caysn CN811-UWB
 }
 
-func detectPrinterType(vidPid string, Type PrinterType) PrinterType {
-	if Type != TypeANY {
-		return Type
-	}
-
-	if vidPid != "" {
-		if t, ok := _detectByVidPid(vidPid); ok {
-			logger.Debugf("Detected by VID:PID (%s)", vidPid)
-			return t
-		}
-	}
-
-	return TypeANY
-}
-
-func _detectByVidPid(vidPid string) (PrinterType, bool) {
+func _detectByVidPid(vidPid string) PrinterType {
 	if t, ok := vidPidTypeMap[strings.ToLower(vidPid)]; ok {
-		return t, true
+		return t
 	}
 
 	logger.Debugf("Set any for VID:PID (%s)", vidPid)
-	return TypeANY, false
+	return TypeANY
 }
 
 //  -----------------  LIBUSB ----------------------
 
 var onlyAlphabetsRegex = regexp.MustCompile(`[^A-Z]+`)
-var CMD_KEY = []string{"CMD:", "COMMAND SET:", "COMMANDSET:", "COMMAND:", "COMMANDS:"}
 var PDF_CMDS = map[string]struct{}{"PCL": {}, "PCLC": {}, "PCLXL": {}, "POSTSCRIPT": {}}
 var EPOS_CMDS = map[string]struct{}{"ESCPOS": {}, "TSPL": {}, "ZPL": {}}
 
-func libUsbDetectPrinterType(dev *gousb.Device) PrinterType {
-	id, err := _getPrinterDeviceID(dev)
-	if err != nil {
-		logger.Errorf("failed to detect printer type: %v", err)
-		return TypeANY
+func isPrinterDevice(device *gousb.Device) (PrinterType, bool) {
+	deviceID, isPrinter, _ := getPrinterDeviceID(device)
+
+	printerType := libUsbDetectPrinterType(deviceID)
+	if isPrinter || strings.Contains(strings.ToUpper(deviceID["CLS"]), "PRINTER") {
+		return printerType, true
 	}
 
-	cmds := _extractCMD(id)
+	if t := _detectByVidPid(fmt.Sprintf("%04X:%04X", uint16(device.Desc.Vendor), uint16(device.Desc.Product))); t != TypeANY {
+		return t, true
+	}
+
+	if printerType != TypeANY {
+		return printerType, true
+	}
+
+	return TypeANY, false
+}
+
+func libUsbDetectPrinterType(deviceId DeviceID) PrinterType {
+	cmds := _extractCMD(deviceId)
 	for _, c := range cmds {
 		if _, ok := PDF_CMDS[c]; ok {
 			return TypeOFFICE
@@ -67,79 +64,30 @@ func libUsbDetectPrinterType(dev *gousb.Device) PrinterType {
 		}
 	}
 
-	logger.Debugf("CMD: %v, ID: %s", cmds, id)
+	logger.Debugf("CMD: %v, ID: %v", cmds, deviceId)
 	return TypeANY
 }
 
-func _extractCMD(id string) []string {
-	if id == "" {
-		return nil
-	}
-
-	idUpper := strings.ToUpper(id)
-	parts := strings.Split(idUpper, ";")
-
+func _extractCMD(id DeviceID) []string {
 	var result []string
 	seen := make(map[string]bool)
 
-	for _, p := range parts {
-		p = strings.TrimSpace(p)
-		if p == "" {
-			continue
-		}
+	raw := id["CMD"]
+	if raw == "" {
+		return result
+	}
 
-		for _, c := range CMD_KEY {
-			if strings.HasPrefix(p, c) {
+	for _, c := range strings.Split(raw, ",") {
+		n := onlyAlphabetsRegex.ReplaceAllString(
+			strings.ToUpper(strings.TrimSpace(c)),
+			"",
+		)
 
-				idx := strings.IndexByte(p, ':')
-				if idx == -1 {
-					continue
-				}
-
-				raw := strings.TrimSpace(p[idx+1:])
-				for _, c := range strings.Split(raw, ",") {
-					n := onlyAlphabetsRegex.ReplaceAllString(strings.ToUpper(strings.TrimSpace(c)), "")
-					if n != "" && !seen[n] {
-						seen[n] = true
-						result = append(result, n)
-					}
-				}
-			}
+		if n != "" && !seen[n] {
+			seen[n] = true
+			result = append(result, n)
 		}
 	}
 
 	return result
-}
-
-func _getPrinterDeviceID(dev *gousb.Device) (string, error) {
-	buf := make([]byte, 1024)
-	desc := dev.Desc
-	for _, cfg := range desc.Configs {
-		for _, iFace := range cfg.Interfaces {
-			for _, alt := range iFace.AltSettings {
-
-				if alt.Class != gousb.ClassPrinter {
-					continue
-				}
-
-				n, err := dev.Control(
-					0xA1,
-					0,
-					0,
-					uint16(iFace.Number),
-					buf,
-				)
-
-				if err == nil && n > 2 {
-					length := int(buf[0])<<8 | int(buf[1])
-					if length > n-2 {
-						length = n - 2
-					}
-					return string(buf[2 : 2+length]), nil
-				}
-			}
-		}
-	}
-
-	return "", fmt.Errorf("device id not found")
 }

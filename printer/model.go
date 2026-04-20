@@ -121,3 +121,11 @@ type Printers struct {
 	Available   []Info
 	Unavailable []UnavailableInfo
 }
+
+type DeviceFingerprint struct {
+	Bus     int
+	Address int
+	VidPid  string
+}
+
+type DeviceID map[string]string

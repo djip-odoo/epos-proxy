@@ -12,30 +12,25 @@
 
             <div class="flex items-center gap-2">
               <span class="w-3 h-3 rounded-full shrink-0" :class="getPrinterStatusClass(printer)"></span>
-              <div class="flex items-center gap-2 min-w-0 flex-1">
-                <span class="font-medium text-gray-900 break-all">
+              <div class="flex items-center gap-2 w-full">
+                <span class="font-medium text-gray-900 truncate">
                   {{ printer.name }}
                 </span>
-                <button @click="copyField(printer, 'name')"
-                  class="text-gray-400 hover:text-gray-700 text-xs px-1 cursor-pointer" title="Copy name">
-                  <svg v-if="copiedIds[printer.id]?.name" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"
-                    fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
-                    class="w-6 h-5 text-green-700 transition-colors duration-200">
-                    <path d="M20 6L9 17L4 12" />
-                  </svg>
-                  <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
-                    class="w-6 h-6 text-blue-800 hover:text-blue-600 transition-colors duration-200">
-                    <rect x="9" y="9" width="13" height="13" rx="2"></rect>
-                    <rect x="2" y="2" width="13" height="13" rx="2"></rect>
-                  </svg>
+                <button
+                  @click="copyField(printer, 'name')"
+                  class="flex-shrink-0 text-xs px-2 py-1 rounded cursor-pointer transition-colors duration-200 whitespace-nowrap"
+                  :class="copiedIds[printer.id]?.name 
+                    ? 'text-green-700 bg-green-100' 
+                    : 'text-blue-800 hover:text-blue-600'"
+                >
+                  {{ copiedIds[printer.id]?.name ? 'Copied ✓' : 'Copy' }}
                 </button>
               </div>
-              <span class="px-2 py-1 text-xs font-semibold rounded" :class="printer.type === 'ANY'
+              <!-- <span class="px-2 py-1 text-xs font-semibold rounded" :class="printer.type === 'ANY'
                 ? 'bg-yellow-500 text-gray-800'
                 : 'bg-green-500 text-gray-800'">
                 {{ printer.type === "THERMAL" ? "RECEIPT / LABEL" : printer.type}}
-              </span>
+              </span> -->
               <span
                   v-if="printer.isLAN || String(printer.name).startsWith('PDF_NETWORK_')"
                   @click="removeLanPrinter(printer)"
@@ -43,7 +38,15 @@
                   title="Remove printer"
               >×</span>
             </div>
-            <div class="text-slate-600 mt-2 text-sm break-all">{{ printer.ip }}</div>
+            <div
+              @click="copyField(printer, 'ip')"
+              class="mt-2 text-sm break-all cursor-pointer transition-colors duration-200 flex items-center gap-2"
+              :class="copiedIds[printer.id]?.ip 
+                ? 'text-green-700' 
+                : 'text-slate-600 hover:text-blue-600'"
+            >
+              <span class="select-all">{{ printer.ip }}</span>
+            </div>
             <PrinterActions 
               :printer="printer"
               :copiedIds="copiedIds"
