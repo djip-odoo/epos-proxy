@@ -26,11 +26,11 @@
                   {{ copiedIds[printer.id]?.name ? 'Copied ✓' : 'Copy' }}
                 </button>
               </div>
-              <!-- <span class="px-2 py-1 text-xs font-semibold rounded" :class="printer.type === 'ANY'
+              <span v-if="printer.label" class="px-2 py-1 text-xs font-semibold rounded" :class="printer.type === 'ANY'
                 ? 'bg-yellow-500 text-gray-800'
                 : 'bg-green-500 text-gray-800'">
-                {{ printer.type === "THERMAL" ? "RECEIPT / LABEL" : printer.type}}
-              </span> -->
+                {{ printer.label }}
+              </span>
               <span
                   v-if="printer.isLAN || String(printer.name).startsWith('PDF_NETWORK_')"
                   @click="removeLanPrinter(printer)"

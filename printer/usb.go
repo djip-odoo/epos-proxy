@@ -171,6 +171,7 @@ func mergePrinters(systemPrinters []SystemUsbPrinter, libusbPrinters []LibUsbPri
 							Name:    sysUsb.IdName,
 							Variant: string(TypeANY),
 							Type:    libUsb.Type,
+							Label: sysUsb.Label,
 						})
 					} else {
 						logger.Errorf("Failed to encode printer ID: %v", err)
@@ -209,6 +210,7 @@ func mergePrinters(systemPrinters []SystemUsbPrinter, libusbPrinters []LibUsbPri
 					Variant: string(TypeOFFICE),
 					IsLAN:   sysUsb.IsLAN,
 					IP:      sysUsb.IP,
+					Label:   sysUsb.Label,
 				})
 			} else {
 				result.Unavailable = append(result.Unavailable, UnavailableInfo{
@@ -262,6 +264,7 @@ func appendLibusbEposPrinterOnly(libusbPrinters []LibUsbPrinter, matchedUSB map[
 			Name:    libUsb.Name,
 			Variant: string(TypeTHERMAL),
 			Type:    libUsb.Type,
+			Label: "",
 		})
 	}
 }

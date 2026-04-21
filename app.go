@@ -81,6 +81,7 @@ type Printer struct {
 	Variant string `json:"variant"`
 	Online  bool   `json:"online"`
 	Type    string `json:"type"`
+	Label   string `json:"label,omitempty"`
 }
 
 type UnavailablePrinter struct {
@@ -130,6 +131,7 @@ func (a *App) Status() Status {
 				Type:    string(info.Type),
 				IsLAN:   info.IsLAN,
 				LANIp:   info.IP,
+				Label:   info.Label,
 			})
 		}
 

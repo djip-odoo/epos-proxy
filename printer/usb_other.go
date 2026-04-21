@@ -66,6 +66,7 @@ func listSystemPrinters() ([]SystemUsbPrinter, error) {
 			Serial:  data.Serial,
 			IdName:  name,
 			CupsUri: uri,
+			Label:   "USB",
 			Status:  strings.Contains(statusMap[name], "enabled"),
 			Type:    getPrinterTypeFromCupsURI(uri),
 			IsLAN:   isLAN,

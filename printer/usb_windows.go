@@ -163,13 +163,14 @@ type Win32_Printer struct {
 	Name        string
 	DeviceID    string
 	WorkOffline bool
+	PortName    string
 }
 
 func listSystemPrinters() ([]SystemUsbPrinter, error) {
 	var printersWMI []Win32_Printer
 
 	// SELECT Name, DeviceID, PortName, Network, Local, Shared FROM Win32_Printer
-	query := "SELECT Name, DeviceID, WorkOffline FROM Win32_Printer"
+	query := "SELECT Name, DeviceID, WorkOffline, PortName FROM Win32_Printer"
 	if err := wmi.Query(query, &printersWMI); err != nil {
 		return nil, err
 	}
@@ -186,6 +187,7 @@ func listSystemPrinters() ([]SystemUsbPrinter, error) {
 			IdName:   p.Name,
 			DeviceID: p.DeviceID,
 			Status:   !p.WorkOffline,
+			Label:    classifyPort(p.PortName),
 			Type:     TypeOFFICE,
 			IsLAN:    isLAN,
 			IP:       util.Ternary(isLAN, strings.TrimPrefix(p.Name, "PDF_NETWORK_"), ""),
@@ -194,6 +196,29 @@ func listSystemPrinters() ([]SystemUsbPrinter, error) {
 	}
 
 	return printers, nil
+}
+
+func classifyPort(portName string) (label string) {
+	port := strings.ToUpper(strings.TrimSpace(portName))
+
+	// USB printers
+	if strings.HasPrefix(port, "USB") {
+		return "USB"
+	}
+
+	// Network printers (IP / WSD / hostname)
+	if strings.HasPrefix(port, "WSD") ||
+		strings.HasPrefix(port, "IP_") ||
+		strings.Contains(port, ".") ||
+		strings.HasPrefix(port, "\\\\") {
+		return "NETWORK"
+	}
+
+	if port == "PORTPROMPT:" || port == "NUL:" || port == "FILE:" {
+		return "VIRTUAL"
+	}
+
+	return ""
 }
 
 func DeleteSystemPrinter(name string) error {

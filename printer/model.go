@@ -82,7 +82,7 @@ type SystemUsbPrinter struct {
 	Status     bool
 	Type       PrinterType
 	CupsUri    string // linux
-	DriverName string // win
+	Label string // win
 	IsLAN      bool
 	IP         string
 }
@@ -102,6 +102,7 @@ type Info struct {
 	Variant string      // Determined during record creation
 	IsLAN   bool
 	IP      string
+	Label   string
 }
 
 type UnavailableInfo struct {
