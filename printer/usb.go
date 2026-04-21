@@ -171,7 +171,7 @@ func mergePrinters(systemPrinters []SystemUsbPrinter, libusbPrinters []LibUsbPri
 							Name:    sysUsb.IdName,
 							Variant: string(TypeANY),
 							Type:    libUsb.Type,
-							Label: sysUsb.Label,
+							Label:   sysUsb.Label,
 						})
 					} else {
 						logger.Errorf("Failed to encode printer ID: %v", err)
@@ -264,7 +264,7 @@ func appendLibusbEposPrinterOnly(libusbPrinters []LibUsbPrinter, matchedUSB map[
 			Name:    libUsb.Name,
 			Variant: string(TypeTHERMAL),
 			Type:    libUsb.Type,
-			Label: "",
+			Label:   "USB",
 		})
 	}
 }

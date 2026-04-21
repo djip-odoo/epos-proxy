@@ -76,15 +76,15 @@ const (
 )
 
 type SystemUsbPrinter struct {
-	Serial     string
-	IdName     string
-	DeviceID   string
-	Status     bool
-	Type       PrinterType
-	CupsUri    string // linux
-	Label string // win
-	IsLAN      bool
-	IP         string
+	Serial   string
+	IdName   string
+	DeviceID string
+	Status   bool
+	Type     PrinterType
+	CupsUri  string // linux
+	Label    string // win
+	IsLAN    bool
+	IP       string
 }
 
 type LibUsbPrinter struct {

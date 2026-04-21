@@ -159,6 +159,7 @@ func (a *App) Status() Status {
 			IsLAN: true,
 			LANIp: info.IP,
 			Type:  string(printer.TypeTHERMAL),
+			Label: "NETWORK",
 		})
 	}
 
