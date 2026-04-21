@@ -4,7 +4,7 @@
         class="w-full max-w-full sm:max-w-md md:max-w-lg lg:max-w-xl bg-white/85 rounded-2xl shadow-lg overflow-hidden px-4 sm:px-6 py-2 sm:py-4">
 
       <PrinterFilter v-model="activeFilter" @refresh="updatePrinters" />
-
+      <DocsButton :openDocs="openDocs" />
       <div v-if="printers.length || unavailablePrinters.length" class="p-6 overflow-y-auto max-h-[60vh]">
         <ul class="divide-y divide-gray-300">
 
@@ -73,7 +73,7 @@
             <div v-if="hasLibUsbErrorFix(printer.errorMsg)" class="flex gap-2 mt-4 flex-wrap">
               <button
                   class="flex-1 border bg-odoo text-white hover:bg-odoo-dark rounded-lg px-4 py-2 text-center cursor-pointer"
-                  @click="openFixModal(printer)"
+                  @click="openFixModal()"
               >{{ getFixErrorText(printer.errorMsg) }}
               </button>
             </div>
@@ -139,6 +139,7 @@ import NetworkIpDialog from "./modal/network-ip-dialog.vue";
 import PrinterActions from './components/printer-actions.vue'
 import { copyPrinterFieldValue, handleTestPrint } from "./components/printer-actions.js";
 import PrinterFilter from './components/top-bar.vue'
+import DocsButton from './modal/docs-button.vue';
 import PrinterTypeModal from "./modal/printer-type-modal.vue";
 
 const printers = ref([])
@@ -149,7 +150,6 @@ const copiedIds = ref({})
 const lanStatus = ref({})
 const pendingChecks = ref(new Set())
 const showFixModal = ref(false)
-const fixPrinterName = ref(null)
 const testPrintIds = ref({})
 const os = ref(null)
 const showAddDialog = ref(false)
@@ -256,9 +256,9 @@ const fixSteps = computed(() => {
     return []
   }
 
-  if (isWindows()) return zadigSteps(fixPrinterName.value)
-  if (isMac()) return brewSteps(fixPrinterName.value)
-  if (isLinux()) return linuxSteps(fixPrinterName.value)
+  if (isWindows()) return zadigSteps(activeFilter.value)
+  if (isMac()) return brewSteps(activeFilter.value)
+  if (isLinux()) return linuxSteps(activeFilter.value)
   return []
 })
 
@@ -292,9 +292,12 @@ function getFixErrorText() {
 
 }
 
-function openFixModal(printer) {
-  fixPrinterName.value = printer.name
+function openFixModal() {
   showFixModal.value = true
+}
+
+function openDocs() {
+  showFixModal.value = true  
 }
 
 function showToast(message, type = 'success') {
