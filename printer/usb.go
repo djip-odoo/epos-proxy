@@ -50,7 +50,12 @@ func listLibUsbPrinters() ([]LibUsbPrinter, []UnavailableInfo, error) {
 		return nil, nil, fmt.Errorf("failed to enumerate USB devices: %w", err)
 	}
 
-	logger.Debug("USB changed → rescanning devices")
+	if ok := isDataChanged(current); !ok {
+		logger.Debugf("USB unchanged → using cache")
+		return cachedPrinters, cachedUnavailable, nil
+	}
+
+	logger.Infof("USB changed → rescanning devices")
 
 	devs, err := ctx.OpenDevices(func(desc *gousb.DeviceDesc) bool {
 		_, supported := findPrinterEndpoint(desc)
@@ -107,6 +112,9 @@ func listLibUsbPrinters() ([]LibUsbPrinter, []UnavailableInfo, error) {
 			Type:  TypeANY,
 		})
 	}
+
+	cachedPrinters = printers
+	cachedUnavailable = unavailable
 	return printers, unavailable, nil
 }
 
