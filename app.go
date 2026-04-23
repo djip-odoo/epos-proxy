@@ -73,13 +73,15 @@ func (a *App) shutdown(ctx context.Context) {
 }
 
 type Printer struct {
-	Name   string `json:"name"`
-	Serial string `json:"serial"`
-	Ip     string `json:"ip"`
-	Id     string `json:"id"`
-	IsLAN  bool   `json:"isLAN"`
-	LANIp  string `json:"lanIp,omitempty"`
-	Online bool   `json:"online"`
+	Name    string `json:"name"`
+	Ip      string `json:"ip"`
+	Id      string `json:"id"`
+	IsLAN   bool   `json:"isLAN"`
+	LANIp   string `json:"lanIp,omitempty"`
+	Variant string `json:"variant"`
+	Online  bool   `json:"online"`
+	Type    string `json:"type"`
+	Label   string `json:"label,omitempty"`
 }
 
 type UnavailablePrinter struct {
@@ -87,6 +89,7 @@ type UnavailablePrinter struct {
 	ErrorMsg string `json:"errorMsg"`
 	IsLAN    bool   `json:"isLAN"`
 	LANIp    string `json:"lanIp,omitempty"`
+	Type     string `json:"type"`
 }
 
 type Status struct {
@@ -120,11 +123,15 @@ func (a *App) Status() Status {
 
 		for _, info := range printerInfos.Available {
 			printers = append(printers, Printer{
-				Id:     info.Id,
-				Name:   info.VendorName + " " + info.ProductName,
-				Serial: info.Serial,
-				Ip:     a.GetPrinterIp(info.Id),
-				Online: true,
+				Id:      info.Id,
+				Name:    info.Name,
+				Ip:      a.GetPrinterIp(info.Id),
+				Online:  true,
+				Variant: info.Variant,
+				Type:    string(info.Type),
+				IsLAN:   info.IsLAN,
+				LANIp:   info.IP,
+				Label:   info.Label,
 			})
 		}
 
@@ -132,6 +139,7 @@ func (a *App) Status() Status {
 			unavailablePrinters = append(unavailablePrinters, UnavailablePrinter{
 				Name:     info.Name,
 				ErrorMsg: info.Error,
+				Type:     string(info.Type),
 			})
 
 			logger.Debugf("USB printer unavailable: %s (%s)", info.Name, info.Error)
@@ -150,6 +158,8 @@ func (a *App) Status() Status {
 			Ip:    a.GetPrinterIp(info.Id),
 			IsLAN: true,
 			LANIp: info.IP,
+			Type:  string(printer.TypeTHERMAL),
+			Label: "NETWORK",
 		})
 	}
 
@@ -163,7 +173,7 @@ func (a *App) Status() Status {
 	}
 }
 
-func (a *App) AddLANPrinter(ip string) error {
+func (a *App) AddLANPrinter(ip string, printerType string) error {
 
 	logger.Debugf("Adding LAN printer: %s", ip)
 
@@ -176,8 +186,19 @@ func (a *App) AddLANPrinter(ip string) error {
 		return fmt.Errorf("LAN printer unreachable: %s, error: %v", ip, err)
 	}
 
-	if err := a.config.AddLanEposPrinter(ip); err != nil {
-		return fmt.Errorf("failed to save LAN printer: %s, error: %v", ip, err)
+	switch printerType {
+	case "THERMAL":
+		err = a.config.AddLanEposPrinter(ip)
+
+	case "OFFICE":
+		err = printer.AddLanPdfPrinter(ip)
+
+	default:
+		return fmt.Errorf("invalid printer type: %s", printerType)
+	}
+
+	if err != nil {
+		return fmt.Errorf("failed to add printer (%s - %s): %w", ip, printerType, err)
 	}
 
 	logger.Debugf("LAN printer added successfully: %s", ip)
@@ -203,6 +224,28 @@ func (a *App) ConfirmRemoveLANPrinter(ip string) (bool, error) {
 	if result == "Confirm" || result == "Yes" {
 		if err := a.config.RemoveLANPrinter(ip); err != nil {
 			return false, fmt.Errorf("failed to remove LAN printer: %w", err)
+		}
+		return true, nil
+	}
+	logger.Infof("Remove LAN printer cancelled, Remove printer dialog result: %s", result)
+	return false, nil
+}
+
+func (a *App) ConfirmRemoveSystemPrinter(name string) (bool, error) {
+	result, err := wailsruntime.MessageDialog(a.ctx, wailsruntime.MessageDialogOptions{
+		Type:          wailsruntime.QuestionDialog,
+		Title:         "Remove Printer",
+		Message:       fmt.Sprintf("Are you sure you want to remove the printer at %s?", name),
+		Buttons:       []string{"Cancel", "Confirm"},
+		DefaultButton: "Cancel",
+		CancelButton:  "Cancel",
+	})
+	if err != nil {
+		return false, fmt.Errorf("failed to show confirmation dialog: %w", err)
+	}
+	if result == "Confirm" || result == "Yes" {
+		if err := printer.DeleteSystemPrinter(name); err != nil {
+			return false, fmt.Errorf("failed to remove system printer: %w", err)
 		}
 		return true, nil
 	}

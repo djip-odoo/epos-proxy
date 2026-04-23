@@ -1,9 +1,72 @@
 import image1 from "../assets/zadig/zadig1.jpg"
 import image2 from "../assets/zadig/zadig2.jpg"
 import image3 from "../assets/zadig/zadig3.jpg"
+import cups_admin from "../assets/cups/cups_admin.png";
 
-export function zadigSteps(printerName) {
-    return [
+const CUPS_STEPS = [
+    {
+        title: "Open CUPS Admin Panel",
+        desc: "Open your browser and go to *http://localhost:631*. This is the CUPS web interface.",
+        link: "http://localhost:631",
+        linkLabel: "Open CUPS Admin Panel",
+    },
+    {
+        title: "Go to Administration",
+        desc: "Click on the *Administration* tab in the CUPS panel. You may be asked to enter your system *username* and *password*.",
+        image: cups_admin,
+    },
+    {
+        title: "Add Printer",
+        desc: "Click on *Add Printer*",
+    },
+    {
+        title: "Select Printer",
+        desc: "Choose your printer from the *Local Printer* list and click *Continue*.",
+    },
+    {
+        title: "Configure Printer",
+        desc: "Set printer *name*, *description*, and *location*. then click *Continue*.",
+    },
+    {
+        title: "Choose Driver",
+        desc: "Select the appropriate *driver* from the list *or* provide a *PPD file* if required.",
+    },
+    {
+        title: "Finish Setup",
+        desc: "Click *Add Printer*",
+    },
+];
+
+const windowsPrinterSteps = [
+    {
+        title: "Open Printer Settings",
+        desc: "Press *Win + I* to open Settings, then go to *Bluetooth & devices* → *Printers & scanners*.",
+    },
+    {
+        title: "Add a Printer",
+        desc: "Click on *Add device* next to *Add a printer or scanner*.",
+    },
+    {
+        title: "Select Your Printer",
+        desc: "Wait for Windows to scan and select your printer from the list.\nIf not visible, click *Add manually*.",
+    },
+    {
+        title: "Manual Setup (if needed)",
+        desc: "Choose *Add a local printer or network printer with manual settings*.\nSelect the correct port (USB / IP) and continue.",
+    },
+    {
+        title: "Install Driver",
+        desc: "Select the appropriate driver from the list or install using the manufacturer’s driver.",
+    },
+    {
+        title: "Finish Setup",
+        desc: "Complete the setup and ensure the printer appears in *Printers & scanners*.\nYour app will now detect it via WMI.",
+    },
+];
+
+export function zadigSteps(filter) {
+    return filter === "THERMAL"
+        ? [
         {
             title: 'Download Zadig',
             desc: 'Download the latest version of Zadig from the official website.',
@@ -17,7 +80,7 @@ export function zadigSteps(printerName) {
         },
         {
             title: 'Select your printer',
-            desc: `Find the printer in the dropdown list.\n The name may vary, but it should look similar to "${printerName}".`,
+            desc: `Find the printer in the dropdown list.\n The name may vary, but it should look similar to your printer name".`,
             image: image2,
         },
         {
@@ -26,10 +89,12 @@ export function zadigSteps(printerName) {
             image: image3,
         },
     ]
+        : windowsPrinterSteps;
 }
 
-export function brewSteps(printerName) {
-    return [
+export function brewSteps(filter) {
+    return filter === "THERMAL"
+        ? [
         {
             title: 'Install Homebrew',
             desc: 'Homebrew is a package manager for macOS. If you already have it, skip to the next step.',
@@ -44,13 +109,15 @@ export function brewSteps(printerName) {
         },
         {
             title: 'Reconnect your printer',
-            desc: `Unplug and replug your printer "${printerName}".\nThe driver should now be detected automatically.`,
+            desc: `Unplug and replug your printer name.\nThe driver should now be detected automatically.`,
         },
     ]
+        : CUPS_STEPS;
 }
 
-export function linuxSteps(printerName) {
-    return [
+export function linuxSteps(filter) {
+    return filter === "THERMAL"
+        ? [
         {
             title: 'Install libusb',
             desc: 'Open a terminal and run the command for your distribution:',
@@ -67,8 +134,8 @@ export function linuxSteps(printerName) {
         },
         {
             title: "Reconnect your printer and apply changes",
-            desc: `Unplug and reconnect your printer "${printerName}". Then restart your device to apply the new group permissions.`,
+            desc: `Unplug and reconnect your printer. Then restart your device to apply the new group permissions.`,
         },
     ]
+        : CUPS_STEPS;
 }
-
