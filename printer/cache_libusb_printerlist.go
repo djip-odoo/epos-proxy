@@ -1,7 +1,6 @@
 package printer
 
 import (
-	"epos-proxy/logger"
 	"sort"
 	"strings"
 
@@ -25,7 +24,6 @@ func buildSnapshot(descs map[string]gousb.DeviceDesc) string {
 
 func isDataChanged(descs map[string]gousb.DeviceDesc) bool {
 	currentSnapshot := buildSnapshot(descs)
-	logger.Infof("%v, %v", lastSnapshot, currentSnapshot)
 	if lastSnapshot == currentSnapshot {
 		return false
 	}
