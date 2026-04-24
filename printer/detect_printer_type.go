@@ -21,16 +21,16 @@ var PDF_CMDS = map[string]struct{}{"PCL": {}, "PCLC": {}, "PCLXL": {}, "POSTSCRI
 var EPOS_CMDS = map[string]struct{}{"ESCPOS": {}, "TSPL": {}, "ZPL": {}}
 
 func isPrinterDevice(device *gousb.Device) (PrinterType, bool) {
-	deviceID, isPrinter, _ := getPrinterDeviceID(device)
-
-	printerType := _libUsbDetectPrinterType(deviceID)
-	if isPrinter || strings.Contains(strings.ToUpper(deviceID["CLS"]), "PRINTER") {
-		return printerType, true
-	}
-
 	if t := _detectByVidPid(fmt.Sprintf("%04X:%04X", uint16(device.Desc.Vendor), uint16(device.Desc.Product))); t != TypeANY {
 		return t, true
 	}
+
+	deviceID, isPrinterClass, _ := getPrinterDeviceID(device)
+	printerType := _libUsbDetectPrinterType(deviceID)
+	if isPrinterClass || strings.Contains(strings.ToUpper(deviceID["CLS"]), "PRINTER") {
+		return printerType, true
+	}
+
 
 	if printerType != TypeANY {
 		return printerType, true

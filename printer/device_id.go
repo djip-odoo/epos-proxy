@@ -26,7 +26,7 @@ var keyAliases = map[string]string{
 
 func getPrinterDeviceID(dev *gousb.Device) (DeviceID, bool, error) {
 	buf := make([]byte, 1024)
-	isPrinter := false
+	isPrinterClass := false
 	for _, cfg := range dev.Desc.Configs {
 		for _, iFace := range cfg.Interfaces {
 			for _, alt := range iFace.AltSettings {
@@ -64,15 +64,15 @@ func getPrinterDeviceID(dev *gousb.Device) (DeviceID, bool, error) {
 				}
 
 				if alt.Class == gousb.ClassPrinter {
-					isPrinter = true
+					isPrinterClass = true
 				}
 
-				return deviceID, isPrinter, nil
+				return deviceID, isPrinterClass, nil
 			}
 		}
 	}
 
-	return nil, isPrinter, fmt.Errorf("device id not found")
+	return nil, isPrinterClass, fmt.Errorf("device id not found")
 }
 
 func _parseDeviceID(raw string) DeviceID {

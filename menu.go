@@ -24,6 +24,12 @@ func createMenu(app *App) *menu.Menu {
 		wailsruntime.Quit(app.ctx)
 	})
 
+	usbMenu := mainMenu.AddSubmenu("USB Printers")
+
+	usbMenu.AddText("Manage Mappings", nil, func(_ *menu.CallbackData) {
+		wailsruntime.EventsEmit(app.ctx, "open-usb-mapping-manager")
+	})
+
 	return mainMenu
 }
 

@@ -128,9 +128,11 @@
       </div>
     </transition>
   </teleport>
+  <UsbMappingDialog />
 </template>
 
 <script setup>
+import UsbMappingDialog from "./backend/usb-mapping-dialog.vue";
 import {computed, onMounted, onUnmounted, ref} from 'vue'
 import { CheckLANPrinterStatus, ConfirmRemoveLANPrinter, Status, ConfirmRemoveSystemPrinter } from '../wailsjs/go/main/App'
 import {brewSteps, linuxSteps, zadigSteps} from "./modal/fix-step";

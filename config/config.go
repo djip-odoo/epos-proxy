@@ -20,11 +20,18 @@ const (
 type AppConfig struct {
 	Port        int      `json:"port"`
 	LANPrinters []string `json:"lan_printers,omitempty"`
+	UsbPrinterMap map[string]string `json:"usb_printer_map,omitempty"`
 }
 
 func defaults() AppConfig {
 	return AppConfig{
 		Port: 0,
+		UsbPrinterMap: map[string]string{
+			"2aaf:6015": "THERMAL",
+			"04b8:0e32": "THERMAL",
+			"2d84:c7c8": "THERMAL",
+			"4b43:3830": "THERMAL",
+		},
 	}
 }
 
@@ -170,5 +177,36 @@ func (cm *Manager) GetLANPrinters() []string {
 	// Return a copy to avoid races if caller modifies the slice
 	result := make([]string, len(cm.Data.LANPrinters))
 	copy(result, cm.Data.LANPrinters)
+	return result
+}
+
+func (cm *Manager) SetUSBPrinterType(vidPid string, pType string) error {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	if cm.Data.UsbPrinterMap == nil {
+		cm.Data.UsbPrinterMap = make(map[string]string)
+	}
+
+	cm.Data.UsbPrinterMap[vidPid] = pType
+	return cm.saveLocked()
+}
+
+func (cm *Manager) RemoveUSBPrinterType(vidPid string) error {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	delete(cm.Data.UsbPrinterMap, vidPid)
+	return cm.saveLocked()
+}
+
+func (cm *Manager) GetUSBPrinterMap() map[string]string {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+
+	result := make(map[string]string, len(cm.Data.UsbPrinterMap))
+	for k, v := range cm.Data.UsbPrinterMap {
+		result[k] = v
+	}
 	return result
 }

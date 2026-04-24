@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strings"
 	"time"
 
 	"epos-proxy/config"
@@ -313,4 +314,18 @@ func (a *App) DisableAutostart() error {
 	}
 
 	return nil
+}
+
+func (app *App) GetUSBMappings() map[string]string {
+	return app.config.GetUSBPrinterMap()
+}
+
+func (app *App) SaveUSBMapping(vidpid string, pType string) error {
+	vidpid = strings.ToLower(strings.TrimSpace(vidpid))
+	return app.config.SetUSBPrinterType(vidpid, (pType))
+}
+
+func (app *App) DeleteUSBMapping(vidpid string) error {
+	vidpid = strings.ToLower(strings.TrimSpace(vidpid))
+	return app.config.RemoveUSBPrinterType(vidpid)
 }
