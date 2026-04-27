@@ -1,9 +1,10 @@
 <template>
   <div>
     <div
-        class="w-full max-w-full sm:max-w-md md:max-w-lg lg:max-w-xl bg-white/85 rounded-2xl shadow-lg overflow-hidden px-4 sm:px-6 py-2 sm:py-4">
+        class="w-full max-w-full sm:max-w-md md:max-w-lg lg:max-w-xl bg-white/65 rounded-2xl shadow-lg overflow-hidden px-4 sm:px-6 py-2 sm:py-4">
 
       <PrinterFilter v-model="activeFilter" @refresh="updatePrinters" />
+      <DocsButton :os="os"/>
       <div v-if="printers.length" class="p-6 overflow-y-auto max-h-[60vh]">
         <ul class="divide-y divide-gray-300">
 
@@ -62,9 +63,6 @@
       <div v-if="errorMsg">
         <div class="text-red-700 mt-4 text-center">Error: {{ errorMsg }}</div>
       </div>
-
-      <StepModal v-model="showFixModal" :steps="fixSteps"/>
-
     </div>
   </div>
   <div class="mt-6 text-center">
@@ -98,14 +96,13 @@
 </template>
 
 <script setup>
-import {computed, onMounted, onUnmounted, ref} from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { CheckLANPrinterStatus, ConfirmRemoveLANPrinter, Status, ConfirmRemoveSystemPrinter } from '../wailsjs/go/main/App'
-import {brewSteps, linuxSteps, zadigSteps} from "./modal/fix-step";
-import StepModal from "./modal/step-modal.vue";
 import NetworkIpDialog from "./modal/network-ip-dialog.vue";
 import PrinterActions from './components/printer-actions.vue'
 import { copyPrinterFieldValue } from "./components/printer-actions.js";
 import PrinterFilter from './components/top-bar.vue'
+import DocsButton from "./modal/docs-button.vue";
 
 const printers = ref([])
 const errorMsg = ref(null)
@@ -113,7 +110,6 @@ const loading = ref(true)
 const copiedIds = ref({})
 const lanStatus = ref({})
 const pendingChecks = ref(new Set())
-const showFixModal = ref(false)
 const os = ref(null)
 const showAddDialog = ref(false)
 const toast = ref({ show: false, message: '', type: 'success' })
@@ -201,29 +197,6 @@ const stopPolling = () => {
   if (!intervalId) return
   clearInterval(intervalId)
   intervalId = null
-}
-
-const fixSteps = computed(() => {
-  if (!showFixModal.value) {
-    return []
-  }
-
-  if (isWindows()) return zadigSteps(activeFilter.value)
-  if (isMac()) return brewSteps(activeFilter.value)
-  if (isLinux()) return linuxSteps(activeFilter.value)
-  return []
-})
-
-function isWindows() {
-  return os.value && os.value.toLowerCase().includes('windows')
-}
-
-function isMac() {
-  return os.value && os.value.toLowerCase().includes('darwin')
-}
-
-function isLinux() {
-  return os.value && os.value.toLowerCase().includes('linux')
 }
 
 function showToast(message, type = 'success') {
