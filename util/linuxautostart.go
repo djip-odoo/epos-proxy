@@ -23,7 +23,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"epos-proxy/logger"
+	"printer-manager/logger"
 )
 
 func EnableLinuxAutostart() error {
@@ -41,12 +41,12 @@ func EnableLinuxAutostart() error {
 		return fmt.Errorf("failed to create autostart directory: %w", err)
 	}
 
-	file := filepath.Join(dir, "epos-proxy.desktop")
+	file := filepath.Join(dir, "printer-manager.desktop")
 	logger.Debugf("Creating autostart file: %s", file)
 
 	content := fmt.Sprintf(`[Desktop Entry]
 Type=Application
-Name=ePOS Proxy
+Name=Printer Manager
 Exec=%s
 Terminal=false
 StartupNotify=false

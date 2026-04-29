@@ -7,11 +7,11 @@ import (
 	"runtime"
 	"time"
 
-	"epos-proxy/config"
-	"epos-proxy/logger"
-	"epos-proxy/printer"
-	"epos-proxy/server"
-	"epos-proxy/util"
+	"printer-manager/config"
+	"printer-manager/logger"
+	"printer-manager/printer"
+	"printer-manager/server"
+	"printer-manager/util"
 
 	autostart "github.com/emersion/go-autostart"
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -30,8 +30,8 @@ func NewApp() *App {
 	a := &App{}
 
 	a.autoStart = &autostart.App{
-		Name:        "epos-proxy",
-		DisplayName: "ePOS Proxy",
+		Name:        "printer-manager",
+		DisplayName: "Printer Manager",
 		Exec:        []string{os.Args[0]},
 	}
 
@@ -65,7 +65,7 @@ func (a *App) startup(ctx context.Context) {
 }
 
 func (a *App) shutdown(ctx context.Context) {
-	logger.Infof("Stopping proxy server")
+	logger.Infof("Stopping printer manager server")
 
 	if err := a.webserver.Stop(); err != nil {
 		logger.Errorf("Server stop error: %v", err)
@@ -218,7 +218,7 @@ func (a *App) CheckLANPrinterStatus(ip string) bool {
 func (a *App) DownloadLogs() {
 	logger.Debugf("Download logs requested")
 	logDir := logger.LogDirectory()
-	zipName := fmt.Sprintf("epos-proxy-logs-%s.zip",
+	zipName := fmt.Sprintf("printer-manager-logs-%s.zip",
 		time.Now().Format("2006-01-02"))
 	logger.Debugf("Creating logs archive: %s", zipName)
 	savePath, err := wailsruntime.SaveFileDialog(a.ctx, wailsruntime.SaveDialogOptions{

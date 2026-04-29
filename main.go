@@ -9,8 +9,8 @@ import (
 	"C"
 	"context"
 	"embed"
-	"epos-proxy/logger"
 	"os"
+	"printer-manager/logger"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -23,7 +23,7 @@ var assets embed.FS
 
 func main() {
 	logger.InitLogger()
-	logger.Debugf("Starting ePOS Proxy")
+	logger.Infof("Starting Printer Manager v: %s", GetVersionInfo())
 
 	app := NewApp()
 
@@ -37,7 +37,7 @@ func main() {
 	}
 
 	err := wails.Run(&options.App{
-		Title:                    "ePOS Proxy",
+		Title:                    "Printer Manager",
 		Width:                    800,
 		Height:                   600,
 		Menu:                     createMenu(app),
@@ -47,7 +47,7 @@ func main() {
 			Assets: assets,
 		},
 		SingleInstanceLock: &options.SingleInstanceLock{
-			UniqueId: "epos-proxy-single-instance",
+			UniqueId: "printer-manager-single-instance",
 			OnSecondInstanceLaunch: func(secondInstanceData options.SecondInstanceData) {
 				logger.Warn("Second instance detected, focusing existing window")
 				wailsruntime.WindowShow(app.ctx)

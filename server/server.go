@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"epos-proxy/escpos"
-	"epos-proxy/logger"
-	"epos-proxy/printer"
+	"printer-manager/escpos"
+	"printer-manager/logger"
+	"printer-manager/printer"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/cors"
@@ -29,7 +29,7 @@ type Server struct {
 
 func New(port int, mgr *printer.Manager) *Server {
 	app := fiber.New(fiber.Config{
-		AppName: "ePOS proxy",
+		AppName: "Printer Manager",
 	})
 	app.Use(cors.New(cors.Config{
 		AllowOrigins:        []string{"*"},

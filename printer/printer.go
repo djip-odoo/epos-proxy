@@ -6,7 +6,7 @@ import (
 	"net"
 	"time"
 
-	"epos-proxy/logger"
+	"printer-manager/logger"
 
 	"github.com/google/gousb"
 )

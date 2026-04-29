@@ -1,4 +1,4 @@
-module epos-proxy
+module printer-manager
 
 go 1.25.0
 

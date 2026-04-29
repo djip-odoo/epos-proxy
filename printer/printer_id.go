@@ -2,9 +2,9 @@ package printer
 
 import (
 	"encoding/base64"
-	"epos-proxy/logger"
 	"errors"
 	"fmt"
+	"printer-manager/logger"
 	"strings"
 )
 

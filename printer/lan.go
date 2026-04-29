@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"epos-proxy/config"
-	"epos-proxy/logger"
+	"printer-manager/config"
+	"printer-manager/logger"
 )
 
 const (

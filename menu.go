@@ -1,7 +1,7 @@
 package main
 
 import (
-	"epos-proxy/logger"
+	"printer-manager/logger"
 
 	"github.com/wailsapp/wails/v2/pkg/menu"
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -17,6 +17,10 @@ func createMenu(app *App) *menu.Menu {
 
 	appMenu.AddCheckbox("Auto Start", app.IsAutostartEnabled(), nil, func(cb *menu.CallbackData) {
 		handleAutoStartToggle(app, cb)
+	})
+
+	appMenu.AddText("About", nil, func(_ *menu.CallbackData) {
+		showAboutDialog(app)
 	})
 
 	appMenu.AddText("Quit", nil, func(_ *menu.CallbackData) {
@@ -47,8 +51,8 @@ func handleAutoStartToggle(app *App, cb *menu.CallbackData) {
 func (app *App) ConfirmQuit() bool {
 	result, err := wailsruntime.MessageDialog(app.ctx, wailsruntime.MessageDialogOptions{
 		Type:          wailsruntime.QuestionDialog,
-		Title:         "Quit ePOS Proxy",
-		Message:       "Stopping the proxy will prevent POS from printing receipts.\n\nAre you sure you want to quit?",
+		Title:         "Quit Printer Manager",
+		Message:       "Stopping the application will prevent POS from printing receipts.\n\nAre you sure you want to quit?",
 		Buttons:       []string{"Cancel", "Quit"},
 		DefaultButton: "Cancel",
 	})
@@ -65,4 +69,16 @@ func (app *App) ConfirmQuit() bool {
 
 	logger.Debug("Confirmed quit action")
 	return true
+}
+
+func showAboutDialog(app *App) {
+	_, err := wailsruntime.MessageDialog(app.ctx, wailsruntime.MessageDialogOptions{
+		Type:    wailsruntime.InfoDialog,
+		Title:   "About Printer Manager",
+		Message: GetVersionInfo(),
+	})
+
+	if err != nil {
+		logger.Errorf("Failed to show about dialog: %v", err)
+	}
 }

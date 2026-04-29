@@ -3,8 +3,8 @@
 package printer
 
 import (
-	"epos-proxy/logger"
 	"fmt"
+	"printer-manager/logger"
 	"strings"
 
 	"github.com/yusufpapurcu/wmi"

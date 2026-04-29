@@ -1,8 +1,8 @@
 package printer
 
 import (
-	"epos-proxy/logger"
 	"fmt"
+	"printer-manager/logger"
 	"sync"
 )
 
