@@ -1,3 +1,5 @@
+import { createPdfBytes } from "./pdf-util.js"
+
 export async function copyPrinterFieldValue(printer, field = 'ip', { copiedIds, showToast }) {
   try {
     await navigator.clipboard.writeText(printer[field]);
@@ -6,6 +8,15 @@ export async function copyPrinterFieldValue(printer, field = 'ip', { copiedIds, 
   } catch (err) {
     showToast('Copy failed:' + err)
   }
+}
+
+async function sendPdf(printerIp, printerName) {
+  const blob = await createPdfBytes("This is a test pdf printed This is a test pdf printed by printer: " + printerName);
+  return await fetch(`http://${printerIp}/print/pdf`, {
+    method: "POST",
+    headers: { "Content-Type": "application/pdf" },
+    body: blob,
+  })
 }
 
 async function sendEposPrint(printerIp, name) {
@@ -25,18 +36,26 @@ async function sendEposPrint(printerIp, name) {
   })
 }
 
-export async function executePrint(printer) {
-  const response = await sendEposPrint(printer.ip, printer.name)
-  const xml = await response.text()
-  const parser = new DOMParser()
-  const doc = parser.parseFromString(xml, 'text/xml')
-  const responseEl = doc.querySelector('response')
+export async function executePrint(printer, type) {
+  if (type === 'THERMAL') {
+    const response = await sendEposPrint(printer.ip, printer.name)
+    const xml = await response.text()
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(xml, 'text/xml')
+    const responseEl = doc.querySelector('response')
 
-  if (responseEl?.getAttribute('success') !== 'true') {
-    const code = responseEl?.getAttribute('code') || 'Unknown error'
-    if (code === 'EX_BADPORT') {
-      throw new Error('The device is not connected, please check the printer power / connection')
+    if (responseEl?.getAttribute('success') !== 'true') {
+      const code = responseEl?.getAttribute('code') || 'Unknown error'
+      if (code === 'EX_BADPORT') {
+        throw new Error('The device is not connected, please check the printer power / connection')
+      }
+      throw new Error(code)
     }
-    throw new Error(code)
+
+  } else if (type === 'OFFICE') {
+    const response = await sendPdf(printer.ip, printer.name);
+    if (!response.ok) throw new Error('Network response was not ok')
+  } else {
+    throw new Error('Unknown printer type')
   }
 }

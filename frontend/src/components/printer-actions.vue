@@ -11,9 +11,11 @@
       {{ isTestPrinting ? 'Printing...' : 'Test' }}
     </button>
   </div>
+  <PrinterTypeModal v-if="showTypeSelect" v-model="showTypeSelect" :selectedPrinter="printer" @select="selectType" />
 </template>
 <script setup>
 import { ref } from 'vue'
+import PrinterTypeModal from "../modal/printer-type-modal.vue"
 import { executePrint } from "./printer-actions.js"
 
 const props = defineProps({
@@ -24,13 +26,27 @@ const props = defineProps({
 const emit = defineEmits(['copy', 'notify'])
 
 const isTestPrinting = ref(false)
+const showTypeSelect = ref(false)
 
 function onCopy() { emit('copy', props.printer) }
 
-async function onTest() {
+function onTest() {
+  const type = props.printer.type
+  if (type === 'ANY') {
+    showTypeSelect.value = true
+  } else {
+    doTestPrint(type)
+  }
+}
+
+function selectType(type) {
+  doTestPrint(type)
+}
+
+async function doTestPrint(type) {
   isTestPrinting.value = true
   try {
-    await executePrint(props.printer)
+    await executePrint(props.printer, type)
     emit('notify', `Test print sent to ${props.printer.name}`, 'success')
   } catch (err) {
     emit('notify', `Test failed: ${err.message}`, 'error')
