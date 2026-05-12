@@ -70,13 +70,13 @@ func (p *Printer) Enqueue(fn JobFunc, reply chan JobResult) error {
 	}
 }
 
-func (p *Printer) Write(data []byte) error {
+func (p *Printer) Write(data []byte, printType PrintType) error {
 	if err := p.ensureOpen(); err != nil {
 		return err
 	}
 
 	if p.Category == PrinterOffice {
-		return p.printViaSystemPrinter(data)
+		return p.printViaSystemPrinter(data, printType)
 	}
 
 	p.mu.Lock()

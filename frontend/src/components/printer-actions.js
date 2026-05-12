@@ -10,9 +10,10 @@ export async function copyPrinterFieldValue(printer, field = 'ip', { copiedIds, 
   }
 }
 
-async function sendPdf(printerIp, printerName) {
-  const blob = await createPdfBytes("This is a test pdf printed This is a test pdf printed by printer: " + printerName);
-  return await fetch(`http://${printerIp}/print/pdf`, {
+async function sendPdf(printerIp, printerName, printOptions) {
+  const { duplex } = printOptions || {};
+  const blob = await createPdfBytes("This is a test pdf printed This is a test pdf printed by printer: " + printerName, duplex);
+  return await fetch(`http://${printerIp}/print/pdf?duplex=${duplex === 'duplex'}`, {
     method: "POST",
     headers: { "Content-Type": "application/pdf" },
     body: blob,
@@ -36,7 +37,7 @@ async function sendEposPrint(printerIp, name) {
   })
 }
 
-export async function executePrint(printer, type) {
+export async function executePrint(printer, type, printOptions) {
   if (type === 'THERMAL') {
     const response = await sendEposPrint(printer.ip, printer.name)
     const xml = await response.text()
@@ -53,7 +54,7 @@ export async function executePrint(printer, type) {
     }
 
   } else if (type === 'OFFICE') {
-    const response = await sendPdf(printer.ip, printer.name);
+    const response = await sendPdf(printer.ip, printer.name, printOptions);
     if (!response.ok) throw new Error('Network response was not ok')
   } else {
     throw new Error('Unknown printer type')

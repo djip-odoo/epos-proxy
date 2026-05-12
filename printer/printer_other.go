@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-func (p *Printer) printViaSystemPrinter(data []byte) error {
+func (p *Printer) printViaSystemPrinter(data []byte, printType PrintType) error {
 	logger.Debugf("Printing via office printer (CUPS): %s", p.idToString())
 
 	tmpFile := filepath.Join(os.TempDir(), fmt.Sprintf("print-%d.pdf", time.Now().UnixNano()))
@@ -21,7 +21,13 @@ func (p *Printer) printViaSystemPrinter(data []byte) error {
 	}
 	defer os.Remove(tmpFile)
 
-	cmd := exec.Command("lp", "-d", p.idName, tmpFile)
+	cmd := exec.Command(
+		"lp",
+		"-d", p.idName,
+		"-o", getPrintType(printType),
+		tmpFile,
+	)
+
 	logger.Debugf("Executing CUPS print command: %v", cmd.Args)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("CUPS print failed: %w", err)
@@ -60,4 +66,15 @@ func (p *Printer) fetchSystemPrinterName() error {
 	}
 
 	return fmt.Errorf("Cups name not found for printer %v (May be disconnected)", p.id)
+}
+
+func getPrintType(printType PrintType) string {
+	switch printType {
+	case SINGLE:
+		return "sides=one-sided"
+	case DUPLEX:
+		return "sides=two-sided-long-edge"
+	default:
+		return "sides=one-sided"
+	}
 }

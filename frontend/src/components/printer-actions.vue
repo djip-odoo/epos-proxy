@@ -12,10 +12,12 @@
     </button>
   </div>
   <PrinterTypeModal v-if="showTypeSelect" v-model="showTypeSelect" :selectedPrinter="printer" @select="selectType" />
+  <PrinterOptionDialog v-model="showPrinterOptionSelect" @select="selectOption"/>
 </template>
 <script setup>
 import { ref } from 'vue'
 import PrinterTypeModal from "../modal/printer-type-modal.vue"
+import PrinterOptionDialog from "../modal/printer-option-dialog.vue"
 import { executePrint } from "./printer-actions.js"
 
 const props = defineProps({
@@ -27,6 +29,7 @@ const emit = defineEmits(['copy', 'notify'])
 
 const isTestPrinting = ref(false)
 const showTypeSelect = ref(false)
+const showPrinterOptionSelect = ref(false)
 
 function onCopy() { emit('copy', props.printer) }
 
@@ -34,19 +37,31 @@ function onTest() {
   const type = props.printer.type
   if (type === 'ANY') {
     showTypeSelect.value = true
+  } else if (type === 'OFFICE') {
+    showPrinterOptionSelect.value = true
   } else {
-    doTestPrint(type)
+    doTestPrint(type, {})
   }
 }
 
 function selectType(type) {
-  doTestPrint(type)
+  showTypeSelect.value = false
+  if (type === 'OFFICE') {
+    showPrinterOptionSelect.value = true
+  } else {
+    doTestPrint(type, {})
+  }
 }
 
-async function doTestPrint(type) {
+function selectOption(mode) {
+  showPrinterOptionSelect.value = false
+  doTestPrint('OFFICE', { duplex: mode })
+}
+
+async function doTestPrint(type, options) {
   isTestPrinting.value = true
   try {
-    await executePrint(props.printer, type)
+    await executePrint(props.printer, type, options)
     emit('notify', `Test print sent to ${props.printer.name}`, 'success')
   } catch (err) {
     emit('notify', `Test failed: ${err.message}`, 'error')

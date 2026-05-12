@@ -23,9 +23,18 @@ const (
 	PrinterOffice
 )
 
+type PrintType string
+
+const (
+	SINGLE PrintType = "SINGLE"
+	DUPLEX PrintType = "DUPLEX"
+	NONE   PrintType = "NONE"
+)
+
 type RawPrinter struct {
 	PrinterIp string
 	Category  PrinterCategory
+	PrintType PrintType
 }
 
 const (

@@ -44,7 +44,7 @@ func (m *Manager) WriteAsync(data []byte, rawPrinter RawPrinter) (<-chan JobResu
 	reply := make(chan JobResult, 1)
 	err = p.Enqueue(func(p *Printer) JobResult {
 		logger.Debugf("Executing print job for printer %v", rawPrinter)
-		if err := p.Write(data); err != nil {
+		if err := p.Write(data, rawPrinter.PrintType); err != nil {
 			return JobResult{Err: fmt.Errorf("print job failed for printer %v: %w", rawPrinter, err)}
 		}
 		logger.Debugf("Print job completed for printer %v", rawPrinter)
