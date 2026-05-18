@@ -79,9 +79,17 @@ func (p *Printer) Write(data []byte) error {
 	defer cancel()
 	logger.Debugf("Writing to USB printer %s with timeout %v", p.idToString(), WriteTimeout)
 
-	if _, err := p.outEndpoint.WriteContext(ctx, data); err != nil {
-		p.closeDeviceLocked()
-		return fmt.Errorf("failed to write to USB printer %s: %w", p.idToString(), err)
+	logger.Debugf("size = %d", len(data))
+	for len(data) > 0 {
+		size := min(len(data), ChunkSize)
+
+		chunk := data[:size]
+		if _, err := p.outEndpoint.WriteContext(ctx, chunk); err != nil {
+			p.closeDeviceLocked()
+			return fmt.Errorf("failed to write %d bytes to USB printer %s: %w", size, p.idToString(), err)
+		}
+
+		data = data[size:]
 	}
 	return nil
 }

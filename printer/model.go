@@ -19,6 +19,7 @@ const (
 const (
 	QueueSize    = 100
 	WriteTimeout = 30 * time.Second
+	ChunkSize    = 4096
 )
 
 var ErrNotFound = errors.New("printer not found")
