@@ -53,10 +53,8 @@ type Printer struct {
 }
 
 type Info struct {
-	ProductName string
-	VendorName  string
-	Serial      string
-	Id          string
+	Id   string
+	Name string
 }
 
 type UnavailableInfo struct {
@@ -72,12 +70,22 @@ type EndpointInfo struct {
 }
 
 type PrinterID struct {
-	Serial    string
-	ProductID gousb.ID
-	VendorID  gousb.ID
+	Serial string
+	VidPid string
+	Path   string
 }
 
 type Printers struct {
 	Available   []Info
 	Unavailable []UnavailableInfo
+}
+
+type DeviceID map[string]string
+
+type LibUsbPrinter struct {
+	Serial   string
+	Path     string
+	Name     string
+	VidPid   string
+	DeviceId DeviceID
 }

@@ -74,7 +74,6 @@ func (a *App) shutdown(ctx context.Context) {
 
 type Printer struct {
 	Name   string `json:"name"`
-	Serial string `json:"serial"`
 	Ip     string `json:"ip"`
 	Id     string `json:"id"`
 	IsLAN  bool   `json:"isLAN"`
@@ -121,8 +120,7 @@ func (a *App) Status() Status {
 		for _, info := range printerInfos.Available {
 			printers = append(printers, Printer{
 				Id:     info.Id,
-				Name:   info.VendorName + " " + info.ProductName,
-				Serial: info.Serial,
+				Name:   info.Name,
 				Ip:     a.GetPrinterIp(info.Id),
 				Online: true,
 			})

@@ -2,19 +2,35 @@ package printer
 
 import (
 	"encoding/base64"
+	"epos-proxy/logger"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
-
-	"github.com/google/gousb"
 )
 
-func encodePrinterID(serial string, vendorID gousb.ID, productID gousb.ID) string {
-	if serial != "" {
-		return base64.RawURLEncoding.EncodeToString([]byte("s:" + serial))
+func encodePrinterID(libUsbPrinter *LibUsbPrinter) (string, error) {
+	var parts []string
+
+	if libUsbPrinter.Serial != "" {
+		parts = append(parts, "s:"+libUsbPrinter.Serial)
+	} else {
+		if libUsbPrinter.VidPid != "" {
+			parts = append(parts, "vp:"+libUsbPrinter.VidPid)
+		}
+
+		if libUsbPrinter.Path != "" {
+			parts = append(parts, "p:"+libUsbPrinter.Path)
+		}
+
+		if len(parts) == 0 {
+			return "", fmt.Errorf("cannot encode printer ID: no identifier provided")
+		}
 	}
-	return base64.RawURLEncoding.EncodeToString([]byte(fmt.Sprintf("p:%04X:%04X", uint16(vendorID), uint16(productID))))
+
+	base := strings.Join(parts, "|")
+	id := base64.RawURLEncoding.EncodeToString([]byte(base))
+	logger.Infof("LibUsbPrinter: %v | base: %s | encoded id: %s", libUsbPrinter, base, id)
+	return id, nil
 }
 
 var ErrInvalidPrinterID = errors.New("invalid printer ID format")
@@ -25,44 +41,36 @@ func decodePrinterID(id string) (*PrinterID, error) {
 		return nil, ErrInvalidPrinterID
 	}
 
-	if len(decoded) < 3 || decoded[1] != ':' {
+	var (
+		serial string
+		VidPid string
+		path   string
+	)
+
+	raw := string(decoded)
+	for _, part := range strings.Split(raw, "|") {
+		switch {
+		case strings.HasPrefix(part, "s:"):
+			serial = strings.TrimPrefix(part, "s:")
+
+		case strings.HasPrefix(part, "vp:"):
+			VidPid = strings.TrimPrefix(part, "vp:")
+
+		case strings.HasPrefix(part, "p:"):
+			path = strings.TrimPrefix(part, "p:")
+		}
+	}
+
+	if serial == "" && path == "" && VidPid == "" {
 		return nil, ErrInvalidPrinterID
 	}
 
-	kind := decoded[0]
-	payload := decoded[2:]
-
-	switch kind {
-	case 's':
-		if len(payload) == 0 {
-			return nil, ErrInvalidPrinterID
-		}
-		return &PrinterID{Serial: string(payload)}, nil
-
-	case 'p':
-		// Expect payload: "<vendor>:<product>"
-		vStr, pStr, ok := strings.Cut(string(payload), ":")
-		if !ok || vStr == "" || pStr == "" {
-			return nil, ErrInvalidPrinterID
-		}
-
-		v, err := strconv.ParseUint(vStr, 16, 16)
-		if err != nil {
-			return nil, ErrInvalidPrinterID
-		}
-		p, err := strconv.ParseUint(pStr, 16, 16)
-		if err != nil {
-			return nil, ErrInvalidPrinterID
-		}
-
-		return &PrinterID{
-			VendorID:  gousb.ID(v),
-			ProductID: gousb.ID(p),
-		}, nil
-
-	default:
-		return nil, ErrInvalidPrinterID
-	}
+	logger.Infof("Decoded printer ID: {serial: %s, VidPid: %s, path: %s}", serial, VidPid, path)
+	return &PrinterID{
+		Serial: serial,
+		VidPid: VidPid,
+		Path:   path,
+	}, nil
 }
 
 func EncodeLANPrinterID(ip string) string {

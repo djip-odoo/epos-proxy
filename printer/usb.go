@@ -8,10 +8,6 @@ import (
 	"github.com/google/gousb"
 )
 
-var supportedVendorIDs = map[gousb.ID]string{
-	0x04B8: "Epson",
-}
-
 func ListUSBPrinters() (*Printers, error) {
 	logger.Debug("Starting USB printer detection")
 	ctx := gousb.NewContext()
@@ -23,8 +19,7 @@ func ListUSBPrinters() (*Printers, error) {
 	// First list all  without opening devices, to avoid permission errors on some platforms
 	var descriptors []gousb.DeviceDesc
 	_, err := ctx.OpenDevices(func(desc *gousb.DeviceDesc) bool {
-		_, supported := findPrinterEndpoint(desc)
-		if supported {
+		if _, supported := findPrinterEndpoint(desc); supported {
 			descriptors = append(descriptors, *desc)
 		}
 		return false
@@ -49,15 +44,22 @@ func ListUSBPrinters() (*Printers, error) {
 				Error: err.Error(),
 			})
 		} else if info != nil {
-			logger.Debugf("Found available USB printer: %s (Serial: %s)", info.ProductName, info.Serial)
-			result.Available = append(result.Available, *info)
+			id, err := encodePrinterID(info)
+			if err != nil {
+				logger.Errorf("failed to encode printer ID: %v", err)
+				continue
+			}
+			result.Available = append(result.Available, Info{
+				Id:   id,
+				Name: info.Name,
+			})
 		}
 	}
 
 	return result, nil
 }
 
-func GetPrinterInfo(ctx *gousb.Context, descToFind *gousb.DeviceDesc) (*Info, error) {
+func GetPrinterInfo(ctx *gousb.Context, descToFind *gousb.DeviceDesc) (*LibUsbPrinter, error) {
 	logger.Debugf("Attempting to get info for USB device: Bus %d, Address %d, Vendor %04X, Product %04X", descToFind.Bus, descToFind.Address, uint16(descToFind.Vendor), uint16(descToFind.Product))
 	var found bool
 	devices, err := ctx.OpenDevices(func(desc *gousb.DeviceDesc) bool {
@@ -87,50 +89,67 @@ func GetPrinterInfo(ctx *gousb.Context, descToFind *gousb.DeviceDesc) (*Info, er
 	}()
 
 	device := devices[0]
-	info := &Info{}
+	isPrinter, deviceID := isPrinterDevice(device)
+	if !isPrinter {
+		return nil, nil
+	}
+	info := LibUsbPrinter{}
+	productName, _ := device.Product()
+	vendorName, _ := device.Manufacturer()
+	serial, _ := device.SerialNumber()
 
-	info.ProductName, _ = device.Product()
-	if info.ProductName == "" {
-		info.ProductName = fmt.Sprintf("PID: %04X", uint16(descToFind.Product))
+	if productName == "" {
+		if mdl, ok := deviceID["MDL"]; ok {
+			productName = mdl
+		} else {
+			productName = fmt.Sprintf("PID: %04X", uint16(descToFind.Product))
+		}
 	}
 
-	info.VendorName, _ = device.Manufacturer()
-	if info.VendorName == "" {
-		info.VendorName = fmt.Sprintf("VID: %04X", uint16(descToFind.Vendor))
+	if vendorName == "" {
+		if vendor, ok := deviceID["MFG"]; ok {
+			vendorName = vendor
+		} else {
+			vendorName = fmt.Sprintf("VID: %04X", uint16(descToFind.Vendor))
+		}
 	}
 
-	info.Serial, _ = device.SerialNumber()
-	id := encodePrinterID(info.Serial, descToFind.Vendor, descToFind.Product)
-	info.Id = id
-	return info, nil
-
+	info.Name = fmt.Sprintf("%s %s", vendorName, productName)
+	info.Serial = serial
+	info.Path = pathToString(descToFind)
+	info.VidPid = fmt.Sprintf("%04X:%04X", uint16(descToFind.Vendor), uint16(descToFind.Product))
+	info.DeviceId = deviceID
+	logger.Debugf("USB printer: %s (Serial: %s)", info.Name, info.Serial)
+	return &info, nil
 }
 
 func findPrinterEndpoint(dev *gousb.DeviceDesc) (EndpointInfo, bool) {
-	// _, supportedVendor := supportedVendorIDs[dev.Vendor]
-	// if !supportedVendor {
-	//	return EndpointInfo{}, false
-	//}
-
 	for cfgNum, cfg := range dev.Configs {
 		for _, iFace := range cfg.Interfaces {
 			for _, alt := range iFace.AltSettings {
-				if alt.Class != gousb.ClassPrinter {
-					continue
-				}
-				for _, ep := range alt.Endpoints {
-					if ep.Direction == gousb.EndpointDirectionOut &&
-						ep.TransferType == gousb.TransferTypeBulk {
-						return EndpointInfo{
-							config:           cfgNum,
-							iFace:            iFace.Number,
-							alternateSetting: alt.Alternate,
-							outEndpoint:      ep.Number,
-						}, true
-					}
+				if epNum, ok := matchBulkOutEndpoint(alt); ok {
+					return EndpointInfo{
+						config:           cfgNum,
+						iFace:            iFace.Number,
+						alternateSetting: alt.Alternate,
+						outEndpoint:      epNum,
+					}, true
 				}
 			}
 		}
 	}
 	return EndpointInfo{}, false
+}
+
+func matchBulkOutEndpoint(alt gousb.InterfaceSetting) (int, bool) {
+	if alt.Class != gousb.ClassPrinter && alt.Class != gousb.ClassVendorSpec {
+		return 0, false
+	}
+	for _, ep := range alt.Endpoints {
+		if ep.Direction == gousb.EndpointDirectionOut &&
+			ep.TransferType == gousb.TransferTypeBulk {
+			return ep.Number, true
+		}
+	}
+	return 0, false
 }
