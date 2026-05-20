@@ -1,7 +1,6 @@
 package printer
 
 import (
-	"encoding/base64"
 	"fmt"
 	"net"
 	"strings"
@@ -31,27 +30,6 @@ func CheckLANPrinter(ip string) error {
 	_ = conn.Close()
 	logger.Debugf("Successfully connected to LAN printer %s", ip)
 	return nil
-}
-
-func EncodeLANPrinterID(ip string) string {
-	return base64.RawURLEncoding.EncodeToString([]byte("l:" + ip))
-}
-
-func DecodeLANPrinterID(id string) (string, bool) {
-	decoded, err := base64.RawURLEncoding.DecodeString(id)
-	if err != nil {
-		return "", false
-	}
-
-	if len(decoded) < 3 || decoded[1] != ':' {
-		return "", false
-	}
-
-	if decoded[0] != 'l' {
-		return "", false
-	}
-
-	return string(decoded[2:]), true
 }
 
 func ListLANPrinters(cfg *config.Manager) []LANPrinterInfo {

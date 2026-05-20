@@ -46,7 +46,7 @@ const props = defineProps({
   show: {type: Boolean, default: false},
 })
 
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'notify'])
 
 const ipInput = ref('')
 const error = ref(null)
@@ -78,9 +78,11 @@ async function submit() {
 
   try {
     await AddLANPrinter(ip)
+    emit('notify', 'Printer added successfully', 'success')
     close(true)
   } catch (err) {
     console.log(err)
+    emit('notify', err || 'Failed to add printer', 'danger')
     error.value = err || 'Failed to add printer'
   } finally {
     loading.value = false
