@@ -100,7 +100,11 @@ func GetPrinterInfo(ctx *gousb.Context, descToFind *gousb.DeviceDesc) (*Info, er
 	}
 
 	info.Serial, _ = device.SerialNumber()
-	id := encodePrinterID(info.Serial, descToFind.Vendor, descToFind.Product)
+	info.Path = pathToString(descToFind)
+	id, err := encodePrinterID(info.Serial, info.Path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode printer ID: %w", err)
+	}
 	info.Id = id
 	return info, nil
 
