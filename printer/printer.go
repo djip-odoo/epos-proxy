@@ -173,8 +173,8 @@ func (p *Printer) ensureOpenUSBLocked() error {
 			match = true
 		} else if p.id.Serial != "" {
 			match = serial == p.id.Serial
-		} else if p.id.ProductID != 0 {
-			match = d.Desc.Vendor == p.id.VendorID && d.Desc.Product == p.id.ProductID
+		} else if p.id.Path != "" {
+			match = pathToString(d.Desc) == p.id.Path
 		}
 
 		if match && target == nil {
@@ -270,7 +270,7 @@ func (p *Printer) idToString() string {
 		return fmt.Sprintf("LAN:%s", p.lanIP)
 	}
 	if p.id != nil {
-		return fmt.Sprintf("USB:%s, %04X:%04X", p.id.Serial, p.id.VendorID, p.id.ProductID)
+		return fmt.Sprintf("USB:%s, %s", p.id.Serial, p.id.Path)
 	}
 	return "USB:unknown"
 }

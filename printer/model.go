@@ -72,9 +72,8 @@ type EndpointInfo struct {
 }
 
 type PrinterID struct {
-	Serial    string
-	ProductID gousb.ID
-	VendorID  gousb.ID
+	Serial string
+	Path   string
 }
 
 type Printers struct {

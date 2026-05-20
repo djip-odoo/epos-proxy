@@ -1,7 +1,7 @@
 export async function copyPrinterFieldValue(printer, field = 'ip', copiedIds) {
     await navigator.clipboard.writeText(printer[field]);
-    (copiedIds.value[printer.id] ||= {})[field] = true;
-    setTimeout(() => copiedIds.value[printer.id][field] = false, 2000);
+    (copiedIds[printer.id] ||= {})[field] = true;
+    setTimeout(() => copiedIds[printer.id][field] = false, 2000);
 }
 
 async function sendEposPrint(printerIp, name) {
