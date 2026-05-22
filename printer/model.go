@@ -41,6 +41,7 @@ type Printer struct {
 	id             *PrinterID
 	lanIP          string
 	mu             sync.Mutex
+	Width          int
 	// USB fields
 	usbCtx      *gousb.Context
 	device      *gousb.Device
