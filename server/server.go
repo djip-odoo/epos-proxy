@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync/atomic"
 
+	"epos-proxy/config"
 	"epos-proxy/escpos"
 	"epos-proxy/logger"
 	"epos-proxy/printer"
@@ -25,9 +26,11 @@ type Server struct {
 	app     *fiber.App
 	Port    int
 	running atomic.Bool
+	config  *config.Manager
 }
 
-func New(port int, mgr *printer.Manager) *Server {
+func New(port int, mgr *printer.Manager, cm *config.Manager) *Server {
+	logger.Infof("Width: %d", cm.GetReceiptWidth())
 	app := fiber.New(fiber.Config{
 		AppName: "ePOS proxy",
 	})
@@ -39,12 +42,12 @@ func New(port int, mgr *printer.Manager) *Server {
 	app.Post("/p/:printerId/cgi-bin/epos/service.cgi", func(ctx fiber.Ctx) error {
 		printerId := ctx.Params("printerId")
 		logger.Debugf("Print request received for printer: %s", printerId)
-		return printData(mgr, ctx, printerId)
+		return printData(mgr, ctx, printerId, cm.GetReceiptWidth())
 	})
 
 	app.Post("/cgi-bin/epos/service.cgi", func(ctx fiber.Ctx) error {
 		logger.Debugf("Print request received (auto printer selection)")
-		return printData(mgr, ctx, "")
+		return printData(mgr, ctx, "", cm.GetReceiptWidth())
 	})
 
 	server := &Server{app: app, Port: port}
@@ -61,9 +64,9 @@ func New(port int, mgr *printer.Manager) *Server {
 	return server
 }
 
-func printData(mgr *printer.Manager, ctx fiber.Ctx, printerID string) error {
+func printData(mgr *printer.Manager, ctx fiber.Ctx, printerID string, receiptWidth int) error {
 	logger.Debugf("Processing print job for printer: %s", printerID)
-	jobData, err := escpos.ParseXML(ctx.Body())
+	jobData, err := escpos.ParseXML(ctx.Body(), receiptWidth)
 	if err != nil {
 		logger.Errorf("XML parsing error: %v", err)
 		return ctx.XML(EPOSResponse{Success: false, Code: "SchemaError", Status: ""})

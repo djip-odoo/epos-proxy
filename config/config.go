@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"epos-proxy/logger"
 	"fmt"
 	"log"
 	"net"
@@ -18,13 +19,15 @@ const (
 )
 
 type AppConfig struct {
-	Port        int      `json:"port"`
-	LANPrinters []string `json:"lan_printers,omitempty"`
+	Port         int      `json:"port"`
+	LANPrinters  []string `json:"lan_printers,omitempty"`
+	ReceiptWidth int      `json:"receipt_width"`
 }
 
 func defaults() AppConfig {
 	return AppConfig{
-		Port: 0,
+		Port:         0,
+		ReceiptWidth: 320,
 	}
 }
 
@@ -171,4 +174,21 @@ func (cm *Manager) GetLANPrinters() []string {
 	result := make([]string, len(cm.Data.LANPrinters))
 	copy(result, cm.Data.LANPrinters)
 	return result
+}
+
+func (cm *Manager) GetReceiptWidth() int {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	if cm.Data.ReceiptWidth == 0 {
+		return 384
+	}
+	return cm.Data.ReceiptWidth
+}
+
+func (cm *Manager) SetReceiptWidth(width int) error {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	logger.Infof("Setting receipt width to: %d", width)
+	cm.Data.ReceiptWidth = width
+	return cm.saveLocked()
 }
