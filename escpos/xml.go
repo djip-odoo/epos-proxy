@@ -29,7 +29,7 @@ type xmlEPOSPrint struct {
 
 func ParseXML(body []byte, targetWidth int) ([]byte, error) {
 
-	const sourceWidth = 512 // 80mm source
+	const sourceWidth = 576 // 80mm source
 
 	s := string(body)
 
@@ -48,17 +48,18 @@ func ParseXML(body []byte, targetWidth int) ([]byte, error) {
 		return nil, fmt.Errorf("XML parse error: %w", err)
 	}
 
-	// ALWAYS render at 80mm width
-	img, err := renderReceipt(ep.Items, sourceWidth)
+	img, err := renderReceipt(ep.Items, targetWidth)
 	if err != nil {
 		return nil, err
 	}
-
-	// THEN scale to target printer width
 	return imageToEscPosBytes(img, targetWidth)
 }
 
-func renderReceipt(items []xmlRawItem, width int) (image.Image, error) {
+func renderReceipt(items []xmlRawItem, targetWidth int) (image.Image, error) {
+	width := getReceiptWidth(items)
+	if width == 0 {
+		width = targetWidth
+	}
 
 	const padding = 10
 
@@ -354,4 +355,26 @@ func wrapText(text string, limit int) []string {
 	}
 
 	return lines
+}
+
+func getReceiptWidth(items []xmlRawItem) int {
+	receiptWidth := 0
+
+	for _, item := range items {
+
+		if strings.ToLower(item.XMLName.Local) != "image" {
+			continue
+		}
+
+		attrs := attrMap(item.Attrs)
+
+		imgWidth := parseInt(attrs["width"], 0)
+
+		if imgWidth > 0 {
+			receiptWidth = imgWidth
+			break
+		}
+	}
+
+	return receiptWidth
 }
