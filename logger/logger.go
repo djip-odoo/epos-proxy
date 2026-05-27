@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"epos-proxy/config"
+
 	"github.com/sirupsen/logrus"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
@@ -12,12 +14,8 @@ var log = logrus.New()
 
 var logDir string
 
-func InitLogger() {
-	dir, err := os.UserConfigDir()
-	if err != nil {
-		Fatalf("Failed to get user config dir: %v", err)
-	}
-	logDir = filepath.Join(dir, "EposProxy", "logs")
+func InitLogger(cfg *config.Manager) {
+	logDir = filepath.Join(cfg.ConfigDirectory(), "logs")
 	if err := os.MkdirAll(logDir, 0755); err != nil {
 		Fatalf("Failed to create log directory: %v", err)
 	}

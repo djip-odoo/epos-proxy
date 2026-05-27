@@ -26,15 +26,18 @@ type App struct {
 	autoStart      *autostart.App
 }
 
-func NewApp() *App {
+func NewApp(cfg *config.Manager) *App {
 	a := &App{}
+
+	if cfg != nil {
+		a.config = cfg
+	}
 
 	a.autoStart = &autostart.App{
 		Name:        "epos-proxy",
 		DisplayName: "ePOS Proxy",
 		Exec:        []string{os.Args[0]},
 	}
-
 	return a
 }
 
@@ -42,21 +45,11 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	logger.Debugf("Application startup")
 
-	cfg, err := config.NewManager()
-	if err != nil {
-		logger.Fatalf("Config initialization failed: %v", err)
-	}
+	logger.Debugf("Config loaded from %s", a.config.Path())
 
-	if err := cfg.Load(); err != nil {
-		logger.Warnf("Config load warning: %v", err)
-	}
-
-	logger.Debugf("Config loaded from %s", cfg.Path())
-
-	a.config = cfg
 	a.printerManager = printer.NewManager()
 
-	port, err := cfg.ResolvePort()
+	port, err := a.config.ResolvePort()
 	if err != nil {
 		logger.Warn("Unable to resolve port, using default")
 	}
@@ -216,6 +209,7 @@ func (a *App) CheckLANPrinterStatus(ip string) bool {
 func (a *App) DownloadLogs() {
 	logger.Debugf("Download logs requested")
 	logDir := logger.LogDirectory()
+	configDir := a.config.ConfigDirectory()
 	zipName := fmt.Sprintf("epos-proxy-logs-%s.zip",
 		time.Now().Format("2006-01-02"))
 	logger.Debugf("Creating logs archive: %s", zipName)
@@ -229,7 +223,7 @@ func (a *App) DownloadLogs() {
 			},
 		},
 	})
-	err = util.ZipLogs(logDir, savePath)
+	err = util.ZipPaths(savePath, map[string]string{"logs": logDir, "config": configDir})
 	if err != nil {
 		logger.Errorf("Log export failed: %v", err)
 		wailsruntime.MessageDialog(a.ctx, wailsruntime.MessageDialogOptions{
