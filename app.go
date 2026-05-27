@@ -220,6 +220,7 @@ func (a *App) CheckLANPrinterStatus(ip string) bool {
 func (a *App) DownloadLogs() {
 	logger.Debugf("Download logs requested")
 	logDir := logger.LogDirectory()
+	configDir := a.config.ConfigDirectory()
 	zipName := fmt.Sprintf("epos-proxy-logs-%s.zip",
 		time.Now().Format("2006-01-02"))
 	logger.Debugf("Creating logs archive: %s", zipName)
@@ -233,7 +234,7 @@ func (a *App) DownloadLogs() {
 			},
 		},
 	})
-	err = util.ZipLogs(logDir, savePath)
+	err = util.ZipPaths(savePath, map[string]string{"logs": logDir, "config": configDir})
 	if err != nil {
 		logger.Errorf("Log export failed: %v", err)
 		wailsruntime.MessageDialog(a.ctx, wailsruntime.MessageDialogOptions{
@@ -279,6 +280,6 @@ func (a *App) SetPrinterWidthPadding(id string, width int, bottomPadding int) er
 }
 
 func (a *App) GetPrinterWidthPadding(id string) (int, int) {
-	w,p :=config.GetPrinterWidthPadding(id)
-	return w,p
+	w, p := config.GetPrinterWidthPadding(id)
+	return w, p
 }
