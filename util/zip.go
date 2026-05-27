@@ -8,39 +8,59 @@ import (
 	"path/filepath"
 )
 
-func ZipLogs(sourceDir, targetZip string) error {
+func ZipPaths(targetZip string, paths map[string]string) error {
 	zipFile, err := os.Create(targetZip)
 	if err != nil {
 		return fmt.Errorf("failed to create zip file %s: %w", targetZip, err)
 	}
 	defer zipFile.Close()
+
 	zipWriter := zip.NewWriter(zipFile)
 	defer zipWriter.Close()
-	files, err := os.ReadDir(sourceDir)
-	if err != nil {
-		return fmt.Errorf("failed to read source directory %s: %w", sourceDir, err)
-	}
-	for _, file := range files {
-		if err := zipEntry(zipWriter, sourceDir, file); err != nil {
-			return fmt.Errorf("failed to zip entry %s: %w", file.Name(), err)
+
+	for zipRoot, sourcePath := range paths {
+		err := filepath.Walk(sourcePath, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+
+			if info.IsDir() {
+				return nil
+			}
+
+			relPath, err := filepath.Rel(sourcePath, path)
+			if err != nil {
+				return err
+			}
+
+			zipPath := filepath.Join(zipRoot, relPath)
+
+			return zipEntry(zipWriter, path, zipPath)
+		})
+
+		if err != nil {
+			return fmt.Errorf("failed to zip path %s: %w", sourcePath, err)
 		}
 	}
+
 	return nil
 }
 
-func zipEntry(zipWriter *zip.Writer, sourceDir string, file os.DirEntry) error {
-	path := filepath.Join(sourceDir, file.Name())
-	src, err := os.Open(path)
+func zipEntry(zipWriter *zip.Writer, sourcePath, zipPath string) error {
+	src, err := os.Open(sourcePath)
 	if err != nil {
-		return fmt.Errorf("failed to open file %s: %w", path, err)
+		return fmt.Errorf("failed to open file %s: %w", sourcePath, err)
 	}
 	defer src.Close()
-	w, err := zipWriter.Create(file.Name())
+
+	w, err := zipWriter.Create(filepath.ToSlash(zipPath))
 	if err != nil {
-		return fmt.Errorf("failed to create zip entry: %w", err)
+		return fmt.Errorf("failed to create zip entry %s: %w", zipPath, err)
 	}
+
 	if _, err = io.Copy(w, src); err != nil {
-		return fmt.Errorf("failed to copy file contents: %w", err)
+		return fmt.Errorf("failed to copy file contents for %s: %w", sourcePath, err)
 	}
+
 	return nil
 }
