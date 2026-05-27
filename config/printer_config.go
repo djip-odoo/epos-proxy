@@ -10,13 +10,15 @@ import (
 )
 
 const DefaultPrinterWidth = 576
+const DefaultPrinterBottomPadding = 120
 
 var ErrPrinterNotFound = errors.New("printer not found")
 
 type PrinterWidthConfig struct {
-	ID       string `json:"id"`
-	Width    int    `json:"width"`
-	Protocol string `json:"protocol"`
+	ID            string `json:"id"`
+	Width         int    `json:"width"`
+	BottomPadding int    `json:"bottom_padding"`
+	Protocol      string `json:"protocol"`
 }
 
 var (
@@ -73,17 +75,21 @@ func AddPrinterIfNotExist(id string, protocol string) error {
 	}
 
 	printerConfigs[id] = PrinterWidthConfig{
-		ID:       id,
-		Width:    DefaultPrinterWidth,
-		Protocol: protocol,
+		ID:            id,
+		Width:         DefaultPrinterWidth,
+		BottomPadding: DefaultPrinterBottomPadding,
+		Protocol:      protocol,
 	}
-
+	logger.Infof("Printer %s added with protocol %s", id, protocol)
 	return savePrinterConfigsLocked()
 }
 
-func SetPrinterWidth(id string, width int) error {
+func SetPrinterWidthPadding(id string, width int, bottomPadding int) error {
 	if width <= 0 {
 		return errors.New("printer width must be greater than 0")
+	}
+	if bottomPadding < 0 {
+		return errors.New("printer bottom padding must be greater than or equal to 0")
 	}
 
 	if err := ensurePrinterConfigsLoaded(); err != nil {
@@ -95,6 +101,7 @@ func SetPrinterWidth(id string, width int) error {
 
 	cfg := printerConfigs[id]
 	cfg.Width = width
+	cfg.BottomPadding = bottomPadding
 	cfg.ID = id
 
 	if cfg.Protocol == "" {
@@ -107,10 +114,10 @@ func SetPrinterWidth(id string, width int) error {
 	return savePrinterConfigsLocked()
 }
 
-func GetPrinterWidth(id string) int {
+func GetPrinterWidthPadding(id string) (int, int) {
 	if err := ensurePrinterConfigsLoaded(); err != nil {
-		logger.Warnf("Could not load printer configs: %v", err)
-		return DefaultPrinterWidth
+		logger.Warnf("Could not load printer configs: %v %d %d", err, DefaultPrinterWidth, DefaultPrinterBottomPadding)
+		return DefaultPrinterWidth, DefaultPrinterBottomPadding
 	}
 
 	printerConfigsMu.RLock()
@@ -119,10 +126,10 @@ func GetPrinterWidth(id string) int {
 	cfg, exists := printerConfigs[id]
 	if !exists {
 		logger.Warnf("Printer %s not found, using default width %d", id, DefaultPrinterWidth)
-		return DefaultPrinterWidth
+		return DefaultPrinterWidth, DefaultPrinterBottomPadding
 	}
 
-	return cfg.Width
+	return cfg.Width, cfg.BottomPadding
 }
 
 func loadPrinterConfigsLocked() error {

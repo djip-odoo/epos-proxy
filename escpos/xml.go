@@ -27,7 +27,7 @@ type xmlEPOSPrint struct {
 	Items   []xmlRawItem `xml:",any"`
 }
 
-func ParseXML(body []byte, targetWidth int) ([]byte, error) {
+func ParseXML(body []byte, targetWidth int, bottomPadding int) ([]byte, error) {
 	s := string(body)
 
 	start := strings.Index(s, "<epos-print")
@@ -45,14 +45,14 @@ func ParseXML(body []byte, targetWidth int) ([]byte, error) {
 		return nil, fmt.Errorf("XML parse error: %w", err)
 	}
 
-	img, err := renderReceipt(ep.Items, targetWidth)
+	img, err := renderReceipt(ep.Items, targetWidth, bottomPadding)
 	if err != nil {
 		return nil, err
 	}
 	return imageToEscPosBytes(img, targetWidth)
 }
 
-func renderReceipt(items []xmlRawItem, targetWidth int) (image.Image, error) {
+func renderReceipt(items []xmlRawItem, targetWidth int, bottomPadding int) (image.Image, error) {
 	width := getReceiptWidth(items)
 	if width == 0 {
 		width = targetWidth
@@ -209,7 +209,7 @@ func renderReceipt(items []xmlRawItem, targetWidth int) (image.Image, error) {
 	}
 
 	finalImg := canvas.SubImage(
-		image.Rect(0, 0, width, y+20),
+		image.Rect(0, 0, width, y+bottomPadding),
 	)
 
 	return finalImg, nil
@@ -294,6 +294,10 @@ func imageToEscPosBytes(img image.Image, width int) ([]byte, error) {
 			payload = append(payload, b)
 		}
 	}
+	// Full cut
+	payload = append(payload,
+		0x1d, 0x56, 0x00, // GS V 0
+	)
 
 	return payload, nil
 }

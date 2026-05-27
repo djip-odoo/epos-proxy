@@ -274,11 +274,11 @@ func (a *App) DisableAutostart() error {
 	return nil
 }
 
-func (a *App) SetPrinterWidth(id string, width int) error {
-	return config.SetPrinterWidth(id, width)
+func (a *App) SetPrinterWidthPadding(id string, width int, bottomPadding int) error {
+	return config.SetPrinterWidthPadding(id, width, bottomPadding)
 }
 
-func (a *App) GetPrinterWidth(id string) int {
-	logger.Debugf("GetPrinterWidth called for printer ID: %s", id)
-	return config.GetPrinterWidth(id)
+func (a *App) GetPrinterWidthPadding(id string) (int, int) {
+	w,p :=config.GetPrinterWidthPadding(id)
+	return w,p
 }

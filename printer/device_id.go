@@ -1,51 +1,50 @@
 package printer
 
 import (
-	"epos-proxy/logger"
 	"fmt"
 	"strings"
+	"unicode"
 
 	"github.com/google/gousb"
+
+	"epos-proxy/logger"
 )
 
 var keyAliases = map[string]string{
-	// Command set aliases
 	"CMD":         "CMD",
 	"COMMAND SET": "CMD",
 	"COMMANDSET":  "CMD",
 	"COMMAND":     "CMD",
 	"COMMANDS":    "CMD",
 
-	// Manufacturer aliases
 	"MFG":          "MFG",
 	"MANUFACTURER": "MFG",
 
-	// Model aliases
 	"MDL":   "MDL",
 	"MODEL": "MDL",
+
+	"CLS":   "CLS",
+	"CLASS": "CLS",
 }
 
 func getPrinterDeviceID(dev *gousb.Device) (DeviceID, bool, error) {
 	buf := make([]byte, 1024)
-	isPrinter := false
+
 	for _, cfg := range dev.Desc.Configs {
 		for _, iFace := range cfg.Interfaces {
 			for _, alt := range iFace.AltSettings {
-
-				if alt.Class != gousb.ClassPrinter && alt.Class != gousb.ClassVendorSpec {
+				if alt.Class != gousb.ClassPrinter &&
+					alt.Class != gousb.ClassVendorSpec {
 					continue
 				}
-
 				n, err := dev.Control(
-					0xA1, // IN | CLASS | INTERFACE
-					0x00, // GET_DEVICE_ID
+					0xA1,
+					0x00,
 					0x00,
 					uint16(iFace.Number),
 					buf,
 				)
-
 				if err != nil || n < 2 {
-					logger.Debugf("USB control transfer failed for interface %d: err=%v, n=%d", iFace.Number, err, n)
 					continue
 				}
 
@@ -54,35 +53,38 @@ func getPrinterDeviceID(dev *gousb.Device) (DeviceID, bool, error) {
 					continue
 				}
 
-				strLen := totalLen - 2
-				if strLen > n-2 {
-					strLen = n - 2
+				strLen := min(totalLen-2, n-2)
+				if strLen <= 0 {
+					continue
 				}
 
-				raw := string(buf[2 : 2+strLen])
-				deviceID := _parseDeviceID(raw)
+				raw := sanitizeDeviceID(string(buf[2 : 2+strLen]))
+				deviceID := parseDeviceID(raw)
+
 				if len(deviceID) == 0 {
 					continue
 				}
 
-				if alt.Class == gousb.ClassPrinter {
-					isPrinter = true
-				}
+				isPrinter := alt.Class == gousb.ClassPrinter
 
-				logger.Infof("parsed device ID from interface %d: %v", iFace.Number, deviceID)
+				logger.Infof(
+					"parsed device ID from interface %d: %v",
+					iFace.Number,
+					deviceID,
+				)
+
 				return deviceID, isPrinter, nil
 			}
 		}
 	}
 
-	return nil, isPrinter, fmt.Errorf("device id not found")
+	return DeviceID{}, false, fmt.Errorf("device id not found")
 }
 
-func _parseDeviceID(raw string) DeviceID {
+func parseDeviceID(raw string) DeviceID {
 	result := make(DeviceID)
 
-	parts := strings.Split(raw, ";")
-	for _, part := range parts {
+	for _, part := range strings.Split(raw, ";") {
 		part = strings.TrimSpace(part)
 		if part == "" {
 			continue
@@ -93,25 +95,43 @@ func _parseDeviceID(raw string) DeviceID {
 			continue
 		}
 
-		key := _normalizeKey(kv[0])
+		key := normalizeKey(kv[0])
 		val := strings.TrimSpace(kv[1])
 
-		// Merge values if same canonical key appears multiple times
-		if existing, ok := result[key]; ok {
-			result[key] = existing + "," + val
-		} else {
-			result[key] = val
+		if key == "" || val == "" {
+			continue
 		}
+
+		if existing, ok := result[key]; ok {
+			if !strings.Contains(existing, val) {
+				result[key] = existing + "," + val
+			}
+			continue
+		}
+
+		result[key] = val
 	}
 
 	return result
 }
 
-func _normalizeKey(key string) string {
+func normalizeKey(key string) string {
 	key = strings.ToUpper(strings.TrimSpace(key))
 
-	if v, ok := keyAliases[key]; ok {
-		return v
+	if alias, ok := keyAliases[key]; ok {
+		return alias
 	}
+
 	return key
+}
+
+func sanitizeDeviceID(s string) string {
+	s = strings.ReplaceAll(s, "\x00", "")
+
+	return strings.Map(func(r rune) rune {
+		if unicode.IsPrint(r) {
+			return r
+		}
+		return -1
+	}, s)
 }
