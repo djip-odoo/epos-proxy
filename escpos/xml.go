@@ -22,6 +22,9 @@ func ParseXML(body []byte, psc config.PrinterSettingConfig) ([]byte, error) {
 	if psc.Protocol == "ESCPOS" {
 		return ParseXMLToESCPOS(body)
 	}
+	if psc.Protocol == "TSPL" {
+		return ParseXMLToTSPL(body, psc)
+	}
 	if psc.Protocol == "ESCPOS_COMPAT" {
 		return ParseXMLToRasterImage(body, psc)
 	}

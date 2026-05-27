@@ -32,5 +32,9 @@ func isPrinterDevice(device *gousb.Device) (bool, DeviceID, PrinterProtocol) {
 		return isPrinter, deviceID, ProtocolESCPOS
 	}
 
+	if deviceID.hasCommand("TSPL") {
+		return isPrinter, deviceID,ProtocolTSPL
+	}
+	
 	return isPrinter, deviceID, ProtocolESCPOS_COMPAT
 }

@@ -31,6 +31,7 @@
             <select v-model="selectedProtocol"
               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-odoo focus:border-odoo outline-none">
               <option value="ESCPOS">ESC/POS</option>
+              <option value="TSPL">TSPL</option>
               <option value="ESCPOS_COMPAT">ESC/POS Compatibility Mode</option>
             </select>
 
