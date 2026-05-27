@@ -23,9 +23,7 @@ type AppConfig struct {
 }
 
 func defaults() AppConfig {
-	return AppConfig{
-		Port: 0,
-	}
+	return AppConfig{Port: 0}
 }
 
 type Manager struct {
