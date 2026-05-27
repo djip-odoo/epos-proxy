@@ -273,15 +273,12 @@ func (a *App) DisableAutostart() error {
 	return nil
 }
 
-func (a *App) SetReceiptWidth(width int) error {
-	logger.Infof("SetReceiptWidth called with: %d", width)
-	if err := a.config.SetReceiptWidth(width); err != nil {
-		return err
-	}
-	wailsruntime.MenuSetApplicationMenu(a.ctx, createMenu(a))
-	return nil
+func (a *App) SetPrinterWidth(id string, width int) error {
+	logger.Infof("SetPrinterWidth called with printer ID: %s, width: %s", id, width)
+	return config.SetPrinterWidth(id, width)
 }
 
-func (a *App) GetReceiptWidth() int {
-	return a.config.GetReceiptWidth()
+func (a *App) GetPrinterWidth(id string) int {
+	logger.Debugf("GetPrinterWidth called for printer ID: %s", id)
+	return config.GetPrinterWidth(id)
 }

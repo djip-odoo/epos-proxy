@@ -3,6 +3,7 @@ package printer
 import (
 	"fmt"
 
+	"epos-proxy/config"
 	"epos-proxy/logger"
 
 	"github.com/google/gousb"
@@ -124,8 +125,12 @@ func GetPrinterInfo(ctx *gousb.Context, descToFind *gousb.DeviceDesc) (*Info, er
 		return nil, fmt.Errorf("failed to encode printer ID: %w", err)
 	}
 	info.Id = id
-	return info, nil
 
+	if err := config.AddPrinterIfNotExist(id); err != nil {
+		logger.Errorf("Failed to update printer config: %v", err)
+	}
+
+	return info, nil
 }
 
 func fingerprintKey(desc *gousb.DeviceDesc) string {

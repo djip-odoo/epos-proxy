@@ -2,7 +2,6 @@
   <div>
     <div
         class="w-full max-w-full sm:max-w-md md:max-w-lg lg:max-w-xl bg-white/85 rounded-2xl shadow-lg overflow-hidden px-4 sm:px-6 py-2 sm:py-4">
-      <SettingsDialog @notify="showToast"/>
       <div v-if="printers.length || unavailablePrinters.length" class="p-6">
         <ul class="divide-y divide-gray-300">
 
@@ -98,7 +97,6 @@ import {CheckLANPrinterStatus, ConfirmRemoveLANPrinter, Status} from '../wailsjs
 import {brewSteps, linuxSteps, zadigSteps} from "./modal/fix-step";
 import StepModal from "./modal/step-modal.vue";
 import NetworkIpDialog from "./modal/network-ip-dialog.vue";
-import SettingsDialog from "./modal/settings-dialog.vue";
 import PrinterActions from './components/printer-actions.vue'
 
 const printers = ref([])

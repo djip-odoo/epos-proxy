@@ -30,7 +30,7 @@ type Server struct {
 }
 
 func New(port int, mgr *printer.Manager, cm *config.Manager) *Server {
-	logger.Infof("Width: %d", cm.GetReceiptWidth())
+	logger.Infof("Server initializing on port %d", port)
 	app := fiber.New(fiber.Config{
 		AppName: "ePOS proxy",
 	})
@@ -42,12 +42,12 @@ func New(port int, mgr *printer.Manager, cm *config.Manager) *Server {
 	app.Post("/p/:printerId/cgi-bin/epos/service.cgi", func(ctx fiber.Ctx) error {
 		printerId := ctx.Params("printerId")
 		logger.Debugf("Print request received for printer: %s", printerId)
-		return printData(mgr, ctx, printerId, cm.GetReceiptWidth())
+		return printData(mgr, ctx, printerId)
 	})
 
 	app.Post("/cgi-bin/epos/service.cgi", func(ctx fiber.Ctx) error {
 		logger.Debugf("Print request received (auto printer selection)")
-		return printData(mgr, ctx, "", cm.GetReceiptWidth())
+		return printData(mgr, ctx, "")
 	})
 
 	server := &Server{app: app, Port: port}
@@ -64,8 +64,9 @@ func New(port int, mgr *printer.Manager, cm *config.Manager) *Server {
 	return server
 }
 
-func printData(mgr *printer.Manager, ctx fiber.Ctx, printerID string, receiptWidth int) error {
+func printData(mgr *printer.Manager, ctx fiber.Ctx, printerID string) error {
 	logger.Debugf("Processing print job for printer: %s", printerID)
+	receiptWidth := config.GetPrinterWidth(printerID)
 	jobData, err := escpos.ParseXML(ctx.Body(), receiptWidth)
 	if err != nil {
 		logger.Errorf("XML parsing error: %v", err)
