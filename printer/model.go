@@ -55,10 +55,11 @@ type Printer struct {
 }
 
 type Info struct {
-	ProductName string
-	VendorName  string
-	Serial      string
-	Id          string
+	Id    string
+	Name  string
+	IsLAN bool
+	IP    string
+	Label string
 }
 
 type UnavailableInfo struct {
@@ -81,4 +82,30 @@ type PrinterID struct {
 type Printers struct {
 	Available   []Info
 	Unavailable []UnavailableInfo
+}
+
+type DeviceID map[string]string
+
+type PrinterProtocol int
+
+const (
+	ProtocolUnknown PrinterProtocol = iota
+	ProtocolESCPOS
+)
+
+type LibUsbPrinter struct {
+	Serial   string
+	Path     string
+	Name     string
+	VidPid   string
+	Protocol PrinterProtocol
+}
+
+func (p PrinterProtocol) String() string {
+	switch p {
+	case ProtocolESCPOS:
+		return "ESCPOS"
+	default:
+		return "UNKNOWN"
+	}
 }

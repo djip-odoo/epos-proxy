@@ -14,15 +14,16 @@ const DefaultPrinterWidth = 576
 var ErrPrinterNotFound = errors.New("printer not found")
 
 type PrinterWidthConfig struct {
-	ID    string `json:"id"`
-	Width int    `json:"width"`
+	ID       string `json:"id"`
+	Width    int    `json:"width"`
+	Protocol string `json:"protocol"`
 }
 
 var (
 	printerConfigPath string
 	printerConfigOnce sync.Once
 
-	printerConfigs   map[string]int
+	printerConfigs   map[string]PrinterWidthConfig
 	printerConfigsMu sync.RWMutex
 )
 
@@ -59,7 +60,7 @@ func ensurePrinterConfigsLoaded() error {
 	return loadPrinterConfigsLocked()
 }
 
-func AddPrinterIfNotExist(id string) error {
+func AddPrinterIfNotExist(id string, protocol string) error {
 	if err := ensurePrinterConfigsLoaded(); err != nil {
 		return err
 	}
@@ -71,7 +72,11 @@ func AddPrinterIfNotExist(id string) error {
 		return nil
 	}
 
-	printerConfigs[id] = DefaultPrinterWidth
+	printerConfigs[id] = PrinterWidthConfig{
+		ID:       id,
+		Width:    DefaultPrinterWidth,
+		Protocol: protocol,
+	}
 
 	return savePrinterConfigsLocked()
 }
@@ -88,12 +93,21 @@ func SetPrinterWidth(id string, width int) error {
 	printerConfigsMu.Lock()
 	defer printerConfigsMu.Unlock()
 
-	printerConfigs[id] = width
+	cfg := printerConfigs[id]
+	cfg.Width = width
+	cfg.ID = id
+
+	if cfg.Protocol == "" {
+		cfg.Protocol = "ESCPOS"
+	}
+
+	printerConfigs[id] = cfg
+	logger.Infof("Printer %s width updated to %d with protocol %s", id, width, cfg.Protocol)
 
 	return savePrinterConfigsLocked()
 }
 
-func GetPrinterWidth(id string) (int) {
+func GetPrinterWidth(id string) int {
 	if err := ensurePrinterConfigsLoaded(); err != nil {
 		logger.Warnf("Could not load printer configs: %v", err)
 		return DefaultPrinterWidth
@@ -102,20 +116,20 @@ func GetPrinterWidth(id string) (int) {
 	printerConfigsMu.RLock()
 	defer printerConfigsMu.RUnlock()
 
-	width, exists := printerConfigs[id]
+	cfg, exists := printerConfigs[id]
 	if !exists {
 		logger.Warnf("Printer %s not found, using default width %d", id, DefaultPrinterWidth)
 		return DefaultPrinterWidth
 	}
 
-	return width
+	return cfg.Width
 }
 
 func loadPrinterConfigsLocked() error {
 	data, err := os.ReadFile(printerConfigPath)
 	if os.IsNotExist(err) {
-		printerConfigs = make(map[string]int)
-		return nil
+		printerConfigs = make(map[string]PrinterWidthConfig)
+		return savePrinterConfigsLocked()
 	}
 	if err != nil {
 		return err
@@ -123,17 +137,21 @@ func loadPrinterConfigsLocked() error {
 
 	var configs []PrinterWidthConfig
 	if err := json.Unmarshal(data, &configs); err != nil {
-		return err
+		printerConfigs = make(map[string]PrinterWidthConfig)
+
+		_ = os.Remove(printerConfigPath)
+
+		return savePrinterConfigsLocked()
 	}
 
-	printerConfigs = make(map[string]int, len(configs))
+	printerConfigs = make(map[string]PrinterWidthConfig, len(configs))
 
 	for _, cfg := range configs {
 		if cfg.ID == "" || cfg.Width <= 0 {
 			continue
 		}
 
-		printerConfigs[cfg.ID] = cfg.Width
+		printerConfigs[cfg.ID] = cfg
 	}
 
 	return nil
@@ -142,14 +160,11 @@ func loadPrinterConfigsLocked() error {
 func savePrinterConfigsLocked() error {
 	configs := make([]PrinterWidthConfig, 0, len(printerConfigs))
 
-	for id, width := range printerConfigs {
-		configs = append(configs, PrinterWidthConfig{
-			ID:    id,
-			Width: width,
-		})
+	for _, cfg := range printerConfigs {
+		configs = append(configs, cfg)
 	}
 
-	data, err := json.MarshalIndent(configs, "", "  ")
+	data, err := json.Marshal(configs)
 	if err != nil {
 		return err
 	}
@@ -160,9 +175,11 @@ func savePrinterConfigsLocked() error {
 
 	tmpPath := printerConfigPath + ".tmp"
 
-	if err := os.WriteFile(tmpPath, data, 0644); err != nil {
-		return err
+	if err := os.WriteFile(tmpPath, data, 0644); err == nil {
+		if err := os.Rename(tmpPath, printerConfigPath); err == nil {
+			return nil
+		}
 	}
 
-	return os.Rename(tmpPath, printerConfigPath)
+	return os.WriteFile(printerConfigPath, data, 0644)
 }

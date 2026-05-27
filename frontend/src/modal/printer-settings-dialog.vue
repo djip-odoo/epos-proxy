@@ -169,7 +169,7 @@ async function save() {
       return
     }
 
-    await SetPrinterWidth(props.printer.id, String(width))
+    await SetPrinterWidth(props.printer.id, width)
     emit('notify', 'Printer width updated successfully', 'success')
     close()
   } catch (err) {

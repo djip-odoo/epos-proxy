@@ -75,7 +75,7 @@ func (a *App) shutdown(ctx context.Context) {
 
 type Printer struct {
 	Name   string `json:"name"`
-	Serial string `json:"serial"`
+	Label  string `json:"label"`
 	Ip     string `json:"ip"`
 	Id     string `json:"id"`
 	IsLAN  bool   `json:"isLAN"`
@@ -122,8 +122,8 @@ func (a *App) Status() Status {
 		for _, info := range printerInfos.Available {
 			printers = append(printers, Printer{
 				Id:     info.Id,
-				Name:   info.VendorName + " " + info.ProductName,
-				Serial: info.Serial,
+				Name:   info.Name,
+				Label:  info.Label,
 				Ip:     a.GetPrinterIp(info.Id),
 				Online: true,
 			})
@@ -151,6 +151,7 @@ func (a *App) Status() Status {
 			Ip:    a.GetPrinterIp(info.Id),
 			IsLAN: true,
 			LANIp: info.IP,
+			Label: "IP",
 		})
 	}
 
@@ -274,7 +275,6 @@ func (a *App) DisableAutostart() error {
 }
 
 func (a *App) SetPrinterWidth(id string, width int) error {
-	logger.Infof("SetPrinterWidth called with printer ID: %s, width: %s", id, width)
 	return config.SetPrinterWidth(id, width)
 }
 

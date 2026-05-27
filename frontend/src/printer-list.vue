@@ -10,6 +10,9 @@
             <div class="flex items-center gap-2">
               <span class="w-3 h-3 rounded-full shrink-0" :class="getPrinterStatusClass(printer)"></span>
               <span class="min-w-0 font-medium text-gray-900 break-all flex-1">{{ printer.name }}</span>
+              <span v-if="printer.label" class="px-2 py-1 text-xs font-semibold rounded bg-green-500 text-gray-800">
+                {{ printer.label }}
+              </span>
               <span
                   v-if="printer.isLAN"
                   @click="removeLanPrinter(printer)"
