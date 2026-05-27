@@ -91,6 +91,7 @@ type PrinterProtocol int
 const (
 	ProtocolUnknown PrinterProtocol = iota
 	ProtocolESCPOS
+	ProtocolTSPL
 )
 
 type LibUsbPrinter struct {
@@ -105,6 +106,8 @@ func (p PrinterProtocol) String() string {
 	switch p {
 	case ProtocolESCPOS:
 		return "ESCPOS"
+	case ProtocolTSPL:
+		return "TSPL"
 	default:
 		return "UNKNOWN"
 	}

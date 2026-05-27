@@ -70,16 +70,44 @@ func AddPrinterIfNotExist(id string, protocol string) error {
 	printerConfigsMu.Lock()
 	defer printerConfigsMu.Unlock()
 
-	if _, exists := printerConfigs[id]; exists {
-		return nil
-	}
-
-	printerConfigs[id] = PrinterWidthConfig{
+	defaultCfg := PrinterWidthConfig{
 		ID:            id,
 		Width:         DefaultPrinterWidth,
 		BottomPadding: DefaultPrinterBottomPadding,
 		Protocol:      protocol,
 	}
+
+	existing, exists := printerConfigs[id]
+	if exists {
+		changed := false
+
+		if existing.Protocol != protocol {
+			existing.Protocol = protocol
+			changed = true
+		}
+
+		if existing.Width == 0 {
+			existing.Width = DefaultPrinterWidth
+			changed = true
+		}
+
+		if existing.BottomPadding == 0 {
+			existing.BottomPadding = DefaultPrinterBottomPadding
+			changed = true
+		}
+
+		if !changed {
+			return nil
+		}
+
+		printerConfigs[id] = existing
+
+		logger.Infof("Printer %s updated", id)
+		return savePrinterConfigsLocked()
+	}
+
+	printerConfigs[id] = defaultCfg
+
 	logger.Infof("Printer %s added with protocol %s", id, protocol)
 	return savePrinterConfigsLocked()
 }
