@@ -13,6 +13,7 @@ type PrinterConnectionType int
 const (
 	PrinterTypeUSB PrinterConnectionType = iota
 	PrinterTypeLAN
+	PrinterTypeBluetooth
 )
 
 const (
@@ -50,6 +51,11 @@ type Printer struct {
 	// LAN fields
 	tcpConn net.Conn
 	jobs    chan Job
+	// Bluetooth fields
+	bluetoothMAC string
+	btChannel    int    // 0 = auto-discover
+	btDevPath    string // cached /dev/rfcommX path (Linux only; empty on other platforms)
+	btConn       net.Conn
 }
 
 type Info struct {

@@ -9,6 +9,18 @@ import (
 )
 
 func newPrinter(id string) *Printer {
+	// Check if this is a Bluetooth printer
+	if mac, ok := DecodeBluetoothPrinterID(id); ok {
+		p := &Printer{
+			connectionType: PrinterTypeBluetooth,
+			bluetoothMAC:   mac,
+			jobs:           make(chan Job, QueueSize),
+		}
+		logger.Debugf("Created new Bluetooth printer instance for MAC: %s", mac)
+		go p.loop()
+		return p
+	}
+
 	// Check if this is a LAN printer
 	if lanIP, ok := DecodeLANPrinterID(id); ok {
 		p := &Printer{
@@ -58,6 +70,19 @@ func (p *Printer) Write(data []byte) error {
 
 	logger.Debugf("Writing %d bytes to printer %s", len(data), p.idToString())
 
+	if p.connectionType == PrinterTypeBluetooth {
+		if err := p.btConn.SetWriteDeadline(time.Now().Add(WriteTimeout)); err != nil {
+			p.closeDeviceLocked()
+			return fmt.Errorf("failed to set write deadline for BT printer %s: %w", p.idToString(), err)
+		}
+		if _, err := p.btConn.Write(data); err != nil {
+			p.closeDeviceLocked()
+			return fmt.Errorf("failed to write to BT printer %s: %w", p.idToString(), err)
+		}
+		logger.Debugf("Successfully wrote to BT printer %s", p.idToString())
+		return nil
+	}
+
 	if p.connectionType == PrinterTypeLAN {
 		if err := p.tcpConn.SetWriteDeadline(time.Now().Add(WriteTimeout)); err != nil {
 			p.closeDeviceLocked()
@@ -89,10 +114,40 @@ func (p *Printer) loop() {
 }
 
 func (p *Printer) ensureOpen() error {
-	if p.connectionType == PrinterTypeLAN {
+	switch p.connectionType {
+	case PrinterTypeBluetooth:
+		return p.ensureOpenBluetoothLocked()
+	case PrinterTypeLAN:
 		return p.ensureOpenLANLocked()
+	default:
+		return p.ensureOpenUSBLocked()
 	}
-	return p.ensureOpenUSBLocked()
+}
+
+func (p *Printer) ensureOpenBluetoothLocked() error {
+	if p.btConn != nil {
+		logger.Debugf("BT printer %s already connected", p.idToString())
+		return nil
+	}
+
+	conn, err := dialRFCOMMPlatform(p.bluetoothMAC, p.btChannel)
+	if err != nil {
+		return fmt.Errorf("failed to connect to BT printer %s: %w", p.bluetoothMAC, err)
+	}
+
+	p.btConn = conn
+
+	// Capture device path and channel from the cache if it was updated by dialRFCOMMPlatform.
+	if b, ok := globalRFCOMMCache.get(p.bluetoothMAC); ok {
+		p.btChannel = b.Channel
+		p.btDevPath = b.DevPath
+		logger.Infof("BT printer %s connected via %s (channel %d)",
+			p.bluetoothMAC, b.DevPath, b.Channel)
+	} else {
+		logger.Infof("BT printer %s connected (raw socket)", p.bluetoothMAC)
+	}
+
+	return nil
 }
 
 func (p *Printer) ensureOpenLANLocked() error {
@@ -121,6 +176,15 @@ func (p *Printer) close() {
 }
 
 func (p *Printer) closeDeviceLocked() {
+	if p.connectionType == PrinterTypeBluetooth {
+		if p.btConn != nil {
+			_ = p.btConn.Close()
+			p.btConn = nil
+			logger.Debugf("BT printer %s connection closed", p.idToString())
+		}
+		return
+	}
+
 	if p.connectionType == PrinterTypeLAN {
 		if p.tcpConn != nil {
 			_ = p.tcpConn.Close()
@@ -134,8 +198,11 @@ func (p *Printer) closeDeviceLocked() {
 }
 
 func (p *Printer) idToString() string {
-	if p.connectionType == PrinterTypeLAN {
-		return fmt.Sprintf("LAN:%s", p.lanIP)
+	switch p.connectionType {
+	case PrinterTypeBluetooth:
+		return fmt.Sprintf("BT:%s", p.bluetoothMAC)
+	case PrinterTypeLAN:
+		return fmt.Sprintf("	LAN:%s", p.lanIP)
 	}
 	if p.id != nil {
 		return fmt.Sprintf("USB:%s, %v", p.id.Serial, p.id)

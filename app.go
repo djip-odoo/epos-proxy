@@ -88,6 +88,8 @@ type Printer struct {
 	Id     string `json:"id"`
 	IsLAN  bool   `json:"isLAN"`
 	LANIp  string `json:"lanIp,omitempty"`
+	IsBT   bool   `json:"isBT"`
+	BTMac  string `json:"btMac,omitempty"`
 	Online bool   `json:"online"`
 }
 
@@ -155,6 +157,23 @@ func (a *App) Status() Status {
 			Ip:    a.GetPrinterIp(info.Id),
 			IsLAN: true,
 			LANIp: info.IP,
+		})
+	}
+
+	// Bluetooth printers from config
+	btPrinters := a.config.GetBluetoothPrinters()
+	for _, btCfg := range btPrinters {
+		id := printer.EncodeBluetoothPrinterID(btCfg.MAC)
+		name := btCfg.Name
+		if name == "" {
+			name = fmt.Sprintf("Bluetooth - %s", btCfg.MAC)
+		}
+		printers = append(printers, Printer{
+			Id:    id,
+			Name:  name,
+			Ip:    a.GetPrinterIp(id),
+			IsBT:  true,
+			BTMac: btCfg.MAC,
 		})
 	}
 
@@ -293,6 +312,73 @@ func (a *App) DisableAutostart() error {
 	}
 
 	return nil
+}
+
+// --- Bluetooth printer methods ---
+
+func (a *App) ScanBluetoothPrinters() ([]printer.BluetoothPrinterInfo, error) {
+	logger.Debug("Scanning for Bluetooth devices")
+	devices, err := printer.ScanBluetoothPrinters()
+	if err != nil {
+		logger.Errorf("Bluetooth scan failed: %v", err)
+		return nil, err
+	}
+	result := make([]printer.BluetoothPrinterInfo, len(devices))
+	for i, d := range devices {
+		result[i] = printer.BluetoothPrinterInfo{MAC: d.MAC, Name: d.Name}
+	}
+	return result, nil
+}
+
+func (a *App) AddBluetoothPrinter(mac, name string) error {
+	logger.Debugf("Adding Bluetooth printer: %s (%s)", mac, name)
+	mac = printer.NormalizeMAC(mac)
+	if err := printer.ValidateMAC(mac); err != nil {
+		return err
+	}
+
+	if err := printer.CheckBluetoothPrinter(mac, 0); err != nil {
+		return fmt.Errorf("Bluetooth printer unreachable: %v", err)
+	}
+
+	if err := a.config.AddBluetoothPrinter(mac, name, 0); err != nil {
+		return fmt.Errorf("failed to save Bluetooth printer: %v", err)
+	}
+
+	logger.Infof("Bluetooth printer added: %s (%s)", mac, name)
+	return nil
+}
+
+func (a *App) ConfirmRemoveBluetoothPrinter(mac string) (bool, error) {
+	logger.Debugf("Remove Bluetooth printer requested: %s", mac)
+
+	resultChan := make(chan bool, 1)
+	dialog := application.Get().Dialog.Question().
+		SetTitle("Remove Printer").	
+		SetMessage(fmt.Sprintf("Are you sure you want to remove the Bluetooth printer %s?", mac))
+	dialog.AddButton("Cancel").SetAsCancel().OnClick(func() {
+		resultChan <- false
+	})
+	dialog.AddButton("Confirm").SetAsDefault().OnClick(func() {
+		resultChan <- true
+	})
+	dialog.Show()
+
+	confirmed := <-resultChan
+	if confirmed {
+		if err := a.config.RemoveBluetoothPrinter(mac); err != nil {
+			return false, fmt.Errorf("failed to remove Bluetooth printer: %w", err)
+		}
+		logger.Infof("Bluetooth printer removed successfully: %s", mac)
+		return true, nil
+	}
+	logger.Debugf("Remove Bluetooth printer cancelled")
+	return false, nil
+}
+
+func (a *App) CheckBluetoothPrinterStatus(mac string) bool {
+	logger.Debugf("Checking Bluetooth printer status: %s", mac)
+	return printer.CheckBluetoothPrinter(mac, 0) == nil
 }
 
 func (a *App) SetSupportMode(enabled bool) error {

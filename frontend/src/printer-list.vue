@@ -16,7 +16,13 @@
                 <span class="w-3 h-3 rounded-full shrink-0" :class="getPrinterStatusClass(printer)"></span>
                 <span class="min-w-0 font-medium text-gray-900 break-all flex-1">{{ printer.name }}</span>
                 <span
-                    v-if="printer.isLAN"
+                    v-if="printer.isBT"
+                    @click="removeBluetoothPrinter(printer)"
+                    class="text-gray-600 hover:text-danger cursor-pointer text-xl font-bold"
+                    title="Remove Bluetooth printer"
+                >×</span>
+                <span
+                    v-else-if="printer.isLAN"
                     @click="removeLanPrinter(printer)"
                     class="text-gray-600 hover:text-danger cursor-pointer text-xl font-bold"
                     title="Remove printer"
@@ -66,6 +72,7 @@
   </div>
 
   <NetworkIpDialog @refresh="updatePrinters"/>
+  <BluetoothDialog @refresh="updatePrinters"/>
 </template>
 
 <script setup>
@@ -74,6 +81,7 @@ import {CheckLANPrinterStatus, ConfirmRemoveLANPrinter, Status} from '../binding
 import {brewSteps, linuxSteps, zadigSteps} from "./modal/fix-step";
 import StepModal from "./modal/step-modal.vue";
 import NetworkIpDialog from "./modal/network-ip-dialog.vue";
+import BluetoothDialog from './modal/bluetooth-dialog.vue';
 import FirewallDialog from "./modal/firewall-dialog.vue";
 import PrinterActions from './components/printer-actions.vue'
 import SettingsMenu from './components/settings-menu.vue'
@@ -110,10 +118,13 @@ async function updatePrinters() {
     os.value = res.os
     loading.value = false
 
-    // Check status for each LAN printer
+    // Check status for each LAN and Bluetooth printer
     for (const printer of res.printers) {
       if (printer.isLAN && printer.lanIp) {
         checkLanPrinterStatus(printer.lanIp)
+      }
+      if (printer.isBT && printer.btMac) {
+        checkBtPrinterStatus(printer.btMac)
       }
     }
 
@@ -139,7 +150,30 @@ function checkLanPrinterStatus(ip) {
   })
 }
 
+const btStatus = ref({})
+
+function checkBtPrinterStatus(mac) {
+  const key = `bt:${mac}`
+  if (pendingChecks.value.has(key)) return
+
+  pendingChecks.value.add(key)
+  if (btStatus.value[mac] === undefined) {
+    btStatus.value[mac] = 'loading'
+  }
+  CheckBluetoothPrinterStatus(mac).then((online) => {
+    btStatus.value[mac] = online ? 'online' : 'offline'
+  }).finally(() => {
+    pendingChecks.value.delete(key)
+  })
+}
+
 function getPrinterStatusClass(printer) {
+  if (printer.isBT) {
+    const status = btStatus.value[printer.btMac]
+    if (status === 'online') return 'bg-success'
+    if (status === 'offline') return 'bg-danger'
+    return 'bg-warning'
+  }
   if (!printer.isLAN) {
     return printer.online ? 'bg-success' : 'bg-danger'
   }
