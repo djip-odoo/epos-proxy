@@ -17,9 +17,16 @@ const (
 	PortRangeEnd   = 4555
 )
 
+type BluetoothPrinterConfig struct {
+	MAC     string `json:"mac"`
+	Name    string `json:"name"`
+	Channel int    `json:"channel,omitempty"` // 0 = auto-discover
+}
+
 type AppConfig struct {
-	Port        int      `json:"port"`
-	LANPrinters []string `json:"lan_printers,omitempty"`
+	Port              int                      `json:"port"`
+	LANPrinters       []string                 `json:"lan_printers,omitempty"`
+	BluetoothPrinters []BluetoothPrinterConfig `json:"bluetooth_printers,omitempty"`
 }
 
 func defaults() AppConfig {
