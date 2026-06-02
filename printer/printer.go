@@ -53,12 +53,12 @@ func (p *Printer) Enqueue(fn JobFunc, reply chan JobResult) error {
 }
 
 func (p *Printer) Write(data []byte) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	if err := p.ensureOpen(); err != nil {
 		return err
 	}
 
-	p.mu.Lock()
-	defer p.mu.Unlock()
 	logger.Debugf("Writing %d bytes to printer %s", len(data), p.idToString())
 
 	if p.connectionType == PrinterTypeLAN {
@@ -75,13 +75,20 @@ func (p *Printer) Write(data []byte) error {
 	}
 
 	// USB write
-	ctx, cancel := context.WithTimeout(context.Background(), WriteTimeout)
-	defer cancel()
-	logger.Debugf("Writing to USB printer %s with timeout %v", p.idToString(), WriteTimeout)
+	for len(data) > 0 {
+		size := min(len(data), ChunkSize)
+		logger.Debugf("USB printer %s writing %d bytes", p.idToString(), size)
 
-	if _, err := p.outEndpoint.WriteContext(ctx, data); err != nil {
-		p.closeDeviceLocked()
-		return fmt.Errorf("failed to write to USB printer %s: %w", p.idToString(), err)
+		ctx, cancel := context.WithTimeout(context.Background(), WriteTimeout)
+		_, err := p.outEndpoint.WriteContext(ctx, data[:size])
+		cancel()
+
+		if err != nil {
+			p.closeDeviceLocked()
+			return fmt.Errorf("failed to write %d bytes to USB printer %s: %w", size, p.idToString(), err)
+		}
+
+		data = data[size:]
 	}
 	return nil
 }
@@ -100,9 +107,6 @@ func (p *Printer) loop() {
 	}
 }
 func (p *Printer) ensureOpen() error {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
 	if p.connectionType == PrinterTypeLAN {
 		return p.ensureOpenLANLocked()
 	}
@@ -173,8 +177,8 @@ func (p *Printer) ensureOpenUSBLocked() error {
 			match = true
 		} else if p.id.Serial != "" {
 			match = serial == p.id.Serial
-		} else if p.id.Path != "" {
-			match = pathToString(d.Desc) == p.id.Path
+		} else if p.id.Path != "" && p.id.VidPid != "" {
+			match = pathToString(d.Desc) == p.id.Path && fmt.Sprintf("%04X:%04X", uint16(d.Desc.Vendor), uint16(d.Desc.Product)) == p.id.VidPid
 		}
 
 		if match && target == nil {

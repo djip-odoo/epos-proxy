@@ -65,7 +65,7 @@ func decodePrinterID(id string) (*PrinterID, error) {
 		return nil, ErrInvalidPrinterID
 	}
 
-	logger.Infof("Decoded printer ID: {serial: %s, VidPid: %s, path: %s}", serial, VidPid, path)
+	logger.Infof("Decoded printer ID: %s {serial: %s, VidPid: %s, path: %s}", id, serial, VidPid, path)
 	return &PrinterID{
 		Serial: serial,
 		VidPid: VidPid,

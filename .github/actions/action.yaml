@@ -93,6 +93,9 @@ inputs:
                 description: "Windows Signing Certificate Password"
                 required: false
                 default: ''
+        token:
+                description: "GitHub token"
+                required: true
 
 runs:
         using: "composite"
@@ -278,4 +281,4 @@ runs:
                           files: |
                                   */bin/*
                   env:
-                    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                        GITHUB_TOKEN: ${{ inputs.token }}
