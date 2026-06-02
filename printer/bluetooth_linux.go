@@ -20,22 +20,8 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-const btConnectTimeout = 6 * time.Second
-
-// ---------------------------------------------------------------------------
 // RFCOMM cache — process-level binding cache
 // ---------------------------------------------------------------------------
-
-// rfcommBinding records the state of a bound RFCOMM kernel device.
-type rfcommBinding struct {
-	DevPath string // e.g. "/dev/rfcomm0"
-	Channel int    // RFCOMM channel number
-	Index   int    // numeric index (0 = rfcomm0, 1 = rfcomm1, …)
-}
-
 // rfcommCache maps normalised MAC → binding to avoid repeated rfcomm bind calls.
 type rfcommCache struct {
 	mu      sync.Mutex
@@ -62,24 +48,6 @@ func (c *rfcommCache) set(mac string, b *rfcommBinding) {
 // ---------------------------------------------------------------------------
 // Raw RFCOMM socket (fallback / probe path)
 // ---------------------------------------------------------------------------
-
-// parseMACToBytes converts "AA:BB:CC:DD:EE:FF" → [6]byte in reversed order
-// (little-endian as required by the BlueZ sockaddr).
-func parseMACToBytes(mac string) ([6]byte, error) {
-	parts := strings.Split(strings.ToUpper(mac), ":")
-	if len(parts) != 6 {
-		return [6]byte{}, fmt.Errorf("invalid MAC: %s", mac)
-	}
-	var b [6]byte
-	for i, p := range parts {
-		v, err := strconv.ParseUint(p, 16, 8)
-		if err != nil {
-			return [6]byte{}, fmt.Errorf("invalid MAC octet %q: %w", p, err)
-		}
-		b[5-i] = byte(v) // reversed (little-endian)
-	}
-	return b, nil
-}
 
 // dialRFCOMM opens a Bluetooth RFCOMM socket to the given MAC on the given channel.
 // Returns a net.Conn-compatible value on success.

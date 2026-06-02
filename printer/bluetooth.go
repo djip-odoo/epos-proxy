@@ -3,8 +3,40 @@ package printer
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
+	"time"
 )
+
+// btConnectTimeout is the maximum time allowed for a single RFCOMM connect attempt.
+const btConnectTimeout = 6 * time.Second
+
+// rfcommBinding records the state of a bound (or candidate) RFCOMM device.
+// On Linux the DevPath refers to an actual /dev/rfcommX node;
+// on Darwin/Windows it is used only as a value holder.
+type rfcommBinding struct {
+	DevPath string // e.g. "/dev/rfcomm0"
+	Channel int    // RFCOMM channel number
+	Index   int    // numeric index (0 = rfcomm0, 1 = rfcomm1, …)
+}
+
+// parseMACToBytes converts "AA:BB:CC:DD:EE:FF" → [6]byte in reversed order
+// (little-endian as required by the BlueZ sockaddr_rc).
+func parseMACToBytes(mac string) ([6]byte, error) {
+	parts := strings.Split(strings.ToUpper(mac), ":")
+	if len(parts) != 6 {
+		return [6]byte{}, fmt.Errorf("invalid MAC: %s", mac)
+	}
+	var b [6]byte
+	for i, p := range parts {
+		v, err := strconv.ParseUint(p, 16, 8)
+		if err != nil {
+			return [6]byte{}, fmt.Errorf("invalid MAC octet %q: %w", p, err)
+		}
+		b[5-i] = byte(v) // reversed (little-endian)
+	}
+	return b, nil
+}
 
 // BluetoothPrinterInfo holds discovered information about a Bluetooth printer.
 type BluetoothPrinterInfo struct {
@@ -43,3 +75,4 @@ func CheckBluetoothPrinter(mac string, cachedChannel int) error {
 	_ = conn.Close()
 	return nil
 }
+

@@ -6,10 +6,8 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strconv"
 	"strings"
 	"syscall"
-	"time"
 
 	"epos-proxy/logger"
 
@@ -17,43 +15,8 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// RFCOMM cache stubs (no rfcomm bind on macOS)
-// ---------------------------------------------------------------------------
-
-type rfcommBinding struct {
-	DevPath string
-	Channel int
-	Index   int
-}
-
-type rfcommCache struct{}
-
-var globalRFCOMMCache = &rfcommCache{}
-
-func (c *rfcommCache) get(_ string) (*rfcommBinding, bool) { return nil, false }
-func (c *rfcommCache) set(_ string, _ *rfcommBinding)      {}
-
-// ---------------------------------------------------------------------------
 // Raw RFCOMM socket
 // ---------------------------------------------------------------------------
-
-const btConnectTimeout = 6 * time.Second
-
-func parseMACToBytes(mac string) ([6]byte, error) {
-	parts := strings.Split(strings.ToUpper(mac), ":")
-	if len(parts) != 6 {
-		return [6]byte{}, fmt.Errorf("invalid MAC: %s", mac)
-	}
-	var b [6]byte
-	for i, p := range parts {
-		v, err := strconv.ParseUint(p, 16, 8)
-		if err != nil {
-			return [6]byte{}, fmt.Errorf("invalid MAC octet %q: %w", p, err)
-		}
-		b[5-i] = byte(v)
-	}
-	return b, nil
-}
 
 func dialRFCOMM(mac string, channel int) (net.Conn, error) {
 	mac = NormalizeMAC(mac)

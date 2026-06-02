@@ -26,14 +26,8 @@ func ScanBluetoothPrinters() ([]BluetoothPrinterInfo, error) {
 }
 
 // ---------------------------------------------------------------------------
-// RFCOMM cache / binding stubs
+// RFCOMM cache stubs
 // ---------------------------------------------------------------------------
-
-type rfcommBinding struct {
-	DevPath string
-	Channel int
-	Index   int
-}
 
 type rfcommCache struct{}
 
