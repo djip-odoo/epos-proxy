@@ -291,33 +291,26 @@ func (a *App) DisableAutostart() error {
 
 // --- Bluetooth printer methods ---
 
-// BluetoothDeviceInfo is the frontend-facing representation of a scanned BT device.
-type BluetoothDeviceInfo struct {
-	MAC  string `json:"mac"`
-	Name string `json:"name"`
-}
-
-// ScanBluetoothPrinters scans for nearby/paired Bluetooth devices.
-func (a *App) ScanBluetoothPrinters() ([]BluetoothDeviceInfo, error) {
+func (a *App) ScanBluetoothPrinters() ([]printer.BluetoothPrinterInfo, error) {
 	logger.Debug("Scanning for Bluetooth devices")
 	devices, err := printer.ScanBluetoothPrinters()
 	if err != nil {
 		logger.Errorf("Bluetooth scan failed: %v", err)
 		return nil, err
 	}
-	result := make([]BluetoothDeviceInfo, len(devices))
+	result := make([]printer.BluetoothPrinterInfo, len(devices))
 	for i, d := range devices {
-		result[i] = BluetoothDeviceInfo{MAC: d.MAC, Name: d.Name}
+		result[i] = printer.BluetoothPrinterInfo{MAC: d.MAC, Name: d.Name}
 	}
 	return result, nil
 }
 
-// AddBluetoothPrinter validates, checks reachability, and persists a Bluetooth
-// printer identified by its MAC address.
 func (a *App) AddBluetoothPrinter(mac, name string) error {
 	logger.Debugf("Adding Bluetooth printer: %s (%s)", mac, name)
-
 	mac = printer.NormalizeMAC(mac)
+	if err := printer.ValidateMAC(mac); err != nil {
+		return err
+	}
 
 	if err := printer.CheckBluetoothPrinter(mac, 0); err != nil {
 		return fmt.Errorf("Bluetooth printer unreachable: %v", err)
@@ -331,7 +324,6 @@ func (a *App) AddBluetoothPrinter(mac, name string) error {
 	return nil
 }
 
-// ConfirmRemoveBluetoothPrinter shows a confirmation dialog then removes the printer.
 func (a *App) ConfirmRemoveBluetoothPrinter(mac string) (bool, error) {
 	logger.Debugf("Remove Bluetooth printer requested: %s", mac)
 
@@ -353,7 +345,6 @@ func (a *App) ConfirmRemoveBluetoothPrinter(mac string) (bool, error) {
 	return false, nil
 }
 
-// CheckBluetoothPrinterStatus returns true if the Bluetooth printer is reachable.
 func (a *App) CheckBluetoothPrinterStatus(mac string) bool {
 	logger.Debugf("Checking Bluetooth printer status: %s", mac)
 	return printer.CheckBluetoothPrinter(mac, 0) == nil

@@ -15,9 +15,9 @@ func newPrinter(id string) *Printer {
 	// Check if this is a Bluetooth printer
 	if mac, ok := DecodeBluetoothPrinterID(id); ok {
 		p := &Printer{
-			connectionType:  PrinterTypeBluetooth,
-			bluetoothMAC: mac,
-			jobs:         make(chan Job, QueueSize),
+			connectionType: PrinterTypeBluetooth,
+			bluetoothMAC:   mac,
+			jobs:           make(chan Job, QueueSize),
 		}
 		logger.Debugf("Created new Bluetooth printer instance for MAC: %s", mac)
 		go p.loop()

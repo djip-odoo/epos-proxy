@@ -321,6 +321,7 @@ func sdpDiscoverLinux(mac string) (int, error) {
 // On Linux it routes through the RFCOMM device binding path (rfcomm_linux.go).
 // On other Unix systems it falls back directly to the raw RFCOMM socket.
 func dialRFCOMMPlatform(mac string, cachedChannel int) (net.Conn, error) {
+	logger.Infof("bluetooth unix")
 	if runtime.GOOS == "linux" {
 		return dialRFCOMMLinux(mac, cachedChannel)
 	}
