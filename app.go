@@ -74,7 +74,6 @@ func (a *App) shutdown(ctx context.Context) {
 
 type Printer struct {
 	Name   string `json:"name"`
-	Serial string `json:"serial"`
 	Ip     string `json:"ip"`
 	Id     string `json:"id"`
 	IsLAN  bool   `json:"isLAN"`
@@ -121,8 +120,7 @@ func (a *App) Status() Status {
 		for _, info := range printerInfos.Available {
 			printers = append(printers, Printer{
 				Id:     info.Id,
-				Name:   info.VendorName + " " + info.ProductName,
-				Serial: info.Serial,
+				Name:   info.Name,
 				Ip:     a.GetPrinterIp(info.Id),
 				Online: true,
 			})
@@ -176,7 +174,7 @@ func (a *App) AddLANPrinter(ip string) error {
 		return fmt.Errorf("LAN printer unreachable: %s, error: %v", ip, err)
 	}
 
-	if err := a.config.AddLANPrinter(ip); err != nil {
+	if err := a.config.AddLanEposPrinter(ip); err != nil {
 		return fmt.Errorf("failed to save LAN printer: %s, error: %v", ip, err)
 	}
 
@@ -201,8 +199,10 @@ func (a *App) ConfirmRemoveLANPrinter(ip string) (bool, error) {
 		return false, fmt.Errorf("failed to show confirmation dialog: %w", err)
 	}
 	if result == "Confirm" || result == "Yes" {
-		err := a.config.RemoveLANPrinter(ip)
-		return true, fmt.Errorf("Error removing LAN printer: %s, error: %v", ip, err)
+		if err := a.config.RemoveLANPrinter(ip); err != nil {
+			return false, fmt.Errorf("failed to remove LAN printer: %w", err)
+		}
+		return true, nil
 	}
 	logger.Infof("Remove LAN printer cancelled, Remove printer dialog result: %s", result)
 	return false, nil

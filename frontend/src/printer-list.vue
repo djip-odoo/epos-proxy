@@ -19,19 +19,7 @@
               >×</span>
             </div>
             <div class="text-slate-600 mt-2 text-sm break-all">{{ printer.ip }}</div>
-            <div class="flex gap-2 mt-4 flex-wrap">
-              <button
-                  @click="copyPrinterIp(printer)"
-                  class="flex-1 border text-sm  rounded-lg px-3 py-2 cursor-pointer whitespace-nowrap"
-                  :class="copiedIds[printer.id] ? 'bg-success text-white' : 'bg-odoo text-white hover:bg-odoo-dark'">
-                {{ copiedIds[printer.id] ? '✓ Copied!' : 'Copy IP' }}
-              </button>
-              <button
-                  @click="testPrint(printer)"
-                  class="flex-1 border rounded-lg text-sm px-3 py-2 cursor-pointer border-stone-300 text-stone-600 hover:bg-stone-50 hover:border-stone-400"
-              >Test
-              </button>
-            </div>
+            <PrinterActions :printer="printer" @notify="showToast" />
           </li>
 
           <li v-for="printer in unavailablePrinters" :key="printer.name"
@@ -80,7 +68,7 @@
     </div>
   </div>
 
-  <NetworkIpDialog :show="showAddDialog" @close="onNetworkDialogClose"/>
+  <NetworkIpDialog :show="showAddDialog" @close="onNetworkDialogClose" @notify="showToast"/>
 
   <teleport to="body">
     <transition
@@ -108,12 +96,12 @@ import {CheckLANPrinterStatus, ConfirmRemoveLANPrinter, Status} from '../wailsjs
 import {brewSteps, linuxSteps, zadigSteps} from "./modal/fix-step";
 import StepModal from "./modal/step-modal.vue";
 import NetworkIpDialog from "./modal/network-ip-dialog.vue";
+import PrinterActions from './components/printer-actions.vue'
 
 const printers = ref([])
 const unavailablePrinters = ref([])
 const errorMsg = ref(null)
 const loading = ref(true)
-const copiedIds = ref({})
 const lanStatus = ref({})
 const pendingChecks = ref(new Set())
 const showFixModal = ref(false)
@@ -124,19 +112,18 @@ const toast = ref({ show: false, message: '', type: 'success' })
 
 let toastTimeout = null
 let intervalId = null
-let isTabVisible = true
 let isUpdating = false
 
-const handleVisibilityChange = () => {
-  isTabVisible = !document.hidden
-  if (isTabVisible) updatePrinters()
-}
+const handleVisibilityChange = () => document.hidden ? stopPolling() : startPolling()
+const handleFocus = () => startPolling();
+const handleBlur = () => stopPolling();
 
-function updatePrinters() {
+async function updatePrinters() {
   if (isUpdating) return
 
   isUpdating = true
-  Status().then((res) => {
+  try {
+    const res = await Status()
     printers.value = res.printers
     unavailablePrinters.value = res.unavailablePrinters
     errorMsg.value = res.errorMsg
@@ -149,9 +136,13 @@ function updatePrinters() {
         checkLanPrinterStatus(printer.lanIp)
       }
     }
-  }).finally(() => {
+
+  } catch (error) {
+    console.error('Failed to update printers:', error)
+    errorMsg.value = 'Failed to retrieve printer status. Please try again.'
+  } finally {
     isUpdating = false
-  })
+  }
 }
 
 function checkLanPrinterStatus(ip) {
@@ -179,18 +170,31 @@ function getPrinterStatusClass(printer) {
 }
 
 onMounted(() => {
-  isTabVisible = true
   document.addEventListener('visibilitychange', handleVisibilityChange)
-  updatePrinters()
-  intervalId = setInterval(() => {
-    if (isTabVisible) updatePrinters()
-  }, 5000)
+  window.addEventListener('focus', handleFocus)
+  window.addEventListener('blur', handleBlur)
+
+  if (!document.hidden) startPolling()
 })
 
 onUnmounted(() => {
-  clearInterval(intervalId)
+  stopPolling()
   document.removeEventListener('visibilitychange', handleVisibilityChange)
+  window.removeEventListener('focus', handleFocus)
+  window.removeEventListener('blur', handleBlur)
 })
+
+const startPolling = () => {
+  if (intervalId) return
+  updatePrinters()
+  intervalId = setInterval(updatePrinters, 5000)
+}
+
+const stopPolling = () => {
+  if (!intervalId) return
+  clearInterval(intervalId)
+  intervalId = null
+}
 
 const fixSteps = computed(() => {
   if (!showFixModal.value) {
@@ -202,16 +206,6 @@ const fixSteps = computed(() => {
   if (isLinux()) return linuxSteps(fixPrinterName.value)
   return []
 })
-
-async function copyPrinterIp(printer) {
-  try {
-    await navigator.clipboard.writeText(printer.ip)
-    copiedIds.value[printer.id] = true
-    setTimeout(() => copiedIds.value[printer.id] = false, 2000)
-  } catch (err) {
-    console.error('Copy failed:', err)
-  }
-}
 
 function hasLibUsbErrorFix(error="") {
   return error.toLowerCase().includes('libusb')
@@ -257,51 +251,18 @@ function showToast(message, type = 'success') {
   }, type === 'success' ? 2000: 3000)
 }
 
-async function testPrint(printer) {
-  try {
-    const response = await fetch(`http://${printer.ip}/cgi-bin/epos/service.cgi`, {
-      method: 'POST',
-      body: `<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
-        <s:Body>
-          <epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">
-            <feed line="1" />
-            <text font="font_e" em="true"/>
-            <text align="center">This is a test receipt ${printer.name}</text>
-            <feed line="10" />
-            <cut type="feed" />
-          </epos-print>
-        </s:Body>
-      </s:Envelope>`
-    })
-    if (!response.ok) throw new Error('Network response was not ok')
-
-    const xml = await response.text()
-    const parser = new DOMParser()
-    const doc = parser.parseFromString(xml, 'text/xml')
-    const responseEl = doc.querySelector('response')
-
-    if (responseEl?.getAttribute('success') !== 'true') {
-      const code = responseEl?.getAttribute('code') || 'Unknown error'
-      if(code === 'EX_BADPORT'){
-        throw new Error('The device is not connected, please check the printer power / connection')
-      }
-      throw new Error(code)
-    }
-
-    showToast(`Test print sent`, 'success')
-  } catch (err) {
-    showToast(`Test failed: ${err.message}`, 'error')
-  }
-}
-
 async function removeLanPrinter(printer) {
   if (!printer.lanIp) return
 
   try {
     const removed = await ConfirmRemoveLANPrinter(printer.lanIp)
-    if (removed) updatePrinters()
+    if (removed) {
+      updatePrinters()
+      showToast('Printer removed successfully', 'success')
+    }
   } catch (err) {
     console.error('Failed to remove LAN printer:', err)
+    showToast('Failed to remove printer', 'danger')
   }
 }
 
