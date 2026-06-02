@@ -20,7 +20,7 @@ var knownPrinterVIDPID = map[string]struct{}{
 	"0483:5720": {}, // STMicroelectronics
 }
 
-func isPrinterDevice(device *gousb.Device) (bool, DeviceID) {
+func isPrinterDevice(device *gousb.Device) (bool, DeviceID, PrinterProtocol) {
 	deviceID, usbPrinterClass, _ := getPrinterDeviceID(device)
 	isPrinter := usbPrinterClass || strings.Contains(deviceID["CLS"], "PRINTER")
 
@@ -28,6 +28,9 @@ func isPrinterDevice(device *gousb.Device) (bool, DeviceID) {
 	if _, ok := knownPrinterVIDPID[vidPid]; ok {
 		isPrinter = true
 	}
+	if deviceID.hasCommand("ESCPOS") {
+		return isPrinter, deviceID, ProtocolESCPOS
+	}
 
-	return isPrinter, deviceID
+	return isPrinter, deviceID, ProtocolESCPOS_COMPAT
 }

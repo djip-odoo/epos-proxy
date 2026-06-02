@@ -35,13 +35,6 @@ func NewApp() *App {
 		Exec:        []string{os.Args[0]},
 	}
 
-	return a
-}
-
-func (a *App) startup(ctx context.Context) {
-	a.ctx = ctx
-	logger.Debugf("Application startup")
-
 	cfg, err := config.NewManager()
 	if err != nil {
 		logger.Fatalf("Config initialization failed: %v", err)
@@ -51,17 +44,25 @@ func (a *App) startup(ctx context.Context) {
 		logger.Warnf("Config load warning: %v", err)
 	}
 
-	logger.Debugf("Config loaded from %s", cfg.Path())
-
 	a.config = cfg
+
+	return a
+}
+
+func (a *App) startup(ctx context.Context) {
+	a.ctx = ctx
+	logger.Debugf("Application startup")
+
+	logger.Debugf("Config loaded from %s", a.config.Path())
+
 	a.printerManager = printer.NewManager()
 
-	port, err := cfg.ResolvePort()
+	port, err := a.config.ResolvePort()
 	if err != nil {
 		logger.Warn("Unable to resolve port, using default")
 	}
 
-	a.webserver = server.New(port, a.printerManager)
+	a.webserver = server.New(port, a.printerManager, a.config)
 }
 
 func (a *App) shutdown(ctx context.Context) {
@@ -269,4 +270,12 @@ func (a *App) DisableAutostart() error {
 	}
 
 	return nil
+}
+
+func (a *App) SetPrinterSetting(id string, width int, bottomPadding int, protocol string) error {
+	return config.SetPrinterSetting(id, width, bottomPadding, protocol)
+}
+
+func (a *App) GetPrinterSetting(id string) config.PrinterSettingConfig {
+	return config.GetPrinterSetting(id)
 }
