@@ -1,6 +1,7 @@
 package main
 
 import (
+	"epos-proxy/buildinfo"
 	"epos-proxy/logger"
 
 	"github.com/wailsapp/wails/v2/pkg/menu"
@@ -17,6 +18,10 @@ func createMenu(app *App) *menu.Menu {
 
 	appMenu.AddCheckbox("Auto Start", app.IsAutostartEnabled(), nil, func(cb *menu.CallbackData) {
 		handleAutoStartToggle(app, cb)
+	})
+
+	appMenu.AddText("About", nil, func(_ *menu.CallbackData) {
+		showAboutDialog(app)
 	})
 
 	appMenu.AddText("Quit", nil, func(_ *menu.CallbackData) {
@@ -65,4 +70,16 @@ func (app *App) ConfirmQuit() bool {
 
 	logger.Debug("Confirmed quit action")
 	return true
+}
+
+func showAboutDialog(app *App) {
+	_, err := wailsruntime.MessageDialog(app.ctx, wailsruntime.MessageDialogOptions{
+		Type:    wailsruntime.InfoDialog,
+		Title:   "About Printer Manager",
+		Message: buildinfo.GetVersionInfo() + "\nProxy ID: " + app.config.Data.ProxyId,
+	})
+
+	if err != nil {
+		logger.Errorf("Failed to show about dialog: %v", err)
+	}
 }

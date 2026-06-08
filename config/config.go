@@ -1,12 +1,15 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 )
 
@@ -20,12 +23,24 @@ const (
 type AppConfig struct {
 	Port        int      `json:"port"`
 	LANPrinters []string `json:"lan_printers,omitempty"`
+
+	ProxyId string `json:"proxy_id"`
+	OS      string `json:"os"`
+	Arch    string `json:"arch"`
 }
 
 func defaults() AppConfig {
-	return AppConfig{Port: 0}
+	return AppConfig{Port: 0, OS: runtime.GOOS, Arch: runtime.GOARCH, ProxyId: generateProxyID()}
 }
 
+// generates a random string of 16 bytes in hex format
+func generateProxyID() string {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		panic(err)
+	}
+	return hex.EncodeToString(b)
+}
 type Manager struct {
 	mu   sync.RWMutex
 	path string
