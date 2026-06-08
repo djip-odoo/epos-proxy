@@ -38,6 +38,21 @@
               Printer communication protocol
             </div>
           </div>
+          <div class="mb-5">
+            <div class="text-sm font-medium text-gray-700 mb-3">
+              Cash Drawer Pin
+            </div>
+
+            <select v-model="selectedCashDrawerPin"
+              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-odoo focus:border-odoo outline-none">
+              <option :value="0">Pin 2 (Default)</option>
+              <option :value="1">Pin 5</option>
+            </select>
+
+            <div class="text-xs text-gray-500 mt-2">
+              Pin used to send the cash drawer opening pulse signal.
+            </div>
+          </div>
           <div class="mb-5" v-if="selectedProtocol !== 'ESCPOS'">
             <div class="text-sm font-medium text-gray-700 mb-3">
               Receipt Width
@@ -161,14 +176,16 @@ const loading = ref(false)
 
 const bottomPadding = ref(0)
 const selectedProtocol = ref('ESCPOS')
+const selectedCashDrawerPin = ref(0)
 
 watch(() => showSettings.value, async (newVal) => {
   if (newVal && props.printer?.id) {
     error.value = null
     loading.value = true
     try {
-      const { width, bottom_padding, protocol } = await GetPrinterSetting(props.printer.id)
+      const { width, bottom_padding, protocol, cash_drawer_pin } = await GetPrinterSetting(props.printer.id)
       bottomPadding.value = bottom_padding
+      selectedCashDrawerPin.value = cash_drawer_pin !== undefined ? cash_drawer_pin : 0
       if (protocol) {
         selectedProtocol.value = protocol
       } else {
@@ -211,7 +228,7 @@ async function save() {
       return
     }
 
-    await SetPrinterSetting(props.printer.id, width, bottomPadding.value, selectedProtocol.value)
+    await SetPrinterSetting(props.printer.id, width, bottomPadding.value, selectedProtocol.value, selectedCashDrawerPin.value)
     notify('Printer settings updated successfully', 'success')
     close()
   } catch (err) {

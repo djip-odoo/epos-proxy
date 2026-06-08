@@ -272,8 +272,8 @@ func (a *App) DisableAutostart() error {
 	return nil
 }
 
-func (a *App) SetPrinterSetting(id string, width int, bottomPadding int, protocol string) error {
-	return config.SetPrinterSetting(id, width, bottomPadding, protocol)
+func (a *App) SetPrinterSetting(id string, width int, bottomPadding int, protocol string, cashDrawerPin int) error {
+	return config.SetPrinterSetting(id, width, bottomPadding, protocol, cashDrawerPin)
 }
 
 func (a *App) GetPrinterSetting(id string) config.PrinterSettingConfig {

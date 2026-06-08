@@ -21,6 +21,7 @@ type PrinterSettingConfig struct {
 	Protocol      string            `json:"protocol"`
 	VidPid        string            `json:"vid_pid,omitempty"`
 	DeviceID      map[string]string `json:"device_id,omitempty"`
+	CashDrawerPin int               `json:"cash_drawer_pin"`
 }
 
 var (
@@ -126,7 +127,7 @@ func AddPrinterIfNotExist(id string, protocol string, vidpid string, deviceid ma
 	return savePrinterConfigsLocked()
 }
 
-func SetPrinterSetting(id string, width int, bottomPadding int, protocol string) error {
+func SetPrinterSetting(id string, width int, bottomPadding int, protocol string, cashDrawerPin int) error {
 	if width <= 0 {
 		return errors.New("printer width must be greater than 0")
 	}
@@ -146,9 +147,10 @@ func SetPrinterSetting(id string, width int, bottomPadding int, protocol string)
 	cfg.BottomPadding = bottomPadding
 	cfg.Protocol = protocol
 	cfg.ID = id
+	cfg.CashDrawerPin = cashDrawerPin
 
 	printerConfigs[id] = cfg
-	logger.Infof("Printer %s width updated to %d with protocol %s", id, cfg.Width, cfg.Protocol)
+	logger.Infof("Printer %s updated: width %d, protocol %s, cash drawer pin %d", id, cfg.Width, cfg.Protocol, cfg.CashDrawerPin)
 
 	return savePrinterConfigsLocked()
 }
