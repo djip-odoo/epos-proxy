@@ -16,11 +16,13 @@
       {{ isCashDrawerOpening ? 'Opening...' : 'Cash Drawer' }}
     </button>
 
+    <PrinterSettingsDialog :printer="printer" />
   </div>
 </template>
 <script setup>
 import { ref } from 'vue'
 import { executePrint, copyPrinterFieldValue } from "./printer-actions.js"
+import PrinterSettingsDialog from '../modal/printer-settings-dialog.vue'
 import { useToast } from '../hooks/useToast.js'
 
 const props = defineProps({

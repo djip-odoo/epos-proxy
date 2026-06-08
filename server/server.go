@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync/atomic"
 
+	"epos-proxy/config"
 	"epos-proxy/escpos"
 	"epos-proxy/logger"
 	"epos-proxy/printer"
@@ -25,9 +26,11 @@ type Server struct {
 	app     *fiber.App
 	Port    int
 	running atomic.Bool
+	config  *config.Manager
 }
 
-func New(port int, mgr *printer.Manager) *Server {
+func New(port int, mgr *printer.Manager, cm *config.Manager) *Server {
+	logger.Infof("Server initializing on port %d", port)
 	app := fiber.New(fiber.Config{
 		AppName: "ePOS proxy",
 	})
@@ -63,7 +66,8 @@ func New(port int, mgr *printer.Manager) *Server {
 
 func printData(mgr *printer.Manager, ctx fiber.Ctx, printerID string) error {
 	logger.Debugf("Processing print job for printer: %s", printerID)
-	jobData, err := escpos.ParseXML(ctx.Body())
+	psc := config.GetPrinterSetting(printerID)
+	jobData, err := escpos.ParseXML(ctx.Body(), psc)
 	if err != nil {
 		logger.Errorf("XML parsing error: %v", err)
 		return ctx.XML(EPOSResponse{Success: false, Code: "SchemaError", Status: ""})
