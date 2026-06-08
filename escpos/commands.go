@@ -5,6 +5,13 @@ import (
 	"fmt"
 )
 
+type CashDrawerPin byte
+
+const (
+	Pin2 CashDrawerPin = 0
+	Pin5 CashDrawerPin = 1
+)
+
 const (
 	ESC byte = 0x1B
 	GS  byte = 0x1D
@@ -17,11 +24,13 @@ var (
 	// CmdCut full paper cut.
 	CmdCut = []byte{GS, 0x56, 0x41, LF}
 
-	CmdPulse = []byte{0x1B, 0x70, 0x00, 0x19, 0xFA}
-
 	// CmdInit Resets the printer to its default state.
 	CmdInit = []byte{ESC, 0x40}
 )
+
+func CmdPulse(pin CashDrawerPin) []byte {
+	return []byte{GS, 0x70, byte(pin), 0x19, 0x78}
+}
 
 type TextAttrs struct {
 	Align        string // "left" | "center" | "right"

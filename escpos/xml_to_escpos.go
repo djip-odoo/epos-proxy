@@ -2,11 +2,12 @@ package escpos
 
 import (
 	"encoding/xml"
+	"epos-proxy/config"
 	"fmt"
 	"strings"
 )
 
-func ParseXMLToESCPOS(body []byte) ([]byte, error) {
+func ParseXMLToESCPOS(body []byte, psc config.PrinterSettingConfig) ([]byte, error) {
 	s := string(body)
 	start := strings.Index(s, "<epos-print")
 	end := strings.LastIndex(s, "</epos-print>")
@@ -40,7 +41,7 @@ func ParseXMLToESCPOS(body []byte) ([]byte, error) {
 			job = append(job, CmdCut...)
 
 		case "pulse":
-			job = append(job, CmdPulse...)
+			job = append(job, CmdPulse(CashDrawerPin(psc.CashDrawerPin))...)
 
 		case "image":
 			imgAttrs := ImageAttrs{

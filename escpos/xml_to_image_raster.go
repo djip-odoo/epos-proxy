@@ -35,11 +35,30 @@ func ParseXMLToRasterImage(body []byte, setting config.PrinterSettingConfig) ([]
 		return nil, fmt.Errorf("XML parse error: %w", err)
 	}
 
+	if HasPulseOnly(ep.Items) {
+		return PulseCommand(CashDrawerPin(setting.CashDrawerPin)), nil
+	}
+
 	img, err := renderReceipt(ep.Items, setting.Width, setting.BottomPadding)
 	if err != nil {
 		return nil, err
 	}
+
 	return imageToEscPosBytes(img, setting.Width)
+}
+
+func HasPulseOnly(items []XmlRawItem) bool {
+	if len(items) != 1 {
+		return false
+	}
+
+	return strings.EqualFold(items[0].XMLName.Local, "pulse")
+}
+
+func PulseCommand(pin CashDrawerPin) []byte {
+	return []byte{
+		0x1B, 0x70, byte(pin), 0x19, 0xFA,
+	}
 }
 
 func renderReceipt(items []XmlRawItem, targetWidth int, bottomPadding int) (image.Image, error) {
