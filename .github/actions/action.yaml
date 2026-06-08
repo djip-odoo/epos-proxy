@@ -155,13 +155,13 @@ runs:
                 - name: Build App
                   if: inputs.build == 'true' && runner.os == 'macOS'
                   working-directory: ${{ inputs.app-working-directory }}
-                  run: wails build --platform ${{inputs.build-platform}} -o ${{inputs.build-name}}
+                  run: wails build --platform ${{inputs.build-platform}} -o ${{inputs.build-name}} -ldflags "-X 'buildinfo.Version=${VERSION}' -X 'buildinfo.BuildTime=${BUILD_TIME}' -X 'buildinfo.Commit=${COMMIT}'"
                   shell: bash
                 - name: Build App
                   if: inputs.build == 'true' &&  runner.os == 'Linux'
                   working-directory: ${{ inputs.app-working-directory }}
                   # -tags webkit2_41 https://wails.io/docs/gettingstarted/building/
-                  run: wails build --platform ${{inputs.build-platform}} -tags webkit2_41 -webview2 ${{inputs.wails-build-webview2}} -o ${{inputs.build-name}}
+                  run: wails build --platform ${{inputs.build-platform}} -tags webkit2_41 -webview2 ${{inputs.wails-build-webview2}} -ldflags "-X 'buildinfo.Version=${VERSION}' -X 'buildinfo.BuildTime=${BUILD_TIME}' -X 'buildinfo.Commit=${COMMIT}'" -o ${{inputs.build-name}}
                   shell: bash
 
                 - name: Get Go path
@@ -177,6 +177,7 @@ runs:
                     export PATH="$PATH:/c/Users/runneradmin/go/bin:$GO_BIN:/c/Program Files/nodejs"
                     wails build --platform ${{inputs.build-platform}} \
                       -webview2 ${{inputs.wails-build-webview2}} \
+                      -ldflags "-X 'buildinfo.Version=${VERSION}' -X 'buildinfo.BuildTime=${BUILD_TIME}' -X 'buildinfo.Commit=${COMMIT}'" \
                       -nsis \
                       -o ${{inputs.build-name}}
                     mv build/bin/*-installer.exe build/bin/${{inputs.build-name}}-installer.exe
