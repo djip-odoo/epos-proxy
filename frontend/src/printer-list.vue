@@ -2,8 +2,8 @@
   <div>
     <div
         class="w-full max-w-full sm:max-w-md md:max-w-lg lg:max-w-xl bg-white/85 rounded-2xl shadow-lg overflow-hidden px-4 sm:px-6 py-2 sm:py-4">
-
-      <div v-if="printers.length || unavailablePrinters.length" class="p-6">
+      <LanAccessDialog/>
+      <div v-if="printers.length" class="p-6 overflow-y-auto max-h-[60vh]">
         <ul class="divide-y divide-gray-300">
 
           <li v-for="printer in printers" :key="printer.id" class="text-left first:pt-0 py-6 last:pb-0 relative">
@@ -77,6 +77,7 @@ import {CheckLANPrinterStatus, ConfirmRemoveLANPrinter, Status} from '../wailsjs
 import {brewSteps, linuxSteps, zadigSteps} from "./modal/fix-step";
 import StepModal from "./modal/step-modal.vue";
 import NetworkIpDialog from "./modal/network-ip-dialog.vue";
+import LanAccessDialog from "./modal/lan-access-dialog.vue";
 import PrinterActions from './components/printer-actions.vue'
 import { useToast } from './hooks/useToast.js'
 
@@ -157,6 +158,7 @@ onMounted(() => {
   window.addEventListener('blur', handleBlur)
 
   if (!document.hidden) startPolling()
+  if (document.hasFocus()) startPolling();
 })
 
 onUnmounted(() => {
