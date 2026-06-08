@@ -5,6 +5,13 @@ import (
 	"fmt"
 )
 
+type CashDrawerPin byte
+
+const (
+	Pin2 CashDrawerPin = 0
+	Pin5 CashDrawerPin = 1
+)
+
 const (
 	ESC byte = 0x1B
 	GS  byte = 0x1D
