@@ -129,7 +129,7 @@ func GetPrinterInfo(ctx *gousb.Context, descToFind *gousb.DeviceDesc) (*LibUsbPr
 	}
 
 	info.Name = fmt.Sprintf("%s %s", vendorName, productName)
-	info.Serial = serial
+	info.Serial = verifySerial(serial)
 	info.Path = pathToString(descToFind)
 	info.VidPid = fmt.Sprintf("%04X:%04X", uint16(descToFind.Vendor), uint16(descToFind.Product))
 	info.DeviceId = deviceID
@@ -178,4 +178,19 @@ func matchBulkOutEndpoint(alt gousb.InterfaceSetting) (int, bool) {
 		}
 	}
 	return 0, false
+}
+
+func verifySerial(serial string) string {
+	if serial == "" {
+		return ""
+	}
+
+	for _, r := range serial {
+		// Reject control characters, including NUL (0x00)
+		if r < 32 || r == 127 {
+			return ""
+		}
+	}
+
+	return serial
 }
