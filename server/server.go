@@ -29,7 +29,7 @@ type Server struct {
 	config  *config.Manager
 }
 
-func New(port int, mgr *printer.Manager, cm *config.Manager) *Server {
+func New(port int, host string, mgr *printer.Manager) *Server {
 	logger.Infof("Server initializing on port %d", port)
 	app := fiber.New(fiber.Config{
 		AppName: "ePOS proxy",
@@ -53,8 +53,9 @@ func New(port int, mgr *printer.Manager, cm *config.Manager) *Server {
 	server := &Server{app: app, Port: port}
 	server.running.Store(true)
 	go func() {
-		logger.Infof("HTTP server listening on 0.0.0.0:%d", port)
-		err := app.Listen(fmt.Sprintf("0.0.0.0:%d", port))
+		bindAddr := fmt.Sprintf("%s:%d", host, port)
+		logger.Infof("HTTP server listening on %s", bindAddr)
+		err := app.Listen(bindAddr)
 		if err != nil {
 			logger.Error("EPOS Server Error: ", err)
 		}

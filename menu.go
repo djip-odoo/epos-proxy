@@ -19,6 +19,11 @@ func createMenu(app *App) *menu.Menu {
 		handleAutoStartToggle(app, cb)
 	})
 
+	appMenu.AddText("LAN Access", nil, func(_ *menu.CallbackData) {
+		logger.Infof("LAN Access menu item clicked")
+		wailsruntime.EventsEmit(app.ctx, "open-lan-settings")
+	})
+
 	appMenu.AddText("Quit", nil, func(_ *menu.CallbackData) {
 		logger.Infof("Quit requested by user")
 		wailsruntime.Quit(app.ctx)

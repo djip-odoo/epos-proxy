@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+
+	"github.com/google/uuid"
 )
 
 const AppName = "EposProxy"
@@ -18,8 +20,10 @@ const (
 )
 
 type AppConfig struct {
-	Port        int      `json:"port"`
-	LANPrinters []string `json:"lan_printers,omitempty"`
+	Port             int      `json:"port"`
+	ProxyId          string   `json:"proxy_id"`
+	LANPrinters      []string `json:"lan_printers,omitempty"`
+	LANAccessEnabled bool     `json:"lan_access_enabled"`
 }
 
 func defaults() AppConfig {
@@ -63,8 +67,11 @@ func (cm *Manager) Load() error {
 
 	data, err := os.ReadFile(cm.path)
 	if os.IsNotExist(err) {
-		return nil
+		cm.Data = defaults()
+		cm.Data.ProxyId = uuid.NewString()
+		return cm.saveLocked()
 	}
+
 	if err != nil {
 		return fmt.Errorf("config read error: %w", err)
 	}

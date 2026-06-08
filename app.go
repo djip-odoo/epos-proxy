@@ -62,15 +62,38 @@ func (a *App) startup(ctx context.Context) {
 		logger.Warn("Unable to resolve port, using default")
 	}
 
-	a.webserver = server.New(port, a.printerManager, a.config)
+	host := "127.0.0.1"
+	if a.config.Data.LANAccessEnabled {
+		host = "0.0.0.0"
+	}
+
+	a.webserver = server.New(port, host, a.printerManager)
 }
 
 func (a *App) shutdown(ctx context.Context) {
 	logger.Infof("Stopping proxy server")
 
-	if err := a.webserver.Stop(); err != nil {
-		logger.Errorf("Server stop error: %v", err)
+	if a.webserver != nil {
+		if err := a.webserver.Stop(); err != nil {
+			logger.Errorf("Server stop error: %v", err)
+		}
 	}
+}
+
+func (a *App) RestartServer() {
+	if a.webserver != nil {
+		if err := a.webserver.Stop(); err != nil {
+			logger.Errorf("Failed to stop current server: %v", err)
+		}
+	}
+
+	host := "127.0.0.1"
+	if a.config.Data.LANAccessEnabled {
+		host = "0.0.0.0"
+	}
+
+	logger.Infof("Restarting server on host %s", host)
+	a.webserver = server.New(a.config.Data.Port, host, a.printerManager)
 }
 
 type Printer struct {
@@ -99,7 +122,8 @@ type Status struct {
 }
 
 func (a *App) GetPrinterIp(id string) string {
-	ip := fmt.Sprintf("127.0.0.1:%d/p/%s", a.webserver.Port, id)
+	settings := a.GetLANSettings()
+	ip := fmt.Sprintf("%s:%d/p/%s", settings.IP, settings.Port, id)
 	logger.Debugf("Generated printer endpoint: %s", ip)
 	return ip
 }
