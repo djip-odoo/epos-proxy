@@ -65,6 +65,7 @@ func getPrinterDeviceID(dev *gousb.Device) (DeviceID, bool, error) {
 					continue
 				}
 				deviceID["RAW"] = raw
+
 				isPrinter := alt.Class == gousb.ClassPrinter
 				return deviceID, isPrinter, nil
 			}
@@ -127,4 +128,37 @@ func sanitizeDeviceID(s string) string {
 		}
 		return -1
 	}, s)
+}
+
+func (id *DeviceID) extractCmds() []string {
+	var result []string
+	seen := make(map[string]bool)
+
+	raw := (*id)["CMD"]
+	if raw == "" {
+		return result
+	}
+
+	for _, c := range strings.Split(raw, ",") {
+		n := nonAlphaRegex.ReplaceAllString(
+			strings.ToUpper(strings.TrimSpace(c)),
+			"",
+		)
+
+		if n != "" && !seen[n] {
+			seen[n] = true
+			result = append(result, n)
+		}
+	}
+
+	return result
+}
+
+func (id *DeviceID) hasCommand(command string) bool {
+	for _, c := range id.extractCmds() {
+		if c == command {
+			return true
+		}
+	}
+	return false
 }
