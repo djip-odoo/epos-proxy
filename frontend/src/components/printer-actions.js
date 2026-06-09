@@ -4,25 +4,31 @@ export async function copyPrinterFieldValue(printer, field, copiedIds) {
     setTimeout(() => copiedIds[printer.id][field] = false, 2000);
 }
 
-async function sendEposPrint(printerIp, name) {
+async function sendEposPrint(printerIp, name, openCashDrawer = false) {
+  const content = openCashDrawer
+    ? '<pulse />'
+    : `
+        <feed line="1" />
+        <text font="font_e" em="true"/>
+        <text align="center">This is a test receipt ${name}</text>
+        <feed line="10" />
+        <cut type="feed" />
+      `
+
   return await fetch(`http://${printerIp}/cgi-bin/epos/service.cgi`, {
     method: 'POST',
     body: `<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
           <s:Body>
             <epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">
-              <feed line="1" />
-              <text font="font_e" em="true"/>
-              <text align="center">This is a test receipt ${name}</text>
-              <feed line="10" />
-              <cut type="feed" />
+            ${content}
             </epos-print>
           </s:Body>
         </s:Envelope>`
   })
 }
 
-export async function executePrint(printer) {
-  const response = await sendEposPrint(printer.ip, printer.name)
+export async function executePrint(printer, openCashDrawer) {
+  const response = await sendEposPrint(printer.ip, printer.name, openCashDrawer)
   const xml = await response.text()
   const parser = new DOMParser()
   const doc = parser.parseFromString(xml, 'text/xml')
