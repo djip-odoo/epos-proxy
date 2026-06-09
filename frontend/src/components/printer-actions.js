@@ -4,7 +4,10 @@ export async function copyPrinterFieldValue(printer, field, copiedIds) {
     setTimeout(() => copiedIds[printer.id][field] = false, 2000);
 }
 
-async function sendEposPrint(printerIp, name) {
+async function sendEposPrint(printerIp, name, pulse) {
+  if (pulse) {
+    return sendEposPulse(printerIp)
+  }
   return await fetch(`http://${printerIp}/cgi-bin/epos/service.cgi`, {
     method: 'POST',
     body: `<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
@@ -21,8 +24,20 @@ async function sendEposPrint(printerIp, name) {
   })
 }
 
-export async function executePrint(printer) {
-  const response = await sendEposPrint(printer.ip, printer.name)
+async function sendEposPulse(printerIp) {
+  return await fetch(`http://${printerIp}/cgi-bin/epos/service.cgi`, {
+    method: 'POST',
+    body: `<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
+          <s:Body>
+            <epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">
+              <pulse />
+            </epos-print>
+          </s:Body>
+        </s:Envelope>`
+  })
+}
+export async function executePrint(printer, pulse = false) {
+  const response = await sendEposPrint(printer.ip, printer.name, pulse)
   const xml = await response.text()
   const parser = new DOMParser()
   const doc = parser.parseFromString(xml, 'text/xml')

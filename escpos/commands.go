@@ -29,7 +29,7 @@ var (
 )
 
 func CmdPulse(pin CashDrawerPin) []byte {
-	return []byte{GS, 0x70, byte(pin), 0x19, 0x78}
+	return []byte{ESC, 0x70, byte(pin), 0x19, 0xFA}
 }
 
 type TextAttrs struct {
