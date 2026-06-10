@@ -1,9 +1,10 @@
 package printer
 
 import (
+	"epos-proxy/config"
+	"epos-proxy/logger"
 	"fmt"
 
-	"epos-proxy/logger"
 
 	"github.com/google/gousb"
 )
@@ -58,6 +59,9 @@ func ListUSBPrinters() (*Printers, error) {
 				logger.Errorf("failed to encode printer ID: %v", err)
 				continue
 			}
+			if err := config.AddPrinterIfNotExist(id, info.Protocol.String(), info.VidPid, info.DeviceId); err != nil {
+				logger.Errorf("Failed to update printer config: %v", err)
+			}
 			result.Available = append(result.Available, Info{
 				Id:   id,
 				Name: info.Name,
@@ -99,7 +103,7 @@ func GetPrinterInfo(ctx *gousb.Context, descToFind *gousb.DeviceDesc) (*LibUsbPr
 	}()
 
 	device := devices[0]
-	isPrinter, deviceID := isPrinterDevice(device)
+	isPrinter, deviceID, protocol := isPrinterDevice(device)
 	if !isPrinter {
 		return nil, nil
 	}
@@ -129,6 +133,8 @@ func GetPrinterInfo(ctx *gousb.Context, descToFind *gousb.DeviceDesc) (*LibUsbPr
 	info.Path = pathToString(descToFind)
 	info.VidPid = fmt.Sprintf("%04X:%04X", uint16(descToFind.Vendor), uint16(descToFind.Product))
 	info.DeviceId = deviceID
+	info.Protocol = protocol
+
 	logger.Debugf("USB printer: %s (Serial: %s)", info.Name, info.Serial)
 	return &info, nil
 }
