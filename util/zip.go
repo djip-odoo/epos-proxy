@@ -14,8 +14,11 @@ func ZipPaths(targetZip string, paths map[string]string) error {
 		return fmt.Errorf("failed to create zip file %s: %w", targetZip, err)
 	}
 	defer zipFile.Close()
+	return ZipPathsToWriter(zipFile, paths)
+}
 
-	zipWriter := zip.NewWriter(zipFile)
+func ZipPathsToWriter(w io.Writer, paths map[string]string) error {
+	zipWriter := zip.NewWriter(w)
 	defer zipWriter.Close()
 
 	for zipRoot, sourcePath := range paths {

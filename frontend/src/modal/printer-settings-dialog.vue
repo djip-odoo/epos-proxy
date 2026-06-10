@@ -22,107 +22,109 @@
 
             <CloseButton @click="close" />
           </div>
+          <div class="overflow-y-auto" style="max-height: 70vh;">
+            <div class="mb-5">
+              <div class="text-sm font-medium text-gray-700 mb-3">
+                Protocol
+              </div>
 
-          <div class="mb-5">
-            <div class="text-sm font-medium text-gray-700 mb-3">
-              Protocol
+              <select v-model="selectedProtocol"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-odoo focus:border-odoo outline-none">
+                <option value="ESCPOS">ESC/POS</option>
+                <option value="ESCPOS_COMPAT">ESC/POS Compatibility Mode</option>
+              </select>
+
+              <div class="text-xs text-gray-500 mt-2">
+                Printer communication protocol
+              </div>
             </div>
+            <div class="mb-5" v-if="selectedProtocol !== 'ESCPOS'">
+              <div class="text-sm font-medium text-gray-700 mb-3">
+                Receipt Width
+              </div>
+              <div class="space-y-2">
+                <!-- 384 -->
+                <label
+                  class="flex items-center gap-3 p-3 border border-gray-200 rounded-xl hover:bg-slate-50 cursor-pointer transition">
+                  <input type="radio" name="printer-width" :value="384" v-model="selectedWidth"
+                    class="h-4 w-4 text-odoo focus:ring-odoo border-gray-300" />
 
-            <select v-model="selectedProtocol"
-              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-odoo focus:border-odoo outline-none">
-              <option value="ESCPOS">ESC/POS</option>
-              <option value="ESCPOS_COMPAT">ESC/POS Compatibility Mode</option>
-            </select>
-
-            <div class="text-xs text-gray-500 mt-2">
-              Printer communication protocol
-            </div>
-          </div>
-          <div class="mb-5" v-if="selectedProtocol !== 'ESCPOS'">
-            <div class="text-sm font-medium text-gray-700 mb-3">
-              Receipt Width
-            </div>
-            <div class="space-y-2">
-              <!-- 384 -->
-              <label
-                class="flex items-center gap-3 p-3 border border-gray-200 rounded-xl hover:bg-slate-50 cursor-pointer transition">
-                <input type="radio" name="printer-width" :value="384" v-model="selectedWidth"
-                  class="h-4 w-4 text-odoo focus:ring-odoo border-gray-300" />
-
-                <div class="flex-1">
-                  <div class="text-sm font-medium text-gray-900">
-                    58mm (384px)
-                  </div>
-
-                  <div class="text-xs text-gray-500">
-                    Standard format
-                  </div>
-                </div>
-              </label>
-
-              <!-- 576 -->
-              <label
-                class="flex items-center gap-3 p-3 border border-gray-200 rounded-xl hover:bg-slate-50 cursor-pointer transition">
-                <input type="radio" name="printer-width" :value="576" v-model="selectedWidth"
-                  class="h-4 w-4 text-odoo focus:ring-odoo border-gray-300" />
-
-                <div class="flex-1">
-                  <div class="text-sm font-medium text-gray-900">
-                    80mm (576px)
-                  </div>
-
-                  <div class="text-xs text-gray-500">
-                    Wide format (Default)
-                  </div>
-                </div>
-              </label>
-
-              <!-- Custom -->
-              <label class="flex items-start gap-3 p-3 border border-gray-200 rounded-xl hover:bg-slate-50 transition">
-                <input type="radio" name="printer-width" value="custom" v-model="selectedWidth"
-                  class="h-4 w-4 mt-1 text-odoo focus:ring-odoo border-gray-300" />
-
-                <div class="flex-1">
-                  <div class="text-sm font-medium text-gray-900 mb-2">
-                    Custom Width
-                  </div>
-
-                  <div v-if="selectedWidth === 'custom'">
-                    <div class="flex items-center gap-2">
-                      <input type="number" min="200" max="1200" step="8" v-model.number="customWidth"
-                        placeholder="Enter width"
-                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-odoo focus:border-odoo outline-none" />
-
-                      <span class="text-sm text-gray-500">
-                        px
-                      </span>
+                  <div class="flex-1">
+                    <div class="text-sm font-medium text-gray-900">
+                      58mm (384px)
                     </div>
 
-                    <div v-if="error" class="text-danger text-xs mt-2">
-                      {{ error }}
-                    </div>
-                    <div v-else class="text-xs text-gray-500 mt-2">
-                      Must be divisible by 8
+                    <div class="text-xs text-gray-500">
+                      Standard format
                     </div>
                   </div>
-                </div>
-              </label>
+                </label>
 
+                <!-- 576 -->
+                <label
+                  class="flex items-center gap-3 p-3 border border-gray-200 rounded-xl hover:bg-slate-50 cursor-pointer transition">
+                  <input type="radio" name="printer-width" :value="576" v-model="selectedWidth"
+                    class="h-4 w-4 text-odoo focus:ring-odoo border-gray-300" />
+
+                  <div class="flex-1">
+                    <div class="text-sm font-medium text-gray-900">
+                      80mm (576px)
+                    </div>
+
+                    <div class="text-xs text-gray-500">
+                      Wide format (Default)
+                    </div>
+                  </div>
+                </label>
+
+                <!-- Custom -->
+                <label
+                  class="flex items-start gap-3 p-3 border border-gray-200 rounded-xl hover:bg-slate-50 transition">
+                  <input type="radio" name="printer-width" value="custom" v-model="selectedWidth"
+                    class="h-4 w-4 mt-1 text-odoo focus:ring-odoo border-gray-300" />
+
+                  <div class="flex-1">
+                    <div class="text-sm font-medium text-gray-900 mb-2">
+                      Custom Width
+                    </div>
+
+                    <div v-if="selectedWidth === 'custom'">
+                      <div class="flex items-center gap-2">
+                        <input type="number" min="200" max="1200" step="8" v-model.number="customWidth"
+                          placeholder="Enter width"
+                          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-odoo focus:border-odoo outline-none" />
+
+                        <span class="text-sm text-gray-500">
+                          px
+                        </span>
+                      </div>
+
+                      <div v-if="error" class="text-danger text-xs mt-2">
+                        {{ error }}
+                      </div>
+                      <div v-else class="text-xs text-gray-500 mt-2">
+                        Must be divisible by 8
+                      </div>
+                    </div>
+                  </div>
+                </label>
+
+              </div>
+            </div>
+            <div class="mb-5" v-if="selectedProtocol !== 'ESCPOS'">
+              <div class="text-sm font-medium text-gray-700 mb-3">
+                Bottom Padding
+              </div>
+
+              <input type="number" min="0" max="500" step="10" v-model.number="bottomPadding"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+
+              <div class="text-xs text-gray-500 mt-2">
+                Extra white space before cut
+              </div>
             </div>
           </div>
-          <div class="mb-5" v-if="selectedProtocol !== 'ESCPOS'">
-            <div class="text-sm font-medium text-gray-700 mb-3">
-              Bottom Padding
-            </div>
-
-            <input type="number" min="0" max="500" step="10" v-model.number="bottomPadding"
-              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-
-            <div class="text-xs text-gray-500 mt-2">
-              Extra white space before cut
-            </div>
-          </div>
-          <div class="flex gap-3">
+          <div class="flex gap-3 mt-4">
             <button @click="close"
               class="flex-1 border border-gray-300 rounded-lg px-4 py-2 cursor-pointer text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
               Cancel
@@ -142,7 +144,7 @@
 <script setup>
 import { ref, watch } from 'vue'
 import CloseButton from './close-button.vue'
-import { GetPrinterSetting, SetPrinterSetting } from '../../wailsjs/go/main/App'
+import { connector } from '../connector'
 import { useToast } from '../hooks/useToast.js'
 
 const props = defineProps({
@@ -167,7 +169,7 @@ watch(() => showSettings.value, async (newVal) => {
     error.value = null
     loading.value = true
     try {
-      const { width, bottom_padding, protocol } = await GetPrinterSetting(props.printer.id)
+      const { width, bottom_padding, protocol } = await connector.getPrinterSetting(props.printer.id)
       bottomPadding.value = bottom_padding
       if (protocol) {
         selectedProtocol.value = protocol
@@ -211,7 +213,7 @@ async function save() {
       return
     }
 
-    await SetPrinterSetting(props.printer.id, width, bottomPadding.value, selectedProtocol.value)
+    await connector.setPrinterSetting(props.printer.id, width, bottomPadding.value, selectedProtocol.value)
     notify('Printer settings updated successfully', 'success')
     close()
   } catch (err) {
