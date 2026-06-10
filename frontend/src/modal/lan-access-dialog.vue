@@ -1,5 +1,5 @@
 <template>
-  <button @click="showLANDialog = true" id="lan-access-btn" title="LAN Access Settings"
+  <button v-if="isDesktopApp()" @click="showLANDialog = true" id="lan-access-btn" title="LAN Access Settings"
     class="absolute top-3 left-3 w-12 h-12 flex items-center justify-center rounded-full bg-odoo text-white shadow-lg shadow-odoo/30 hover:shadow-odoo/50 hover:scale-105 active:scale-95 transition-all duration-300 ease-out">
     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
       <path stroke-linecap="round" stroke-linejoin="round"
@@ -27,7 +27,7 @@
           </div>
 
           <!-- Content -->
-          <div class="p-6 space-y-5">
+          <div class="p-6 space-y-5 overflow-y-auto" style="max-height: 70vh;">
 
             <!-- Toggle Row -->
             <label class="flex items-start gap-3 cursor-pointer group">
@@ -79,9 +79,23 @@
                     {{ networkUrl }}
                   </span>
 
-                  <button class="text-odoo text-sm hover:underline" @click="copyUrl(localhostUrl)">
+                  <button class="text-odoo text-sm hover:underline" @click="copyUrl(networkUrl)">
                     Copy
                   </button>
+                </div>
+
+                <div v-if="lanEnabled && settings.ip" class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                  <p class="text-sm font-medium text-gray-900 mb-3">
+                    Connect from another device
+                  </p>
+
+                  <div class="flex justify-center">
+                    <QrcodeVue :value="networkUrl" :size="120" level="M" />
+                  </div>
+                  <p class="mt-3 text-xs text-gray-500 text-center">
+                    Scan the QR code from a phone, tablet, or another computer connected
+                    to the same local network.
+                  </p>
                 </div>
               </div>
             </div>
@@ -119,9 +133,9 @@
 <script setup>
 import { ref, watch, onMounted, computed } from 'vue'
 import CloseButton from './close-button.vue'
-import { GetLANSettings, EnableLANAccess, DisableLANAccess } from '../../wailsjs/go/main/App'
+import { connector, safeEventsOn } from '../connector'
 import { useToast } from '../hooks/useToast'
-import { EventsOn } from '../../wailsjs/runtime'
+import { isDesktopApp } from '../connector/env.js';
 import QrcodeVue from 'qrcode.vue'
 
 const { notify } = useToast()
@@ -133,7 +147,7 @@ const error = ref(null)
 const showLANDialog = ref(false)
 
 onMounted(() => {
-  try { EventsOn('open-lan-settings', () => { showLANDialog.value = true }) } catch (e) { /* no-op outside wails */ }
+  safeEventsOn('open-lan-settings', () => { showLANDialog.value = true })
 })
 
 watch(() => showLANDialog.value, async (val) => {
@@ -145,7 +159,7 @@ watch(() => showLANDialog.value, async (val) => {
 
 async function refreshSettings() {
   try {
-    const s = await GetLANSettings()
+    const s = await connector.getLANSettings()
     settings.value = s
     lanEnabled.value = s.enabled
   } catch (err) {
@@ -162,16 +176,17 @@ async function handleToggle(event) {
 
   try {
     if (newValue) {
-      await EnableLANAccess()
+      await connector.enableLANAccess()
       notify('LAN access enabled. Server is now accessible on your local network.', 'success')
     } else {
-      await DisableLANAccess()
+      await connector.disableLANAccess()
       notify('LAN access disabled. Server is localhost only.', 'success')
     }
     await refreshSettings()
   } catch (err) {
-    error.value = err || 'Failed to update LAN access settings.'
-    notify(err || 'Failed to update settings.', 'danger')
+    const errMsg = err?.message || err || 'Failed to update LAN access settings.'
+    error.value = errMsg
+    notify(errMsg, 'danger')
     // Revert toggle on failure
     lanEnabled.value = !newValue
   } finally {
@@ -186,10 +201,6 @@ function close() {
 const networkUrl = computed(() => {
   if (!settings.value.ip) return ''
   return `http://${settings.value.ip}:${settings.value.port}`
-})
-
-const localhostUrl = computed(() => {
-  return `http://127.0.0.1:${settings.value.port}`
 })
 
 async function copyUrl(url) {

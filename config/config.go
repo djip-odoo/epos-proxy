@@ -24,12 +24,11 @@ type AppConfig struct {
 	ProxyId          string   `json:"proxy_id"`
 	LANPrinters      []string `json:"lan_printers,omitempty"`
 	LANAccessEnabled bool     `json:"lan_access_enabled"`
+	LANPin           string   `json:"lan_pin"`
 }
 
 func defaults() AppConfig {
-	return AppConfig{
-		Port: 0,
-	}
+	return AppConfig{Port: 0, LANPin: "0000"}
 }
 
 type Manager struct {

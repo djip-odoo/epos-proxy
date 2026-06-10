@@ -24,6 +24,11 @@ func createMenu(app *App) *menu.Menu {
 		wailsruntime.EventsEmit(app.ctx, "open-lan-settings")
 	})
 
+	appMenu.AddText("Set LAN PIN", nil, func(_ *menu.CallbackData) {
+		logger.Infof("Set LAN PIN menu item clicked")
+		wailsruntime.EventsEmit(app.ctx, "open-set-pin")
+	})
+
 	appMenu.AddText("Quit", nil, func(_ *menu.CallbackData) {
 		logger.Infof("Quit requested by user")
 		wailsruntime.Quit(app.ctx)

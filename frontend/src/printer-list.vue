@@ -1,7 +1,9 @@
 <template>
   <div>
     <div
-        class="w-full max-w-full sm:max-w-md md:max-w-lg lg:max-w-xl bg-white/85 rounded-2xl shadow-lg overflow-hidden px-4 sm:px-6 py-2 sm:py-4">
+      v-if="isAuthenticated"
+      class="w-full max-w-full sm:max-w-md md:max-w-lg lg:max-w-xl bg-white/85 rounded-2xl shadow-lg overflow-hidden px-4 sm:px-6 py-2 sm:py-4"
+    >
       <LanAccessDialog/>
       <div v-if="printers.length" class="p-6 overflow-y-auto max-h-[60vh]">
         <ul class="divide-y divide-gray-300">
@@ -69,18 +71,21 @@
   </div>
 
   <NetworkIpDialog :show="showAddDialog" @close="onNetworkDialogClose"/>
+  <SetPinDialog v-model="isAuthenticated"/>
 </template>
 
 <script setup>
 import {computed, onMounted, onUnmounted, ref} from 'vue'
-import {CheckLANPrinterStatus, ConfirmRemoveLANPrinter, Status} from '../wailsjs/go/main/App'
+import { connector, isDesktopApp } from './connector'
 import {brewSteps, linuxSteps, zadigSteps} from "./modal/fix-step";
 import StepModal from "./modal/step-modal.vue";
 import NetworkIpDialog from "./modal/network-ip-dialog.vue";
 import LanAccessDialog from "./modal/lan-access-dialog.vue";
 import PrinterActions from './components/printer-actions.vue'
 import { useToast } from './hooks/useToast.js'
+import SetPinDialog from './modal/set-pin-dialog.vue'
 
+const isAuthenticated = ref(isDesktopApp())
 const printers = ref([])
 const unavailablePrinters = ref([])
 const errorMsg = ref(null)
@@ -102,11 +107,11 @@ const handleFocus = () => startPolling();
 const handleBlur = () => stopPolling();
 
 async function updatePrinters() {
-  if (isUpdating) return
+  if (isUpdating || !isAuthenticated.value) return
 
   isUpdating = true
   try {
-    const res = await Status()
+    const res = await connector.status()
     printers.value = res.printers
     unavailablePrinters.value = res.unavailablePrinters
     errorMsg.value = res.errorMsg
@@ -135,7 +140,7 @@ function checkLanPrinterStatus(ip) {
   if (lanStatus.value[ip] === undefined) {
     lanStatus.value[ip] = 'loading'
   }
-  CheckLANPrinterStatus(ip).then((online) => {
+  connector.checkLANPrinterStatus(ip).then((online) => {
     lanStatus.value[ip] = online ? 'online' : 'offline'
   }).finally(() => {
     pendingChecks.value.delete(ip)
@@ -229,7 +234,7 @@ async function removeLanPrinter(printer) {
   if (!printer.lanIp) return
 
   try {
-    const removed = await ConfirmRemoveLANPrinter(printer.lanIp)
+    const removed = await connector.confirmRemoveLANPrinter(printer.lanIp)
     if (removed) {
       updatePrinters()
       notify('Printer removed successfully', 'success')

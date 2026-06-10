@@ -25,7 +25,7 @@ func main() {
 	logger.InitLogger()
 	logger.Debugf("Starting ePOS Proxy")
 
-	app := NewApp()
+	app := NewApp(assets)
 
 	windowStartState := options.Normal
 	for _, arg := range os.Args[1:] {
