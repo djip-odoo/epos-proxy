@@ -17,7 +17,11 @@ var (
 	// CmdCut full paper cut.
 	CmdCut = []byte{GS, 0x56, 0x41, LF}
 
-	CmdPulse = []byte{ESC, 0x70, 0x00, 0x19, 0xFA}
+	CmdPulse = []byte{
+		ESC, 0x3D, 0x01,
+		ESC, 0x70, 0x00, 0x19, 0x19, // pin 1
+		ESC, 0x70, 0x01, 0x19, 0x19, // pin 2
+	}
 
 	// CmdInit Resets the printer to its default state.
 	CmdInit = []byte{ESC, 0x40}
