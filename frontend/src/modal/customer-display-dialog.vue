@@ -1,13 +1,12 @@
 <template>
-  <button @click="openSettings" id="customer-display-btn" title="Customer Display Settings"
-    class="absolute top-3 left-16 w-12 h-12 flex items-center justify-center rounded-full bg-odoo text-white shadow-lg shadow-odoo/30 hover:shadow-odoo/50 hover:scale-105 active:scale-95 transition-all duration-300 ease-out">
-    <svg class="w-6 h-6" viewBox="0 0 36 36" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-      <path
-        d="M32.5,3H3.5A1.5,1.5,0,0,0,2,4.5v21A1.5,1.5,0,0,0,3.5,27h29A1.5,1.5,0,0,0,34,25.5V4.5A1.5,1.5,0,0,0,32.5,3ZM32,25H4V5H32Z" />
-      <polygon points="7.7 8.76 28.13 8.76 29.94 7.16 6.1 7.16 6.1 23 7.7 23 7.7 8.76" />
-      <path
-        d="M26,32H24.26a3.61,3.61,0,0,1-1.5-2.52V28.13H21.24V29.5A4.2,4.2,0,0,0,22.17,32H13.83a4.2,4.2,0,0,0,.93-2.52V28.13H13.24V29.5A3.61,3.61,0,0,1,11.74,32H9.94a1,1,0,1,0,0,2H26.06a.92.92,0,0,0,1-1A1,1,0,0,0,26,32Z" />
-    </svg>
+  <button @click="openSettings" title="Customer Display"
+    class="absolute top-3 left-16 w-12 h-12 flex items-center justify-center rounded-full bg-odoo text-white shadow-lg hover:scale-105 transition-all duration-200">
+    <div class="relative">
+      <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20m6-3l.75 3M4 5h16v10H4V5zm0 10h16" />
+      </svg>
+      <span class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-green-400 border border-white" />
+    </div>
   </button>
 
   <teleport to="body">
@@ -52,110 +51,165 @@
 
             <template v-else>
 
-              <!-- Current URL card -->
-              <div v-if="currentURL" class="rounded-xl border border-green-200 bg-green-50 p-4">
-                <div class="flex items-start gap-3">
-                  <div class="w-2 h-2 rounded-full bg-green-500 flex-shrink-0 mt-1.5 animate-pulse"></div>
-                  <div class="flex-1 min-w-0">
-                    <p class="text-xs font-semibold text-green-800 mb-0.5">Configured URL</p>
-                    <p class="text-sm font-semibold text-gray-900">{{ currentURL.name }}</p>
-                    <p class="text-xs font-mono text-green-700 break-all mt-0.5">{{ currentURL.url }}</p>
-                    <p v-if="currentURL.description" class="text-xs text-gray-400 mt-1">{{ currentURL.description }}</p>
-                  </div>
-                </div>
-
-                <!-- Actions -->
-                <div class="flex gap-2 mt-3">
-                  <button @click="emitOpenWebView"
-                    class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-green-600 text-white text-xs font-semibold rounded-lg hover:bg-green-700 transition-colors cursor-pointer">
-                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                      <path stroke-linecap="round" stroke-linejoin="round"
-                        d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    Open WebView
-                  </button>
-                  <button @click="deleteURL" :disabled="deleteLoading"
-                    class="flex items-center justify-center gap-1.5 px-3 py-2 bg-red-50 text-red-600 text-xs font-semibold rounded-lg hover:bg-red-100 border border-red-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer">
-                    <svg v-if="!deleteLoading" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                      stroke-width="2">
-                      <path stroke-linecap="round" stroke-linejoin="round"
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                    <svg v-else class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z">
-                      </path>
-                    </svg>
-                    Delete
-                  </button>
-                </div>
-              </div>
-
-              <!-- No URL state -->
-              <div v-else class="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
-                <div class="w-10 h-10 mx-auto mb-3 rounded-full bg-gray-200 flex items-center justify-center">
-                  <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                    stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round"
-                      d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                  </svg>
-                </div>
-                <p class="text-sm font-medium text-gray-600 mb-1">No URL configured</p>
-                <p class="text-xs text-gray-400">Add a URL below to enable the customer display WebView.</p>
-              </div>
-
               <!-- Add URL form (shown when no URL exists) -->
-              <transition enter-active-class="transition-all duration-200 ease-out"
-                enter-from-class="opacity-0 -translate-y-1" enter-to-class="opacity-100 translate-y-0">
-                <div v-if="!currentURL" class="rounded-xl border border-odoo/25 bg-odoo/5 p-4 space-y-3">
-                  <p class="text-xs font-semibold text-odoo uppercase tracking-wide">Add Customer Display URL</p>
-
-                  <!-- Name -->
-                  <div>
-                    <label class="block text-xs font-medium text-gray-700 mb-1">Name <span
-                        class="text-red-400">*</span></label>
-                    <input id="cd-name" v-model="form.name" type="text" placeholder="e.g. Main Customer Display"
-                      class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-odoo focus:border-odoo outline-none transition-all"
-                      :class="{ 'border-danger ring-1 ring-danger': formErrors.name }" />
-                    <p v-if="formErrors.name" class="text-xs text-danger mt-1">{{ formErrors.name }}</p>
+              <transition mode="out-in" enter-active-class="transition-all duration-200 ease-out"
+                enter-from-class="opacity-0 scale-95 translate-y-2" enter-to-class="opacity-100 scale-100 translate-y-0"
+                leave-active-class="transition-all duration-150 ease-in"
+                leave-from-class="opacity-100 scale-100 translate-y-0"
+                leave-to-class="opacity-0 scale-95 -translate-y-2">
+                <div>
+                <div v-if="currentURL"
+                  class="relative overflow-hidden rounded-2xl border border-green-200 bg-gradient-to-br from-green-50 to-white shadow-sm">
+                  <!-- Status ribbon -->
+                  <div
+                    class="absolute top-0 right-0 px-3 py-1 bg-green-500 text-white text-[10px] font-bold uppercase tracking-wider">
+                    Active
                   </div>
 
-                  <!-- URL -->
-                  <div>
-                    <label class="block text-xs font-medium text-gray-700 mb-1">URL <span
-                        class="text-red-400">*</span></label>
-                    <input id="cd-url" v-model="form.url" type="url" placeholder="https://example.com/customer-display"
-                      class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-odoo focus:border-odoo outline-none transition-all"
-                      :class="{ 'border-danger ring-1 ring-danger': formErrors.url }" @input="validateURL" />
-                    <p v-if="formErrors.url" class="text-xs text-danger mt-1">{{ formErrors.url }}</p>
-                    <p v-else-if="urlValid && form.url" class="text-xs text-success mt-1 flex items-center gap-1">
-                      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                      Valid URL
-                    </p>
+                  <div class="p-5">
+
+                    <div class="flex items-start gap-4">
+
+                      <div class="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
+                        <svg class="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 5h16v10H4V5zm6 12h4" />
+                        </svg>
+                      </div>
+
+                      <div class="flex-1 min-w-0">
+
+                        <div class="flex items-center gap-2 mb-1">
+                          <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                          <span class="text-xs font-semibold text-green-700 uppercase tracking-wide">
+                            Customer Display Online
+                          </span>
+                        </div>
+
+                        <h3 class="text-base font-semibold text-gray-900 truncate">
+                          {{ currentURL.name || new URL(currentURL.url).hostname }}
+                        </h3>
+                      </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 mt-5">
+
+                      <button @click="emitOpenWebView"
+                        class="flex items-center justify-center gap-2 rounded-xl bg-odoo text-white py-2.5 font-medium hover:opacity-90 transition-all">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                        </svg>
+
+                        Launch
+                      </button>
+
+                      <button @click="deleteURL" :disabled="deleteLoading"
+                        class="flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 text-red-600 py-2.5 font-medium hover:bg-red-100 transition-all">
+                        Delete
+                      </button>
+
+                    </div>
+                  </div>
+                </div>
+                <div v-else-if="!openForm"
+                  class="rounded-2xl border-2 border-dashed border-gray-200 bg-gradient-to-b from-gray-50 to-white p-8 text-center cursor-pointer"
+                  @click="openForm = true">
+                  <div class="w-16 h-16 mx-auto rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
+                    <svg class="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M4 5h16v10H4V5zm6 12h4" />
+                    </svg>
                   </div>
 
-                  <!-- Description (optional) -->
-                  <div>
-                    <label class="block text-xs font-medium text-gray-700 mb-1">
-                      Description <span class="text-gray-400">(optional)</span>
-                    </label>
-                    <input id="cd-description" v-model="form.description" type="text" placeholder="Brief description..."
-                      class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-odoo focus:border-odoo outline-none transition-all" />
-                  </div>
+                  <h3 class="text-base font-semibold text-gray-800">
+                    Customer Display Not Configured
+                  </h3>
 
-                  <!-- Error -->
-                  <p v-if="formError" class="text-xs text-danger bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                    {{ formError }}
+                  <p class="text-sm text-gray-500 mt-2 max-w-xs mx-auto">
+                    Configure a web URL below to display your customer-facing screen in kiosk mode.
+                  </p>
+                  <p class="text-sm text-gray-500 mt-2 max-w-xs mx-auto cursor-pointer">
+                    click to configure
                   </p>
 
-                  <!-- Save button -->
-                  <button @click="addURL" :disabled="formLoading"
-                    class="w-full rounded-lg px-4 py-2.5 text-sm font-semibold bg-odoo text-white hover:bg-odoo-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer">
-                    {{ formLoading ? 'Saving…' : 'Save & Activate' }}
-                  </button>
+                  <div
+                    class="inline-flex items-center gap-2 mt-4 px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 text-xs font-medium">
+                    <div class="w-2 h-2 rounded-full bg-amber-500"></div>
+                    Setup Required
+                  </div>
+                </div>
+                <div v-if="!currentURL && openForm"
+                  class="rounded-2xl border border-odoo/15 bg-white shadow-sm overflow-hidden">
+
+                  <!-- Header -->
+                  <div class="px-5 py-4 bg-gradient-to-r from-odoo/10 to-odoo/5 border-b border-odoo/10">
+                    <div class="flex items-center gap-3">
+                      <div class="w-10 h-10 rounded-xl bg-odoo text-white flex items-center justify-center">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M4 5h16v10H4V5zm6 12h4" />
+                        </svg>
+                      </div>
+
+                      <div>
+                        <h3 class="font-semibold text-gray-900">
+                          Customer Display
+                        </h3>
+                        <p class="text-xs text-gray-500">
+                          Configure the webpage shown on the customer display
+                        </p>
+                      </div>
+                      <CloseButton @click="openForm = false" />
+                    </div>
+                  </div>
+
+                  <!-- Body -->
+                  <div class="p-5 space-y-4">
+
+                    <div>
+                      <label class="block text-xs font-semibold text-gray-700 mb-2">
+                        Display URL
+                      </label>
+
+                      <input id="cd-url" v-model="form.url" type="url" placeholder="https://display.example.com"
+                        class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm font-mono focus:ring-2 focus:ring-odoo focus:border-odoo outline-none transition-all"
+                        :class="{ 'border-danger ring-1 ring-danger': formErrors.url }" @input="validateURL" />
+
+                      <p v-if="formErrors.url" class="text-xs text-danger mt-2">
+                        {{ formErrors.url }}
+                      </p>
+                    </div>
+
+                    <!-- Preview -->
+                    <div v-if="urlValid && form.url" class="rounded-xl border border-green-200 bg-green-50 p-4">
+                      <div class="flex items-center gap-2 mb-2">
+                        <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                        <span class="text-xs font-semibold text-green-700 uppercase tracking-wide">
+                          Display Preview
+                        </span>
+                      </div>
+
+                      <p class="text-sm font-semibold text-gray-900">
+                        {{ new URL(form.url).hostname.replace(/^www\./, '') }}
+                      </p>
+
+                      <p class="text-xs text-green-700 font-mono break-all mt-1">
+                        {{ form.url }}
+                      </p>
+                    </div>
+
+                    <div v-if="formError"
+                      class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-600">
+                      {{ formError }}
+                    </div>
+
+                    <button @click="addURL" :disabled="formLoading"
+                      class="w-full rounded-xl bg-odoo text-white py-3 font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                      {{ formLoading ? 'Saving...' : 'Save & Activate' }}
+                    </button>
+
+                  </div>
+                </div>
                 </div>
               </transition>
 
@@ -198,6 +252,7 @@ const currentURL = ref(null)   // The single configured URL (or null)
 const deleteLoading = ref(false)
 
 // Form state
+const openForm = ref(false)
 const formLoading = ref(false)
 const formError = ref(null)
 const urlValid = ref(false)
@@ -251,7 +306,7 @@ function validateURL() {
 }
 
 function resetForm() {
-  form.value = { name: '', url: '', description: '' }
+  form.value = { name: 'Customer Display', url: '', description: '' }
   formErrors.value = { name: '', url: '' }
   formError.value = null
   urlValid.value = false
