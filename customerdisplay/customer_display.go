@@ -1,26 +1,8 @@
 package customerdisplay
 
-/*
-#cgo pkg-config: gtk+-3.0 webkit2gtk-4.1
-#include <stdlib.h>
+import "sync"
 
-char* get_monitors_json_c();
-void open_customer_display_c(const char* monitor_id, const char* url);
-void close_customer_display_c();
-void reload_customer_display_c();
-void navigate_customer_display_c(const char* url);
-void identify_monitors_c();
-void open_test_display_c(const char* monitor_id);
-void setup_monitor_signals_c();
-*/
-import "C"
-
-import (
-	"encoding/json"
-	"sync"
-	"unsafe"
-)
-
+// MonitorInfo describes a connected display.
 type MonitorInfo struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`
@@ -36,20 +18,12 @@ var (
 	callbackMu              sync.Mutex
 )
 
+// RegisterMonitorChangeCallback registers a function called when the monitor
+// configuration changes (monitor added or removed).
 func RegisterMonitorChangeCallback(cb func()) {
 	callbackMu.Lock()
 	defer callbackMu.Unlock()
 	onMonitorChangeCallback = cb
-}
-
-//export goOnMonitorAdded
-func goOnMonitorAdded() {
-	triggerCallback()
-}
-
-//export goOnMonitorRemoved
-func goOnMonitorRemoved() {
-	triggerCallback()
 }
 
 func triggerCallback() {
@@ -61,49 +35,43 @@ func triggerCallback() {
 	}
 }
 
+// Init sets up platform-level monitor-change notifications.
 func Init() {
-	C.setup_monitor_signals_c()
+	platformInit()
 }
 
+// GetMonitors returns all connected monitors.
 func GetMonitors() []MonitorInfo {
-	jsonC := C.get_monitors_json_c()
-	defer C.free(unsafe.Pointer(jsonC))
-	
-	var monitors []MonitorInfo
-	if err := json.Unmarshal([]byte(C.GoString(jsonC)), &monitors); err != nil {
-		return []MonitorInfo{}
-	}
-	return monitors
+	return platformGetMonitors()
 }
 
+// Open opens (or repositions) the customer display on the given monitor and
+// loads the provided URL.
 func Open(monitorID, url string) {
-	cID := C.CString(monitorID)
-	cURL := C.CString(url)
-	defer C.free(unsafe.Pointer(cID))
-	defer C.free(unsafe.Pointer(cURL))
-	C.open_customer_display_c(cID, cURL)
+	platformOpen(monitorID, url)
 }
 
+// Close closes the customer display window.
 func Close() {
-	C.close_customer_display_c()
+	platformClose()
 }
 
+// Reload reloads the current page in the customer display.
 func Reload() {
-	C.reload_customer_display_c()
+	platformReload()
 }
 
+// Navigate loads a new URL in the customer display.
 func Navigate(url string) {
-	cURL := C.CString(url)
-	defer C.free(unsafe.Pointer(cURL))
-	C.navigate_customer_display_c(cURL)
+	platformNavigate(url)
 }
 
+// Identify flashes a numbered overlay on every connected monitor for ~3 s.
 func Identify() {
-	C.identify_monitors_c()
+	platformIdentify()
 }
 
+// Test shows a brief test screen on the specified monitor for ~3 s.
 func Test(monitorID string) {
-	cID := C.CString(monitorID)
-	defer C.free(unsafe.Pointer(cID))
-	C.open_test_display_c(cID)
+	platformTest(monitorID)
 }
