@@ -72,6 +72,8 @@
 
   <NetworkIpDialog :show="showAddDialog" @close="onNetworkDialogClose"/>
   <SetPinDialog v-model="isAuthenticated"/>
+  <CustomerDisplayDialog @open-webview="openCustomerDisplayWebView" />
+  <WebviewOverlay ref="webviewRef" @exit="onWebviewExit" />
 </template>
 
 <script setup>
@@ -84,6 +86,8 @@ import LanAccessDialog from "./modal/lan-access-dialog.vue";
 import PrinterActions from './components/printer-actions.vue'
 import { useToast } from './hooks/useToast.js'
 import SetPinDialog from './modal/set-pin-dialog.vue'
+import CustomerDisplayDialog from './modal/customer-display-dialog.vue'
+import WebviewOverlay from './modal/webview-overlay.vue'
 
 const isAuthenticated = ref(isDesktopApp())
 const printers = ref([])
@@ -96,6 +100,7 @@ const showFixModal = ref(false)
 const fixPrinterName = ref(null)
 const os = ref(null)
 const showAddDialog = ref(false)
+const webviewRef = ref(null)
 
 const { notify } = useToast()
 
@@ -164,6 +169,11 @@ onMounted(() => {
 
   if (!document.hidden) startPolling()
   if (document.hasFocus()) startPolling();
+
+  // After PIN-verified WebView exit, reopen the settings dialog
+  window.addEventListener('cd-settings-reopened', () => {
+    window.dispatchEvent(new CustomEvent('open-customer-display-settings'))
+  })
 })
 
 onUnmounted(() => {
@@ -248,5 +258,18 @@ async function removeLanPrinter(printer) {
 function onNetworkDialogClose(shouldRefresh) {
   showAddDialog.value = false
   if (shouldRefresh) updatePrinters()
+}
+
+function openCustomerDisplayWebView(url) {
+  if (!url) {
+    notify('No active customer display URL configured', 'danger')
+    return
+  }
+  webviewRef.value?.openWebView(url)
+}
+
+function onWebviewExit() {
+  // WebView was closed via PIN — settings dialog will reopen via the cd-settings-reopened event
+  console.info('[CustomerDisplay] WebView exited by admin PIN')
 }
 </script>

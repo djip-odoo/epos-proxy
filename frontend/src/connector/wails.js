@@ -82,4 +82,42 @@ export class WailsConnector {
   async verifyPin(pin) {
     return { token: 'wails-internal' };
   }
+
+  // ── Customer Display WebView ───────────────────────────────────────────────
+
+  async getCustomerDisplayURLs() {
+    return this.wrap(App.GetCustomerDisplayURLs);
+  }
+
+  async getActiveCustomerDisplayURL() {
+    return this.wrap(App.GetActiveCustomerDisplayURL);
+  }
+
+  async addCustomerDisplayURL(name, url, description) {
+    return this.wrap(App.AddCustomerDisplayURL, name, url, description);
+  }
+
+  async updateCustomerDisplayURL(id, name, url, description, enabled) {
+    return this.wrap(App.UpdateCustomerDisplayURL, id, name, url, description, enabled);
+  }
+
+  async setActiveCustomerDisplayURL(id) {
+    return this.wrap(App.SetActiveCustomerDisplayURL, id);
+  }
+
+  async disableCustomerDisplayURL(id) {
+    return this.wrap(App.DisableCustomerDisplayURL, id);
+  }
+
+  async deleteCustomerDisplayURL(id) {
+    return this.wrap(App.DeleteCustomerDisplayURL, id);
+  }
+
+  async validateAdminPin(pin) {
+    return this.wrap(App.ValidateAdminPin, pin);
+  }
+
+  async setWindowFullscreen(fullscreen) {
+    return this.wrap(App.SetWindowFullscreen, fullscreen);
+  }
 }

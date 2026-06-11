@@ -70,6 +70,12 @@ func (a *App) startup(ctx context.Context) {
 	}
 
 	a.service.StartServer(port, host)
+
+	// Auto-open WebView if an active customer display URL is configured.
+	if active := a.service.GetActiveCustomerDisplayURL(); active != nil {
+		logger.Infof("Auto-opening customer display WebView for URL: %s", active.URL)
+		wailsruntime.EventsEmit(ctx, "open-customer-display-webview", active.URL)
+	}
 }
 
 func (a *App) shutdown(ctx context.Context) {
@@ -186,4 +192,52 @@ func (a *App) SetPrinterSetting(id string, width int, bottomPadding int, protoco
 
 func (a *App) GetPrinterSetting(id string) config.PrinterSettingConfig {
 	return a.service.GetPrinterSetting(id)
+}
+
+// ─── Customer Display WebView ─────────────────────────────────────────────────
+
+func (a *App) GetCustomerDisplayURLs() []config.CustomerDisplayURL {
+	return a.service.GetCustomerDisplayURLs()
+}
+
+func (a *App) GetActiveCustomerDisplayURL() *config.CustomerDisplayURL {
+	return a.service.GetActiveCustomerDisplayURL()
+}
+
+func (a *App) AddCustomerDisplayURL(name, rawURL, description string) (config.CustomerDisplayURL, error) {
+	return a.service.AddCustomerDisplayURL(name, rawURL, description)
+}
+
+func (a *App) UpdateCustomerDisplayURL(id, name, rawURL, description string, enabled bool) error {
+	return a.service.UpdateCustomerDisplayURL(id, name, rawURL, description, enabled)
+}
+
+func (a *App) SetActiveCustomerDisplayURL(id string) error {
+	return a.service.SetActiveCustomerDisplayURL(id)
+}
+
+func (a *App) DisableCustomerDisplayURL(id string) error {
+	return a.service.DisableCustomerDisplayURL(id)
+}
+
+func (a *App) DeleteCustomerDisplayURL(id string) error {
+	return a.service.DeleteCustomerDisplayURL(id)
+}
+
+func (a *App) ValidateAdminPin(pin string) bool {
+	return a.service.ValidateAdminPin(pin)
+}
+
+func (a *App) SetWindowFullscreen(fullscreen bool) {
+	if fullscreen {
+		logger.Infof("Setting window to fullscreen for customer display WebView")
+
+		// Frameless: true,
+		// DisableResize: true,
+		// StartHidden: true,
+		wailsruntime.WindowFullscreen(a.ctx)
+	} else {
+		logger.Infof("Restoring window from fullscreen")
+		wailsruntime.WindowUnfullscreen(a.ctx)
+	}
 }

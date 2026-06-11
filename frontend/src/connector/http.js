@@ -207,4 +207,43 @@ export class HttpConnector {
       body: JSON.stringify({ pin })
     });
   }
+
+  // ── Customer Display WebView ───────────────────────────────────────────────
+  // Customer display config is managed only from the desktop app.
+
+  async getCustomerDisplayURLs() {
+    return this.request('/api/customer-display/urls');
+  }
+
+  async getActiveCustomerDisplayURL() {
+    return this.request('/api/customer-display/active');
+  }
+
+  async addCustomerDisplayURL(name, url, description) {
+    throw { code: 'UNAUTHORIZED', message: 'Customer display URL management requires the desktop application' };
+  }
+
+  async updateCustomerDisplayURL(id, name, url, description, enabled) {
+    throw { code: 'UNAUTHORIZED', message: 'Customer display URL management requires the desktop application' };
+  }
+
+  async setActiveCustomerDisplayURL(id) {
+    throw { code: 'UNAUTHORIZED', message: 'Customer display URL management requires the desktop application' };
+  }
+
+  async disableCustomerDisplayURL(id) {
+    throw { code: 'UNAUTHORIZED', message: 'Customer display URL management requires the desktop application' };
+  }
+
+  async deleteCustomerDisplayURL(id) {
+    throw { code: 'UNAUTHORIZED', message: 'Customer display URL management requires the desktop application' };
+  }
+
+  async validateAdminPin(pin) {
+    throw { code: 'UNAUTHORIZED', message: 'Admin PIN validation requires the desktop application' };
+  }
+
+  async setWindowFullscreen(fullscreen) {
+    // No-op in browser mode — fullscreen managed by browser APIs if needed
+  }
 }
