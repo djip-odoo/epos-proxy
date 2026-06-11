@@ -324,3 +324,85 @@ func (s *PrinterService) SetLANPin(pin string) error {
 	}
 	return nil
 }
+
+// ─── Customer Display WebView ─────────────────────────────────────────────────
+
+func (s *PrinterService) GetCustomerDisplayURLs() []config.CustomerDisplayURL {
+	urls, err := config.GetCustomerDisplayURLs()
+	if err != nil {
+		logger.Errorf("Failed to load customer display URLs: %v", err)
+		return []config.CustomerDisplayURL{}
+	}
+	return urls
+}
+
+func (s *PrinterService) GetActiveCustomerDisplayURL() *config.CustomerDisplayURL {
+	u, err := config.GetActiveCustomerDisplayURL()
+	if err != nil {
+		logger.Errorf("Failed to get active customer display URL: %v", err)
+		return nil
+	}
+	return u
+}
+
+func (s *PrinterService) AddCustomerDisplayURL(name, rawURL, description string) (config.CustomerDisplayURL, error) {
+	logger.Infof("Adding customer display URL: name=%s url=%s", name, rawURL)
+	record, err := config.AddCustomerDisplayURL(name, rawURL, description)
+	if err != nil {
+		logger.Errorf("Failed to add customer display URL: %v", err)
+		return config.CustomerDisplayURL{}, err
+	}
+	logger.Infof("Customer display URL added: id=%s", record.ID)
+	return record, nil
+}
+
+func (s *PrinterService) UpdateCustomerDisplayURL(id, name, rawURL, description string, enabled bool) error {
+	logger.Infof("Updating customer display URL: id=%s enabled=%v", id, enabled)
+	if err := config.UpdateCustomerDisplayURL(id, name, rawURL, description, enabled); err != nil {
+		logger.Errorf("Failed to update customer display URL %s: %v", id, err)
+		return err
+	}
+	logger.Infof("Customer display URL updated: id=%s", id)
+	return nil
+}
+
+func (s *PrinterService) SetActiveCustomerDisplayURL(id string) error {
+	logger.Infof("Setting active customer display URL: id=%s", id)
+	if err := config.SetActiveCustomerDisplayURL(id); err != nil {
+		logger.Errorf("Failed to set active customer display URL %s: %v", id, err)
+		return err
+	}
+	logger.Infof("Active customer display URL set: id=%s", id)
+	return nil
+}
+
+func (s *PrinterService) DisableCustomerDisplayURL(id string) error {
+	logger.Infof("Disabling customer display URL: id=%s", id)
+	if err := config.DisableCustomerDisplayURL(id); err != nil {
+		logger.Errorf("Failed to disable customer display URL %s: %v", id, err)
+		return err
+	}
+	logger.Infof("Customer display URL disabled: id=%s", id)
+	return nil
+}
+
+func (s *PrinterService) DeleteCustomerDisplayURL(id string) error {
+	logger.Infof("Deleting customer display URL: id=%s", id)
+	if err := config.DeleteCustomerDisplayURL(id); err != nil {
+		logger.Errorf("Failed to delete customer display URL %s: %v", id, err)
+		return err
+	}
+	logger.Infof("Customer display URL deleted: id=%s", id)
+	return nil
+}
+
+// ValidateAdminPin checks the provided PIN against the configured LANPin.
+func (s *PrinterService) ValidateAdminPin(pin string) bool {
+	valid := s.config.Data.LANPin == pin
+	if valid {
+		logger.Infof("Admin PIN validated successfully for customer display recovery")
+	} else {
+		logger.Warnf("Admin PIN validation failed for customer display recovery")
+	}
+	return valid
+}

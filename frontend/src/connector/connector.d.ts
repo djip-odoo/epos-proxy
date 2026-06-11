@@ -44,6 +44,16 @@ export interface ConnectorError {
     message: string;
 }
 
+export interface CustomerDisplayURL {
+    id: string;
+    name: string;
+    url: string;
+    description: string;
+    enabled: boolean;
+    createdAt: string;
+    updatedAt: string;
+}
+
 export interface Connector {
     status(): Promise<StatusResponse>;
     addLANPrinter(ip: string): Promise<void>;
@@ -61,4 +71,14 @@ export interface Connector {
     browserOpenURL(url: string): Promise<void>;
     setLANPin(pin: string): Promise<void>;
     verifyPin(pin: string): Promise<{ token: string }>;
+    // Customer Display WebView
+    getCustomerDisplayURLs(): Promise<CustomerDisplayURL[]>;
+    getActiveCustomerDisplayURL(): Promise<CustomerDisplayURL | null>;
+    addCustomerDisplayURL(name: string, url: string, description: string): Promise<CustomerDisplayURL>;
+    updateCustomerDisplayURL(id: string, name: string, url: string, description: string, enabled: boolean): Promise<void>;
+    setActiveCustomerDisplayURL(id: string): Promise<void>;
+    disableCustomerDisplayURL(id: string): Promise<void>;
+    deleteCustomerDisplayURL(id: string): Promise<void>;
+    validateAdminPin(pin: string): Promise<boolean>;
+    setWindowFullscreen(fullscreen: boolean): Promise<void>;
 }
