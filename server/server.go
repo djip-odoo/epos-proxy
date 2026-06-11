@@ -82,6 +82,8 @@ type Service interface {
 	SetActiveCustomerDisplayURL(id string) error
 	DeleteCustomerDisplayURL(id string) error
 	ValidateAdminPin(pin string) bool
+	IsCustomerDisplayOpen() bool
+	SetCustomerDisplayOpen(open bool) error
 }
 
 type EPOSResponse struct {
@@ -423,6 +425,27 @@ func New(port int, host string, svc Service, assets fs.FS) *Server {
 			})
 		}
 		return ctx.JSON(fiber.Map{"valid": true})
+	})
+
+	// GET /api/customer-display/state — get current open/close state of customer display
+	app.Get("/api/customer-display/state", func(ctx fiber.Ctx) error {
+		return ctx.JSON(fiber.Map{"open": svc.IsCustomerDisplayOpen()})
+	})
+
+	// POST /api/customer-display/open — open customer display on the desktop app
+	app.Post("/api/customer-display/open", func(ctx fiber.Ctx) error {
+		if err := svc.SetCustomerDisplayOpen(true); err != nil {
+			return apiError(ctx, 500, "LAUNCH_FAILED", err)
+		}
+		return ctx.JSON(fiber.Map{"status": "ok"})
+	})
+
+	// POST /api/customer-display/close — close customer display on the desktop app
+	app.Post("/api/customer-display/close", func(ctx fiber.Ctx) error {
+		if err := svc.SetCustomerDisplayOpen(false); err != nil {
+			return apiError(ctx, 500, "CLOSE_FAILED", err)
+		}
+		return ctx.JSON(fiber.Map{"status": "ok"})
 	})
 
 	if assets != nil {

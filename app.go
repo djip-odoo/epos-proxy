@@ -62,12 +62,20 @@ func (a *App) startup(ctx context.Context) {
 		host = "0.0.0.0"
 	}
 
+	a.service.OnCustomerDisplayAction = func(open bool, url string) {
+		if open {
+			wailsruntime.EventsEmit(a.ctx, "open-customer-display-webview", url)
+		} else {
+			wailsruntime.EventsEmit(a.ctx, "close-customer-display-webview")
+		}
+	}
+
 	a.service.StartServer(port, host)
 
 	// Auto-open WebView if an active customer display URL is configured.
 	if active := a.service.GetActiveCustomerDisplayURL(); active != nil {
 		logger.Infof("Auto-opening customer display WebView for URL: %s", active.URL)
-		wailsruntime.EventsEmit(ctx, "open-customer-display-webview", active.URL)
+		a.service.SetCustomerDisplayOpen(true)
 	}
 }
 
@@ -234,3 +242,12 @@ func (a *App) SetWindowFullscreen(fullscreen bool) {
 		wailsruntime.WindowUnfullscreen(a.ctx)
 	}
 }
+
+func (a *App) IsCustomerDisplayOpen() bool {
+	return a.service.IsCustomerDisplayOpen()
+}
+
+func (a *App) SetCustomerDisplayOpen(open bool) error {
+	return a.service.SetCustomerDisplayOpen(open)
+}
+

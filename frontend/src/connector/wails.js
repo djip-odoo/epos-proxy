@@ -120,4 +120,12 @@ export class WailsConnector {
   async setWindowFullscreen(fullscreen) {
     return this.wrap(App.SetWindowFullscreen, fullscreen);
   }
+
+  async isCustomerDisplayOpen() {
+    return this.wrap(App.IsCustomerDisplayOpen);
+  }
+
+  async setCustomerDisplayOpen(open) {
+    return this.wrap(App.SetCustomerDisplayOpen, open);
+  }
 }

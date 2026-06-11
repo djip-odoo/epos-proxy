@@ -78,7 +78,8 @@ export interface Connector {
     updateCustomerDisplayURL(id: string, name: string, url: string, description: string, enabled: boolean): Promise<void>;
     setActiveCustomerDisplayURL(id: string): Promise<void>;
     disableCustomerDisplayURL(id: string): Promise<void>;
-    deleteCustomerDisplayURL(id: string): Promise<void>;
     validateAdminPin(pin: string): Promise<boolean>;
     setWindowFullscreen(fullscreen: boolean): Promise<void>;
+    isCustomerDisplayOpen(): Promise<boolean>;
+    setCustomerDisplayOpen(open: boolean): Promise<void>;
 }
