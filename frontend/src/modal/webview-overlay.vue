@@ -200,6 +200,7 @@ const numpadKeys = ['1','2','3','4','5','6','7','8','9','C','0','⌫']
 
 onMounted(() => {
   safeEventsOn('open-customer-display-webview', (url) => openWebView(url))
+  safeEventsOn('close-customer-display-webview', () => exitWebView())
   window.addEventListener('cd-open-webview', e => openWebView(e.detail))
 })
 
@@ -215,16 +216,28 @@ function openWebView(url) {
     notify('No customer display URL configured', 'danger')
     return
   }
+  if (isOpen.value && currentURL.value === url) {
+    return
+  }
+  const wasOpen = isOpen.value
   currentURL.value = url
   loadError.value = false
   isOpen.value = true
-  connector.setWindowFullscreen(true).catch(err =>
-    console.warn('[CustomerDisplay] Could not set fullscreen:', err)
-  )
+  if (!wasOpen) {
+    connector.setWindowFullscreen(true).catch(err =>
+      console.warn('[CustomerDisplay] Could not set fullscreen:', err)
+    )
+    connector.setCustomerDisplayOpen(true).catch(err =>
+      console.warn('[CustomerDisplay] Could not update open status:', err)
+    )
+  }
   console.info('[CustomerDisplay] WebView opened:', url)
 }
 
 function exitWebView() {
+  if (!isOpen.value) {
+    return
+  }
   isOpen.value = false
   currentURL.value = null
   loadError.value = false
@@ -232,6 +245,9 @@ function exitWebView() {
   cornerClickTimestamps.value = []
   connector.setWindowFullscreen(false).catch(err =>
     console.warn('[CustomerDisplay] Could not exit fullscreen:', err)
+  )
+  connector.setCustomerDisplayOpen(false).catch(err =>
+    console.warn('[CustomerDisplay] Could not update open status:', err)
   )
   console.info('[CustomerDisplay] WebView closed')
   emit('exit')

@@ -258,4 +258,14 @@ export class HttpConnector {
   async setWindowFullscreen(fullscreen) {
     // No-op in browser mode — fullscreen managed by browser APIs if needed
   }
+
+  async isCustomerDisplayOpen() {
+    const res = await this.request('/api/customer-display/state');
+    return res.open === true;
+  }
+
+  async setCustomerDisplayOpen(open) {
+    const endpoint = open ? '/api/customer-display/open' : '/api/customer-display/close';
+    await this.request(endpoint, { method: 'POST' });
+  }
 }

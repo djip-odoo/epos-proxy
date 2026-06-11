@@ -18,12 +18,15 @@ import (
 )
 
 type PrinterService struct {
-	config         *config.Manager
-	printerManager *printer.Manager
-	autoStart      *autostart.App
-	webserver      *server.Server
-	webserverMu    sync.Mutex
-	assets         fs.FS
+	config                  *config.Manager
+	printerManager          *printer.Manager
+	autoStart               *autostart.App
+	webserver               *server.Server
+	webserverMu             sync.Mutex
+	assets                  fs.FS
+	customerDisplayOpen     bool
+	customerDisplayOpenMu   sync.RWMutex
+	OnCustomerDisplayAction func(open bool, url string)
 }
 
 func NewPrinterService(cfg *config.Manager, pm *printer.Manager, autoStart *autostart.App, assets fs.FS) *PrinterService {
@@ -406,3 +409,33 @@ func (s *PrinterService) ValidateAdminPin(pin string) bool {
 	}
 	return valid
 }
+
+func (s *PrinterService) IsCustomerDisplayOpen() bool {
+	s.customerDisplayOpenMu.RLock()
+	defer s.customerDisplayOpenMu.RUnlock()
+	return s.customerDisplayOpen
+}
+
+func (s *PrinterService) SetCustomerDisplayOpen(open bool) error {
+	s.customerDisplayOpenMu.Lock()
+	if s.customerDisplayOpen == open {
+		s.customerDisplayOpenMu.Unlock()
+		return nil
+	}
+	s.customerDisplayOpen = open
+	s.customerDisplayOpenMu.Unlock()
+
+	if s.OnCustomerDisplayAction != nil {
+		url := ""
+		if open {
+			active := s.GetActiveCustomerDisplayURL()
+			if active == nil {
+				return fmt.Errorf("no active customer display URL configured")
+			}
+			url = active.URL
+		}
+		s.OnCustomerDisplayAction(open, url)
+	}
+	return nil
+}
+
