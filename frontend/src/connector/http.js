@@ -268,4 +268,40 @@ export class HttpConnector {
     const endpoint = open ? '/api/customer-display/open' : '/api/customer-display/close';
     await this.request(endpoint, { method: 'POST' });
   }
+
+  async getMonitors() {
+    return [];
+  }
+
+  async saveMonitorSelection(monitorID, remember) {
+    // No-op in remote mode
+  }
+
+  async getMonitorSelection() {
+    return ['', false];
+  }
+
+  async identifyDisplays() {
+    // No-op in remote mode
+  }
+
+  async testCustomerDisplay(monitorID) {
+    // No-op in remote mode
+  }
+
+  async openCustomerDisplayWindow(monitorID, url) {
+    // No-op in remote mode
+  }
+
+  async closeCustomerDisplayWindow() {
+    // No-op in remote mode
+  }
+
+  async reloadCustomerDisplayWindow() {
+    // No-op in remote mode
+  }
+
+  async navigateCustomerDisplayWindow(url) {
+    // No-op in remote mode
+  }
 }

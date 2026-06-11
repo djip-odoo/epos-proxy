@@ -54,6 +54,16 @@ export interface CustomerDisplayURL {
     updatedAt: string;
 }
 
+export interface MonitorInfo {
+    id: string;
+    name: string;
+    width: number;
+    height: number;
+    x: number;
+    y: number;
+    isPrimary: boolean;
+}
+
 export interface Connector {
     status(): Promise<StatusResponse>;
     addLANPrinter(ip: string): Promise<void>;
@@ -82,4 +92,13 @@ export interface Connector {
     setWindowFullscreen(fullscreen: boolean): Promise<void>;
     isCustomerDisplayOpen(): Promise<boolean>;
     setCustomerDisplayOpen(open: boolean): Promise<void>;
+    getMonitors(): Promise<MonitorInfo[]>;
+    saveMonitorSelection(monitorID: string, remember: boolean): Promise<void>;
+    getMonitorSelection(): Promise<[string, boolean]>;
+    identifyDisplays(): Promise<void>;
+    testCustomerDisplay(monitorID: string): Promise<void>;
+    openCustomerDisplayWindow(monitorID: string, url: string): Promise<void>;
+    closeCustomerDisplayWindow(): Promise<void>;
+    reloadCustomerDisplayWindow(): Promise<void>;
+    navigateCustomerDisplayWindow(url: string): Promise<void>;
 }

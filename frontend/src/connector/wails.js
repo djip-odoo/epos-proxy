@@ -128,4 +128,40 @@ export class WailsConnector {
   async setCustomerDisplayOpen(open) {
     return this.wrap(App.SetCustomerDisplayOpen, open);
   }
+
+  async getMonitors() {
+    return this.wrap(App.GetMonitors);
+  }
+
+  async saveMonitorSelection(monitorID, remember) {
+    return this.wrap(App.SaveMonitorSelection, monitorID, remember);
+  }
+
+  async getMonitorSelection() {
+    return this.wrap(App.GetMonitorSelection);
+  }
+
+  async identifyDisplays() {
+    return this.wrap(App.IdentifyDisplays);
+  }
+
+  async testCustomerDisplay(monitorID) {
+    return this.wrap(App.TestCustomerDisplay, monitorID);
+  }
+
+  async openCustomerDisplayWindow(monitorID, url) {
+    return this.wrap(App.OpenCustomerDisplayWindow, monitorID, url);
+  }
+
+  async closeCustomerDisplayWindow() {
+    return this.wrap(App.CloseCustomerDisplayWindow);
+  }
+
+  async reloadCustomerDisplayWindow() {
+    return this.wrap(App.ReloadCustomerDisplayWindow);
+  }
+
+  async navigateCustomerDisplayWindow(url) {
+    return this.wrap(App.NavigateCustomerDisplayWindow, url);
+  }
 }

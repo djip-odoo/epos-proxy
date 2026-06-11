@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"epos-proxy/config"
+	"epos-proxy/customerdisplay"
 	"epos-proxy/logger"
 	"epos-proxy/printer"
 	"epos-proxy/server"
@@ -62,20 +63,92 @@ func (a *App) startup(ctx context.Context) {
 		host = "0.0.0.0"
 	}
 
+	// Initialize customer display module and register callbacks
+	customerdisplay.Init()
+	customerdisplay.RegisterMonitorChangeCallback(func() {
+		monitors := customerdisplay.GetMonitors()
+		logger.Infof("[customerdisplay] Monitors updated: %d found", len(monitors))
+		wailsruntime.EventsEmit(a.ctx, "monitors-changed", monitors)
+
+		// Check if the currently saved monitor was disconnected
+		selectedID, _ := a.service.config.GetMonitorSelection()
+
+		if selectedID != "" {
+			found := false
+			for _, m := range monitors {
+				if m.ID == selectedID {
+					found = true
+					break
+				}
+			}
+			if !found {
+				logger.Warnf("[customerdisplay] Selected monitor %s disconnected. Closing customer display.", selectedID)
+				customerdisplay.Close()
+				a.service.SetCustomerDisplayOpen(false)
+				wailsruntime.EventsEmit(a.ctx, "selected-monitor-disconnected")
+			}
+		}
+	})
+
 	a.service.OnCustomerDisplayAction = func(open bool, url string) {
 		if open {
-			wailsruntime.EventsEmit(a.ctx, "open-customer-display-webview", url)
+			selectedID, _ := a.service.config.GetMonitorSelection()
+
+			if selectedID != "" {
+				// Verify it still exists
+				monitors := customerdisplay.GetMonitors()
+				exists := false
+				for _, m := range monitors {
+					if m.ID == selectedID {
+						exists = true
+						break
+					}
+				}
+				if exists {
+					customerdisplay.Open(selectedID, url)
+					wailsruntime.EventsEmit(a.ctx, "open-customer-display-webview", url)
+				} else {
+					wailsruntime.EventsEmit(a.ctx, "customer-display-selection-required")
+				}
+			} else {
+				wailsruntime.EventsEmit(a.ctx, "customer-display-selection-required")
+			}
 		} else {
+			customerdisplay.Close()
 			wailsruntime.EventsEmit(a.ctx, "close-customer-display-webview")
 		}
 	}
 
 	a.service.StartServer(port, host)
 
-	// Auto-open WebView if an active customer display URL is configured.
+	// Auto-open WebView if an active customer display URL is configured and we remember selection.
 	if active := a.service.GetActiveCustomerDisplayURL(); active != nil {
-		logger.Infof("Auto-opening customer display WebView for URL: %s", active.URL)
-		a.service.SetCustomerDisplayOpen(true)
+		selectedID, remember := a.service.config.GetMonitorSelection()
+
+		if remember && selectedID != "" {
+			// Check if monitor is still connected
+			monitors := customerdisplay.GetMonitors()
+			exists := false
+			for _, m := range monitors {
+				if m.ID == selectedID {
+					exists = true
+					break
+				}
+			}
+			if exists {
+				logger.Infof("Auto-opening native customer display on monitor %s for URL: %s", selectedID, active.URL)
+				a.service.SetCustomerDisplayOpen(true)
+			} else {
+				logger.Warnf("Saved monitor %s no longer connected. Prompting selection.", selectedID)
+				time.AfterFunc(1500*time.Millisecond, func() {
+					wailsruntime.EventsEmit(a.ctx, "customer-display-selection-required")
+				})
+			}
+		} else {
+			time.AfterFunc(1500*time.Millisecond, func() {
+				wailsruntime.EventsEmit(a.ctx, "customer-display-selection-required")
+			})
+		}
 	}
 }
 
@@ -249,5 +322,41 @@ func (a *App) IsCustomerDisplayOpen() bool {
 
 func (a *App) SetCustomerDisplayOpen(open bool) error {
 	return a.service.SetCustomerDisplayOpen(open)
+}
+
+func (a *App) GetMonitors() []customerdisplay.MonitorInfo {
+	return customerdisplay.GetMonitors()
+}
+
+func (a *App) SaveMonitorSelection(monitorID string, remember bool) error {
+	return a.service.config.SetMonitorSelection(monitorID, remember)
+}
+
+func (a *App) GetMonitorSelection() (string, bool) {
+	return a.service.config.GetMonitorSelection()
+}
+
+func (a *App) IdentifyDisplays() {
+	customerdisplay.Identify()
+}
+
+func (a *App) TestCustomerDisplay(monitorID string) {
+	customerdisplay.Test(monitorID)
+}
+
+func (a *App) OpenCustomerDisplayWindow(monitorID string, url string) {
+	customerdisplay.Open(monitorID, url)
+}
+
+func (a *App) CloseCustomerDisplayWindow() {
+	customerdisplay.Close()
+}
+
+func (a *App) ReloadCustomerDisplayWindow() {
+	customerdisplay.Reload()
+}
+
+func (a *App) NavigateCustomerDisplayWindow(url string) {
+	customerdisplay.Navigate(url)
 }
 

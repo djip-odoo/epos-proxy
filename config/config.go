@@ -20,11 +20,13 @@ const (
 )
 
 type AppConfig struct {
-	Port             int      `json:"port"`
-	ProxyId          string   `json:"proxy_id"`
-	LANPrinters      []string `json:"lan_printers,omitempty"`
-	LANAccessEnabled bool     `json:"lan_access_enabled"`
-	LANPin           string   `json:"lan_pin"`
+	Port              int      `json:"port"`
+	ProxyId           string   `json:"proxy_id"`
+	LANPrinters       []string `json:"lan_printers,omitempty"`
+	LANAccessEnabled  bool     `json:"lan_access_enabled"`
+	LANPin            string   `json:"lan_pin"`
+	SelectedMonitorID string   `json:"selected_monitor_id"`
+	RememberSelection bool     `json:"remember_selection"`
 }
 
 func defaults() AppConfig {
@@ -185,4 +187,18 @@ func (cm *Manager) GetLANPrinters() []string {
 	result := make([]string, len(cm.Data.LANPrinters))
 	copy(result, cm.Data.LANPrinters)
 	return result
+}
+
+func (cm *Manager) GetMonitorSelection() (string, bool) {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	return cm.Data.SelectedMonitorID, cm.Data.RememberSelection
+}
+
+func (cm *Manager) SetMonitorSelection(monitorID string, remember bool) error {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	cm.Data.SelectedMonitorID = monitorID
+	cm.Data.RememberSelection = remember
+	return cm.saveLocked()
 }

@@ -162,7 +162,7 @@
 
 <script setup>
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
-import { connector, safeEventsOn } from '../connector'
+import { connector, safeEventsOn, isDesktopApp } from '../connector'
 import { useToast } from '../hooks/useToast'
 import CustomerDisplayDialog from './customer-display-dialog.vue'
 
@@ -199,8 +199,16 @@ const numpadKeys = ['1','2','3','4','5','6','7','8','9','C','0','⌫']
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
 onMounted(() => {
-  safeEventsOn('open-customer-display-webview', (url) => openWebView(url))
-  safeEventsOn('close-customer-display-webview', () => exitWebView())
+  safeEventsOn('open-customer-display-webview', (url) => {
+    if (!isDesktopApp()) {
+      openWebView(url)
+    }
+  })
+  safeEventsOn('close-customer-display-webview', () => {
+    if (!isDesktopApp()) {
+      exitWebView()
+    }
+  })
   window.addEventListener('cd-open-webview', e => openWebView(e.detail))
 })
 

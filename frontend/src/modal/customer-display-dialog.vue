@@ -5,7 +5,8 @@
       <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20m6-3l.75 3M4 5h16v10H4V5zm0 10h16" />
       </svg>
-      <span v-if="isOpenOnDesktop" class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-green-400 border border-white animate-pulse" />
+      <span v-if="isOpenOnDesktop"
+        class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-green-400 border border-white animate-pulse" />
     </div>
   </button>
 
@@ -94,18 +95,8 @@
 
                       <div class="grid grid-cols-2 gap-3 mt-5">
 
-                        <!-- Desktop App: simple Launch button -->
-                        <button v-if="isDesktopApp()" @click="emitOpenWebView"
-                          class="flex items-center justify-center gap-2 rounded-xl bg-odoo text-white py-2.5 font-medium hover:opacity-90 transition-all">
-                          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                          </svg>
-                          Launch
-                        </button>
-
-                        <!-- Remote/Web App: Launch / Close control of desktop display -->
-                        <button v-else @click="toggleDesktopDisplay(!isOpenOnDesktop)"
+                        <!-- Launch / Close control of desktop display -->
+                        <button @click="toggleDesktopDisplay(!isOpenOnDesktop)"
                           class="flex items-center justify-center gap-2 rounded-xl py-2.5 font-medium hover:opacity-90 transition-all"
                           :class="isOpenOnDesktop ? 'bg-amber-600 text-white' : 'bg-odoo text-white'">
                           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -122,6 +113,99 @@
                           Delete
                         </button>
 
+                      </div>
+
+                      <!-- Monitor Selection Section (Desktop App Only) -->
+                      <div v-if="isDesktopApp()" class="border-t border-gray-100 mt-6 pt-5 space-y-4">
+                        <div class="flex items-center justify-between">
+                          <h4 class="text-xs font-semibold text-gray-800 uppercase tracking-wider">
+                            Monitor Settings
+                          </h4>
+                          <button @click="identifyDisplays"
+                            class="text-xs font-medium text-odoo hover:underline flex items-center gap-1 cursor-pointer">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            Identify Displays
+                          </button>
+                        </div>
+
+                        <!-- Monitors List -->
+                        <div class="space-y-2">
+                          <div v-for="monitor in monitors" :key="monitor.id"
+                            @click="!monitor.isPrimary && selectMonitor(monitor.id)" :aria-disabled="monitor.isPrimary"
+                            class="relative overflow-hidden rounded-xl border p-4 transition-all duration-200" :class="[
+                              monitor.isPrimary
+                                ? 'opacity-50 cursor-not-allowed bg-gray-100 border-gray-200'
+                                : 'cursor-pointer',
+                              selectedMonitorID === monitor.id
+                                ? 'border-odoo bg-odoo/5 shadow-sm'
+                                : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50/50'
+                            ]">
+
+                            <div class="flex items-center justify-between">
+                              <div class="flex items-center gap-3">
+                                <!-- Monitor Icon -->
+                                <div class="w-8 h-8 rounded-lg flex items-center justify-center"
+                                  :class="selectedMonitorID === monitor.id ? 'bg-odoo/10 text-odoo' : 'bg-gray-100 text-gray-500'">
+                                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M9.75 17L9 20m6-3l.75 3M4 5h16v10H4V5zm0 10h16" />
+                                  </svg>
+                                </div>
+                                <div>
+                                  <p class="text-sm font-semibold"
+                                    :class="selectedMonitorID === monitor.id ? 'text-odoo' : 'text-gray-800'">
+                                    {{ monitor.name }}
+                                    <span v-if="monitor.isPrimary"
+                                      class="ml-1.5 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600 border border-gray-200">
+                                      Primary
+                                    </span>
+                                  </p>
+                                  <p class="text-xs text-gray-500">
+                                    {{ monitor.width }} × {{ monitor.height }}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <!-- Radio Icon -->
+                              <div class="w-5 h-5 rounded-full border flex items-center justify-center transition-all"
+                                :class="selectedMonitorID === monitor.id ? 'border-odoo bg-odoo text-white' : 'border-gray-300'">
+                                <div v-if="selectedMonitorID === monitor.id" class="w-2 h-2 rounded-full bg-white">
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div v-if="monitors.length === 0" class="text-center py-6 text-sm text-gray-400">
+                            No connected monitors detected.
+                          </div>
+                        </div>
+
+                        <!-- Remember my selection -->
+                        <div class="flex items-center gap-2.5">
+                          <input type="checkbox" id="remember-monitor" v-model="rememberSelection"
+                            @change="saveMonitorSettings"
+                            class="w-4 h-4 rounded border-gray-300 text-odoo focus:ring-odoo transition-all" />
+                          <label for="remember-monitor" class="text-xs text-gray-600 cursor-pointer select-none">
+                            Remember my selection
+                          </label>
+                        </div>
+
+                        <!-- Test button -->
+                        <div class="pt-2">
+                          <button @click="testDisplay" :disabled="!selectedMonitorID"
+                            class="w-full flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-gray-50 text-gray-700 py-2.5 text-sm font-medium hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Test Customer Display
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -273,15 +357,39 @@ const urlValid = ref(false)
 const form = ref({ name: '', url: '', description: '' })
 const formErrors = ref({ name: '', url: '' })
 
+// Monitor selection state
+const monitors = ref([])
+const selectedMonitorID = ref('')
+const rememberSelection = ref(false)
+
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
 let statusInterval = null
 
 onMounted(() => {
   safeEventsOn('open-customer-display-settings', () => openSettings())
-  
+
+  if (isDesktopApp()) {
+    safeEventsOn('monitors-changed', (newMonitors) => {
+      monitors.value = newMonitors
+      notify('Monitor configuration updated', 'info')
+    })
+
+    safeEventsOn('selected-monitor-disconnected', () => {
+      isOpenOnDesktop.value = false
+      notify('Selected monitor was disconnected. Customer display closed.', 'warning')
+      openSettings()
+    })
+
+    safeEventsOn('customer-display-selection-required', () => {
+      notify('Please configure a monitor for the Customer Display', 'warning')
+      openSettings()
+    })
+  }
+
   // Initial status load
   loadURL()
+  loadMonitorSettings()
 
   // Poll state every 5s to keep active display dot and control sync
   statusInterval = setInterval(() => {
@@ -296,6 +404,7 @@ onUnmounted(() => {
 watch(() => show.value, (val) => {
   if (val) {
     loadURL()
+    loadMonitorSettings()
     resetForm()
   }
 })
@@ -320,6 +429,61 @@ async function refreshOpenState() {
     isOpenOnDesktop.value = await connector.isCustomerDisplayOpen()
   } catch (err) {
     console.warn('Failed to fetch customer display status:', err)
+  }
+}
+
+// ── Monitor Settings ─────────────────────────────────────────────────────────
+
+async function loadMonitorSettings() {
+  if (!isDesktopApp()) return
+  try {
+    monitors.value = await connector.getMonitors()
+    const selection = await connector.getMonitorSelection()
+    if (selection) {
+      selectedMonitorID.value = selection[0] || ''
+      rememberSelection.value = selection[1] || false
+    }
+  } catch (err) {
+    console.error('Failed to load monitor settings:', err)
+  }
+}
+
+async function selectMonitor(id) {
+  selectedMonitorID.value = id
+  await saveMonitorSettings()
+}
+
+async function saveMonitorSettings() {
+  try {
+    await connector.saveMonitorSelection(selectedMonitorID.value, rememberSelection.value)
+    // If display is currently open, we reload it on the new monitor immediately
+    if (isOpenOnDesktop.value && selectedMonitorID.value && currentURL.value) {
+      await connector.openCustomerDisplayWindow(selectedMonitorID.value, currentURL.value.url)
+    }
+  } catch (err) {
+    console.error('Failed to save monitor selection:', err)
+    notify('Failed to save monitor selection', 'danger')
+  }
+}
+
+async function identifyDisplays() {
+  try {
+    await connector.identifyDisplays()
+    notify('Identifying monitors...', 'success')
+  } catch (err) {
+    console.error('Failed to identify displays:', err)
+    notify('Failed to identify displays', 'danger')
+  }
+}
+
+async function testDisplay() {
+  if (!selectedMonitorID.value) return
+  try {
+    await connector.testCustomerDisplay(selectedMonitorID.value)
+    notify('Diagnostic test launched on selected monitor', 'success')
+  } catch (err) {
+    console.error('Failed to run test:', err)
+    notify('Failed to run test', 'danger')
   }
 }
 
@@ -377,6 +541,7 @@ async function addURL() {
     notify('Customer display URL saved', 'success')
     resetForm()
     await loadURL()
+    await loadMonitorSettings()
   } catch (err) {
     formError.value = err?.message || 'Failed to save URL'
   } finally {
@@ -415,9 +580,15 @@ function emitOpenWebView() {
 
 async function toggleDesktopDisplay(open) {
   try {
+    if (isDesktopApp()) {
+      if (open && !selectedMonitorID.value) {
+        notify('Please select a monitor before launching', 'warning')
+        return
+      }
+    }
     await connector.setCustomerDisplayOpen(open)
     isOpenOnDesktop.value = open
-    notify(open ? 'Customer display launched on desktop app' : 'Customer display closed on desktop app', 'success')
+    notify(open ? 'Customer display launched' : 'Customer display closed', 'success')
   } catch (err) {
     console.error('Failed to toggle customer display:', err)
     notify(err?.message || 'Failed to toggle customer display', 'danger')
