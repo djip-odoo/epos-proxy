@@ -74,6 +74,13 @@ type Service interface {
 	GetPrinterManager() *printer.Manager
 	GetLANPin() string
 	SetLANPin(pin string) error
+	// Customer Display WebView
+	GetCustomerDisplayURLs() []config.CustomerDisplayURL
+	GetActiveCustomerDisplayURL() *config.CustomerDisplayURL
+	AddCustomerDisplayURL(name, rawURL, description string) (config.CustomerDisplayURL, error)
+	SetActiveCustomerDisplayURL(id string) error
+	DeleteCustomerDisplayURL(id string) error
+	ValidateAdminPin(pin string) bool
 }
 
 type EPOSResponse struct {
@@ -343,6 +350,83 @@ func New(port int, host string, svc Service, assets fs.FS) *Server {
 			return err
 		}
 		return nil
+	})
+
+	// ── Customer Display WebView ──────────────────────────────────────────────
+
+	// GET /api/customer-display/urls — list all configured URLs
+	app.Get("/api/customer-display/urls", func(ctx fiber.Ctx) error {
+		urls := svc.GetCustomerDisplayURLs()
+		if urls == nil {
+			urls = []config.CustomerDisplayURL{}
+		}
+		return ctx.JSON(urls)
+	})
+
+	// GET /api/customer-display/active — return the active URL or null
+	app.Get("/api/customer-display/active", func(ctx fiber.Ctx) error {
+		active := svc.GetActiveCustomerDisplayURL()
+		if active == nil {
+			return ctx.JSON(nil)
+		}
+		return ctx.JSON(active)
+	})
+
+	// POST /api/customer-display/urls — add a new URL (becomes active)
+	app.Post("/api/customer-display/urls", func(ctx fiber.Ctx) error {
+		var req struct {
+			Name        string `json:"name"`
+			URL         string `json:"url"`
+			Description string `json:"description"`
+		}
+		if err := ctx.Bind().JSON(&req); err != nil {
+			return apiError(ctx, 400, "BAD_REQUEST", err)
+		}
+		record, err := svc.AddCustomerDisplayURL(req.Name, req.URL, req.Description)
+		if err != nil {
+			return apiError(ctx, 400, "VALIDATION_ERROR", err)
+		}
+		// Immediately activate the new URL
+		if err := svc.SetActiveCustomerDisplayURL(record.ID); err != nil {
+			logger.Warnf("Added customer display URL but failed to set active: %v", err)
+		}
+		return ctx.Status(fiber.StatusCreated).JSON(record)
+	})
+
+	// POST /api/customer-display/urls/:id/activate — set a URL as active
+	app.Post("/api/customer-display/urls/:id/activate", func(ctx fiber.Ctx) error {
+		id := ctx.Params("id")
+		if err := svc.SetActiveCustomerDisplayURL(id); err != nil {
+			return apiError(ctx, 400, "NOT_FOUND", err)
+		}
+		return ctx.JSON(fiber.Map{"status": "ok"})
+	})
+
+	// DELETE /api/customer-display/urls/:id — delete a URL
+	app.Delete("/api/customer-display/urls/:id", func(ctx fiber.Ctx) error {
+		id := ctx.Params("id")
+		if err := svc.DeleteCustomerDisplayURL(id); err != nil {
+			return apiError(ctx, 400, "NOT_FOUND", err)
+		}
+		return ctx.JSON(fiber.Map{"status": "ok"})
+	})
+
+	// POST /api/customer-display/validate-pin — validate admin PIN
+	app.Post("/api/customer-display/validate-pin", func(ctx fiber.Ctx) error {
+		var req struct {
+			Pin string `json:"pin"`
+		}
+		if err := ctx.Bind().JSON(&req); err != nil {
+			return apiError(ctx, 400, "BAD_REQUEST", err)
+		}
+		valid := svc.ValidateAdminPin(req.Pin)
+		if !valid {
+			return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"code":    "INVALID_PIN",
+				"message": "Incorrect PIN",
+			})
+		}
+		return ctx.JSON(fiber.Map{"valid": true})
 	})
 
 	if assets != nil {

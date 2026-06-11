@@ -209,7 +209,6 @@ export class HttpConnector {
   }
 
   // ── Customer Display WebView ───────────────────────────────────────────────
-  // Customer display config is managed only from the desktop app.
 
   async getCustomerDisplayURLs() {
     return this.request('/api/customer-display/urls');
@@ -220,27 +219,40 @@ export class HttpConnector {
   }
 
   async addCustomerDisplayURL(name, url, description) {
-    throw { code: 'UNAUTHORIZED', message: 'Customer display URL management requires the desktop application' };
+    return this.request('/api/customer-display/urls', {
+      method: 'POST',
+      body: JSON.stringify({ name, url, description })
+    });
   }
 
   async updateCustomerDisplayURL(id, name, url, description, enabled) {
-    throw { code: 'UNAUTHORIZED', message: 'Customer display URL management requires the desktop application' };
+    // Not supported in simplified model; use add + delete
+    throw { code: 'NOT_SUPPORTED', message: 'Update not supported — delete and re-add instead' };
   }
 
   async setActiveCustomerDisplayURL(id) {
-    throw { code: 'UNAUTHORIZED', message: 'Customer display URL management requires the desktop application' };
+    return this.request(`/api/customer-display/urls/${encodeURIComponent(id)}/activate`, {
+      method: 'POST'
+    });
   }
 
   async disableCustomerDisplayURL(id) {
-    throw { code: 'UNAUTHORIZED', message: 'Customer display URL management requires the desktop application' };
+    // Not needed in simplified model
+    throw { code: 'NOT_SUPPORTED', message: 'Disable not supported — delete instead' };
   }
 
   async deleteCustomerDisplayURL(id) {
-    throw { code: 'UNAUTHORIZED', message: 'Customer display URL management requires the desktop application' };
+    return this.request(`/api/customer-display/urls/${encodeURIComponent(id)}`, {
+      method: 'DELETE'
+    });
   }
 
   async validateAdminPin(pin) {
-    throw { code: 'UNAUTHORIZED', message: 'Admin PIN validation requires the desktop application' };
+    const res = await this.request('/api/customer-display/validate-pin', {
+      method: 'POST',
+      body: JSON.stringify({ pin })
+    });
+    return res.valid === true;
   }
 
   async setWindowFullscreen(fullscreen) {
