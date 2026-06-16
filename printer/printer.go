@@ -170,6 +170,11 @@ func (p *Printer) ensureOpenUSBLocked() error {
 		targetEP *EndpointInfo
 	)
 	for i, d := range devices {
+		if deviceID, err := getPrinterDeviceID(d); err != nil {
+			logger.Errorf("Failed to get device ID for USB device %s: %v", deviceID, err)
+			continue
+		}
+
 		serial, _ := d.SerialNumber()
 
 		match := false
