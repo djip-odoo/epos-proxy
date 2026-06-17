@@ -55,6 +55,14 @@ func NewManager() (*Manager, error) {
 	}, nil
 }
 
+func (cm *Manager) ConfigDirectory() string {
+	base, err := os.UserConfigDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(base, AppName)
+}
+
 func (cm *Manager) Load() error {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()

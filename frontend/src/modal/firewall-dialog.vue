@@ -105,8 +105,9 @@ import { ref, onMounted } from 'vue'
 import { EventsOn } from '../../wailsjs/runtime/runtime'
 import CloseButton from './close-button.vue'
 import { ConfigureFirewall, SkipFirewallPrompt } from '../../wailsjs/go/main/App'
+import { useToast } from '../hooks/useToast.js'
+const { notify } = useToast()
 
-const emit = defineEmits(['notify'])
 const props = defineProps({
   os: { type: String, default: "linux" }
 })
@@ -133,7 +134,7 @@ async function handleEnable() {
 
   try {
     await ConfigureFirewall()
-    emit('notify', 'Network printing enabled successfully.', 'success')
+    notify('Network printing enabled successfully.', 'success')
     showDialog.value = false
   } catch (err) {
     const errorText = typeof err === 'string' ? err : err?.message || ''

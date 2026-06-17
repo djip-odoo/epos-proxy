@@ -1,6 +1,6 @@
 <template>
   <div>
-    <FirewallDialog @notify="showToast" :os="os" />
+    <FirewallDialog :os="os" />
     <div
         class="w-full max-w-full sm:max-w-md md:max-w-lg lg:max-w-xl bg-white/85 rounded-2xl shadow-lg overflow-hidden px-4 sm:px-6 py-2 sm:py-4">
 
@@ -20,7 +20,7 @@
               >×</span>
             </div>
             <div class="text-slate-600 mt-2 text-sm break-all">{{ printer.ip }}</div>
-            <PrinterActions :printer="printer" @notify="showToast" />
+            <PrinterActions :printer="printer" />
           </li>
 
           <li v-for="printer in unavailablePrinters" :key="printer.name"
@@ -61,26 +61,8 @@
 
     </div>
   </div>
-  <NetworkIpDialog @notify="showToast" @refresh="updatePrinters"/>
 
-  <teleport to="body">
-    <transition
-        enter-active-class="transition duration-300 ease-out"
-        enter-from-class="opacity-0 translate-x-4"
-        enter-to-class="opacity-100 translate-x-0"
-        leave-active-class="transition duration-200 ease-in"
-        leave-from-class="opacity-100 translate-x-0"
-        leave-to-class="opacity-0 translate-x-4"
-    >
-      <div
-          v-if="toast.show"
-          class="fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-white text-sm max-w-xs"
-          :class="toast.type === 'success' ? 'bg-success' : 'bg-danger'"
-      >
-        {{ toast.message }}
-      </div>
-    </transition>
-  </teleport>
+  <NetworkIpDialog @refresh="updatePrinters"/>
 </template>
 
 <script setup>
@@ -91,6 +73,7 @@ import StepModal from "./modal/step-modal.vue";
 import NetworkIpDialog from "./modal/network-ip-dialog.vue";
 import FirewallDialog from "./modal/firewall-dialog.vue";
 import PrinterActions from './components/printer-actions.vue'
+import { useToast } from './hooks/useToast.js'
 
 const printers = ref([])
 const unavailablePrinters = ref([])
@@ -101,9 +84,9 @@ const pendingChecks = ref(new Set())
 const showFixModal = ref(false)
 const fixPrinterName = ref(null)
 const os = ref(null)
-const toast = ref({ show: false, message: '', type: 'success' })
 
-let toastTimeout = null
+const { notify } = useToast()
+
 let intervalId = null
 let isUpdating = false
 
@@ -217,7 +200,6 @@ function isLinux() {
   return os.value && os.value.toLowerCase().includes('linux')
 }
 
-
 function getFixErrorText() {
 
   if (isWindows()) {
@@ -235,15 +217,6 @@ function openFixModal(printer) {
   showFixModal.value = true
 }
 
-function showToast(message, type = 'success') {
-  if (toastTimeout) clearTimeout(toastTimeout)
-  toast.value = { show: true, message, type }
-
-  toastTimeout = setTimeout(() => {
-    toast.value.show = false
-  }, type === 'success' ? 2000: 3000)
-}
-
 async function removeLanPrinter(printer) {
   if (!printer.lanIp) return
 
@@ -251,11 +224,11 @@ async function removeLanPrinter(printer) {
     const removed = await ConfirmRemoveLANPrinter(printer.lanIp)
     if (removed) {
       updatePrinters()
-      showToast('Printer removed successfully', 'success')
+      notify('Printer removed successfully', 'success')
     }
   } catch (err) {
     console.error('Failed to remove LAN printer:', err)
-    showToast('Failed to remove printer', 'danger')
+    notify('Failed to remove printer', 'danger')
   }
 }
 
