@@ -1,35 +1,29 @@
 <template>
+  <div class="mt-6 text-center">
+    <div @click="showAddDialog = true"
+      class="border-2 border-dashed border-gray-300 bg-gray-50 rounded-lg px-4 py-3 text-gray-600 hover:border-gray-400 hover:bg-gray-100 cursor-pointer">
+      + Add Network Printer
+    </div>
+  </div>
   <teleport to="body">
-    <transition
-        enter-active-class="transition duration-200 ease-out"
-        enter-from-class="opacity-0"
-        enter-to-class="opacity-100"
-        leave-active-class="transition duration-150 ease-in"
-        leave-from-class="opacity-100"
-        leave-to-class="opacity-0"
-    >
-      <div v-if="show" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/75" @click="close"/>
+    <transition enter-active-class="transition duration-200 ease-out" enter-from-class="opacity-0"
+      enter-to-class="opacity-100" leave-active-class="transition duration-150 ease-in" leave-from-class="opacity-100"
+      leave-to-class="opacity-0">
+      <div v-if="showAddDialog" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/75" @click="close" />
         <div class="relative bg-white rounded-2xl w-full max-w-sm shadow-xl overflow-hidden p-6">
 
           <div class="flex items-center justify-between mb-4">
             <div class="text-lg font-medium">Add Network Printer</div>
-            <CloseButton @click="close"/>
+            <CloseButton @click="close" />
           </div>
-          <input
-              v-model="ipInput"
-              type="text"
-              placeholder="IP Address (e.g. 192.168.1.100)"
-              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-odoo-light focus:border-transparent mb-3"
-              @keyup.enter="submit"
-              ref="inputRef"
-          />
+          <input v-model="ipInput" type="text" placeholder="IP Address (e.g. 192.168.1.100)"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-odoo-light focus:border-transparent mb-3"
+            @keyup.enter="submit" ref="inputRef" />
           <div v-if="error" class="text-danger text-sm mb-3">{{ error }}</div>
-          <button
-              @click="submit"
-              :disabled="loading"
-              class="w-full border rounded-lg px-4 py-2 cursor-pointer text-sm bg-odoo text-white hover:bg-odoo-dark disabled:opacity-50 disabled:cursor-not-allowed"
-          >{{ loading ? 'Adding...' : 'Add' }}</button>
+          <button @click="submit" :disabled="loading"
+            class="w-full border rounded-lg px-4 py-2 cursor-pointer text-sm bg-odoo text-white hover:bg-odoo-dark disabled:opacity-50 disabled:cursor-not-allowed">{{
+              loading ? 'Adding...' : 'Add' }}</button>
 
         </div>
       </div>
@@ -38,22 +32,19 @@
 </template>
 
 <script setup>
-import {ref, watch, nextTick} from 'vue'
+import { ref, watch, nextTick } from 'vue'
 import CloseButton from './close-button.vue'
-import {AddLANPrinter} from '../../wailsjs/go/main/App'
+import { AddLANPrinter } from '../../wailsjs/go/main/App'
+import { useToast } from '../hooks/useToast.js'
+const { notify } = useToast()
 
-const props = defineProps({
-  show: {type: Boolean, default: false},
-})
-
-const emit = defineEmits(['close', 'notify'])
-
-const ipInput = ref('')
+const emit = defineEmits(['refresh'])
+const showAddDialog = ref(false)
 const error = ref(null)
 const loading = ref(false)
 const inputRef = ref(null)
 
-watch(() => props.show, (val) => {
+watch(showAddDialog, (val) => {
   if (val) {
     ipInput.value = ''
     error.value = null
@@ -63,7 +54,8 @@ watch(() => props.show, (val) => {
 
 function close(shouldRefresh = false) {
   error.value = null
-  emit('close', shouldRefresh)
+  showAddDialog.value = false
+  if (shouldRefresh) { emit('refresh') }
 }
 
 async function submit() {
@@ -78,12 +70,11 @@ async function submit() {
 
   try {
     await AddLANPrinter(ip)
-    emit('notify', 'Printer added successfully', 'success')
+    notify('Printer added successfully', 'success')
     close(true)
   } catch (err) {
     console.log(err)
-    emit('notify', err || 'Failed to add printer', 'danger')
-    error.value = err || 'Failed to add printer'
+    notify(err || 'Failed to add printer', 'danger')
   } finally {
     loading.value = false
   }

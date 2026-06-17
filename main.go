@@ -17,16 +17,15 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
+import "epos-proxy/config"
 
 //go:embed all:frontend/dist
 var assets embed.FS
 
 func main() {
-	logger.InitLogger()
-	logger.Debugf("Starting ePOS Proxy")
-
-	app := NewApp()
-
+	cfg := config.InitConfig()
+	logger.InitLogger(cfg)
+	app := NewApp(cfg)
 	windowStartState := options.Normal
 	for _, arg := range os.Args[1:] {
 		if arg == "--minimized" {
@@ -74,5 +73,4 @@ func main() {
 	if err != nil {
 		logger.Errorf("Application crashed: %v", err)
 	}
-
 }

@@ -55,8 +55,7 @@ func ValidateIPAddress(ip string) (string, error) {
 
 	parsed := net.ParseIP(ip)
 	if parsed == nil {
-		logger.Warnf("Invalid IP address format for input: %s", ip)
-		return "", fmt.Errorf("invalid IP address format")
+		return "", fmt.Errorf("Invalid IP address format for input: %s", ip)
 	}
 
 	return ip, nil

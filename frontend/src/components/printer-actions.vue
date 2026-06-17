@@ -19,24 +19,30 @@
   </div>
 </template>
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { executePrint, copyPrinterFieldValue } from "./printer-actions.js"
+import { useToast } from '../hooks/useToast.js'
 
 const props = defineProps({
   printer: Object,
 })
 
 const copiedIds = ref({})
-const emit = defineEmits(['notify'])
+const { notify } = useToast()
 
 const isTestPrinting = ref(false)
 const isCashDrawerOpening = ref(false)
 
+let _mounted = false
+onMounted(() => { _mounted = true })
+onUnmounted(() => { _mounted = false })
+const isMounted = () => _mounted
+
 async function onCopy() {
   try {
-    await copyPrinterFieldValue(props.printer, 'ip', copiedIds.value)
+    await copyPrinterFieldValue(props.printer, 'ip', copiedIds.value, isMounted)
   } catch (err) {
-    emit('notify', `Copy failed: ${err.message}`, 'danger')
+    notify(`Copy failed: ${err.message}`, 'danger')
   }
 }
 
@@ -44,9 +50,9 @@ async function onTest() {
   isTestPrinting.value = true
   try {
     await executePrint(props.printer)
-    emit('notify', `Test print sent to ${props.printer.name}`, 'success')
+    notify(`Test print sent to ${props.printer.name}`, 'success')
   } catch (err) {
-    emit('notify', err, 'danger')
+    notify(`Test failed: ${err.message}`, 'danger')
   } finally {
     isTestPrinting.value = false
   }
@@ -56,9 +62,9 @@ async function onCashDrawerOpen() {
   isCashDrawerOpening.value = true
   try {
     await executePrint(props.printer, true)
-    emit('notify', `Cash drawer opened for ${props.printer.name}`, 'success')
+    notify(`Cash drawer opened for ${props.printer.name}`, 'success')
   } catch (err) {
-    emit('notify', err, 'danger')
+    notify(`Cash drawer failed: ${err.message}`, 'danger')
   } finally {
     isCashDrawerOpening.value = false
   }

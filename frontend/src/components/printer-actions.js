@@ -1,7 +1,12 @@
-export async function copyPrinterFieldValue(printer, field, copiedIds) {
+export async function copyPrinterFieldValue(printer, field, copiedIds, isMounted) {
     await navigator.clipboard.writeText(printer[field]);
     (copiedIds[printer.id] ||= {})[field] = true;
-    setTimeout(() => copiedIds[printer.id][field] = false, 2000);
+    setTimeout(() => {
+        if (isMounted && !isMounted()) return;
+        if (copiedIds[printer.id]) {
+            copiedIds[printer.id][field] = false;
+        }
+    }, 2000);
 }
 
 async function sendEposPrint(printer, openCashDrawer = false) {

@@ -3,10 +3,9 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	"log"
-	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 )
 
@@ -20,11 +19,19 @@ const (
 type AppConfig struct {
 	Port        int      `json:"port"`
 	LANPrinters []string `json:"lan_printers,omitempty"`
+	OldPort     int      `json:"old_port"`
+	OS          string   `json:"os"`
+	Arch        string   `json:"arch"`
+	SupportMode bool     `json:"support_mode"`
 }
 
 func defaults() AppConfig {
 	return AppConfig{
-		Port: 0,
+		Port:        0,
+		OldPort:     0,
+		OS:          runtime.GOOS,
+		Arch:        runtime.GOARCH,
+		SupportMode: false,
 	}
 }
 
@@ -49,6 +56,26 @@ func NewManager() (*Manager, error) {
 		path: filepath.Join(dir, "config.json"),
 		Data: defaults(),
 	}, nil
+}
+
+func (cm *Manager) HasArgs(args ...string) bool {
+	for _, arg := range args {
+		for _, osArg := range os.Args[1:] {
+			if osArg == arg {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func (cm *Manager) ConfigDirectory() string {
+	base, err := os.UserConfigDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(base, AppName)
 }
 
 func (cm *Manager) Load() error {
@@ -88,87 +115,9 @@ func (cm *Manager) saveLocked() error {
 
 func (cm *Manager) Path() string { return cm.path }
 
-func isPortAvailable(port int) bool {
-	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
-	if err != nil {
-		return false
-	}
-	_ = ln.Close()
-	return true
-}
-
-func findAvailablePort(start, end int) (int, error) {
-	for p := start; p <= end; p++ {
-		if isPortAvailable(p) {
-			return p, nil
-		}
-	}
-
-	listener, err := net.Listen("tcp", ":0")
-	if err == nil {
-		port := listener.Addr().(*net.TCPAddr).Port
-		_ = listener.Close()
-		return port, nil
-	}
-
-	return 0, err
-}
-
-func (cm *Manager) ResolvePort() (int, error) {
+func (cm *Manager) SetSupportMode(enabled bool) error {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
-
-	if cm.Data.Port > 0 && isPortAvailable(cm.Data.Port) {
-		return cm.Data.Port, nil
-	}
-
-	port, err := findAvailablePort(PortRangeStart, PortRangeEnd)
-	if err != nil {
-		return 0, err
-	}
-
-	cm.Data.Port = port
-	if err := cm.saveLocked(); err != nil {
-		log.Printf("[config] warning: could not save: %v\n", err)
-	}
-	return port, nil
-}
-
-func (cm *Manager) AddLanEposPrinter(ip string) error {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-
-	for _, existing := range cm.Data.LANPrinters {
-		if existing == ip {
-			return nil // Already exists
-		}
-	}
-	cm.Data.LANPrinters = append(cm.Data.LANPrinters, ip)
+	cm.Data.SupportMode = enabled
 	return cm.saveLocked()
-}
-
-func (cm *Manager) RemoveLANPrinter(ip string) error {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-
-	for i, existing := range cm.Data.LANPrinters {
-		if existing == ip {
-			cm.Data.LANPrinters = append(cm.Data.LANPrinters[:i], cm.Data.LANPrinters[i+1:]...)
-			return cm.saveLocked()
-		}
-	}
-	return nil // Not found, nothing to remove
-}
-
-func (cm *Manager) GetLANPrinters() []string {
-	cm.mu.RLock()
-	defer cm.mu.RUnlock()
-
-	if cm.Data.LANPrinters == nil {
-		return []string{}
-	}
-	// Return a copy to avoid races if caller modifies the slice
-	result := make([]string, len(cm.Data.LANPrinters))
-	copy(result, cm.Data.LANPrinters)
-	return result
 }
