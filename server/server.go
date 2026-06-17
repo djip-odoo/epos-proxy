@@ -27,7 +27,7 @@ type Server struct {
 	running atomic.Bool
 }
 
-func New(port int, mgr *printer.Manager) *Server {
+func New(port int, host string, mgr *printer.Manager) *Server {
 	app := fiber.New(fiber.Config{
 		AppName: "ePOS proxy",
 	})
@@ -35,6 +35,10 @@ func New(port int, mgr *printer.Manager) *Server {
 		AllowOrigins:        []string{"*"},
 		AllowPrivateNetwork: true,
 	}))
+
+	app.Get("/", func(ctx fiber.Ctx) error {
+		return ctx.SendString("Test server running")
+	})
 
 	app.Post("/p/:printerId/cgi-bin/epos/service.cgi", func(ctx fiber.Ctx) error {
 		printerId := ctx.Params("printerId")
@@ -50,8 +54,9 @@ func New(port int, mgr *printer.Manager) *Server {
 	server := &Server{app: app, Port: port}
 	server.running.Store(true)
 	go func() {
-		logger.Infof("HTTP server listening on 0.0.0.0:%d", port)
-		err := app.Listen(fmt.Sprintf("0.0.0.0:%d", port))
+		bindAddr := fmt.Sprintf("%s:%d", host, port)
+		logger.Infof("HTTP server listening on %s", bindAddr)
+		err := app.Listen(bindAddr)
 		if err != nil {
 			logger.Error("EPOS Server Error: ", err)
 		}
