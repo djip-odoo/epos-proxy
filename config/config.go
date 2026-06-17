@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 )
 
@@ -21,6 +22,8 @@ type AppConfig struct {
 	FirewallPromptCompleted bool     `json:"firewall_prompt_completed"`
 	FirewallAccepted        bool     `json:"firewall_accepted"`
 	OldPort                 int      `json:"old_port"`
+	OS               string   `json:"os"`
+	Arch             string   `json:"arch"`
 }
 
 func defaults() AppConfig {
@@ -29,6 +32,8 @@ func defaults() AppConfig {
 		OldPort:                 0,
 		FirewallPromptCompleted: false,
 		FirewallAccepted:        false,
+		OS:                      runtime.GOOS,
+		Arch:                      runtime.GOARCH,
 	}
 }
 
