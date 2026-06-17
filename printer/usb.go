@@ -167,7 +167,7 @@ func findPrinterEndpoint(dev *gousb.DeviceDesc) (EndpointInfo, bool) {
 		}
 	}
 	if missingBulkOut {
-		logger.Warnf("Printer device rejected during endpoint matching: VID=%04X, PID=%04X, reason=no bulk OUT endpoint found", dev.Vendor, dev.Product)
+		logger.Warnf("Printer device rejected during endpoint matching: VID=%s, PID=%s, reason=no bulk OUT endpoint found", dev.Vendor, dev.Product)
 	}
 	return EndpointInfo{}, false
 }
