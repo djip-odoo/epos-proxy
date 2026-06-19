@@ -36,7 +36,7 @@
             <div v-if="hasLibUsbErrorFix(printer.errorMsg)" class="flex gap-2 mt-4 flex-wrap">
               <button
                   class="flex-1 border bg-odoo text-white hover:bg-odoo-dark rounded-lg px-4 py-2 text-center cursor-pointer"
-                  @click="openFixModal(printer)"
+                  @click="openFixModal('ERROR', {printerName: printer.name})"
               >{{ getFixErrorText(printer.errorMsg) }}
               </button>
             </div>
@@ -56,8 +56,6 @@
       <div v-if="errorMsg">
         <div class="text-red-700 mt-4 text-center">Error: {{ errorMsg }}</div>
       </div>
-
-      <StepModal v-model="showFixModal" :steps="fixSteps"/>
 
     </div>
   </div>
@@ -84,13 +82,12 @@
 </template>
 
 <script setup>
-import {computed, onMounted, onUnmounted, ref} from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import {CheckLANPrinterStatus, ConfirmRemoveLANPrinter, Status} from '../wailsjs/go/main/App'
-import {brewSteps, linuxSteps, zadigSteps} from "./modal/fix-step";
-import StepModal from "./modal/step-modal.vue";
 import NetworkIpDialog from "./modal/network-ip-dialog.vue";
 import LanAccessDialog from "./modal/lan-access-dialog.vue";
 import PrinterActions from './components/printer-actions.vue'
+import { hasLibUsbErrorFix, getFixErrorText, openFixModal } from './modal/use-docs'
 
 const printers = ref([])
 const unavailablePrinters = ref([])
@@ -98,9 +95,6 @@ const errorMsg = ref(null)
 const loading = ref(true)
 const lanStatus = ref({})
 const pendingChecks = ref(new Set())
-const showFixModal = ref(false)
-const fixPrinterName = ref(null)
-const os = ref(null)
 const toast = ref({ show: false, message: '', type: 'success' })
 
 let toastTimeout = null
@@ -120,7 +114,6 @@ async function updatePrinters() {
     printers.value = res.printers
     unavailablePrinters.value = res.unavailablePrinters
     errorMsg.value = res.errorMsg
-    os.value = res.os
     loading.value = false
 
     // Check status for each LAN printer
@@ -187,52 +180,6 @@ const stopPolling = () => {
   if (!intervalId) return
   clearInterval(intervalId)
   intervalId = null
-}
-
-const fixSteps = computed(() => {
-  if (!showFixModal.value) {
-    return []
-  }
-
-  if (isWindows()) return zadigSteps(fixPrinterName.value)
-  if (isMac()) return brewSteps(fixPrinterName.value)
-  if (isLinux()) return linuxSteps(fixPrinterName.value)
-  return []
-})
-
-function hasLibUsbErrorFix(error="") {
-  return error.toLowerCase().includes('libusb')
-}
-
-
-function isWindows() {
-  return os.value && os.value.toLowerCase().includes('windows')
-}
-
-function isMac() {
-  return os.value && os.value.toLowerCase().includes('darwin')
-}
-
-function isLinux() {
-  return os.value && os.value.toLowerCase().includes('linux')
-}
-
-
-function getFixErrorText() {
-
-  if (isWindows()) {
-    return 'Fix - Install WinUSB driver'
-  }
-
-  if (isMac() || isLinux()) {
-    return 'Fix - Install libusb'
-  }
-
-}
-
-function openFixModal(printer) {
-  fixPrinterName.value = printer.name
-  showFixModal.value = true
 }
 
 function showToast(message, type = 'success') {

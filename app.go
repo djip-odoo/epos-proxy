@@ -114,7 +114,6 @@ type Status struct {
 	ErrorMsg            string               `json:"errorMsg"`
 	Printers            []Printer            `json:"printers"`
 	UnavailablePrinters []UnavailablePrinter `json:"unavailablePrinters"`
-	Os                  string               `json:"os"`
 }
 
 func (a *App) GetPrinterIp(id string) string {
@@ -178,8 +177,11 @@ func (a *App) Status() Status {
 		Printers:            printers,
 		UnavailablePrinters: unavailablePrinters,
 		ErrorMsg:            errorMsg,
-		Os:                  runtime.GOOS,
 	}
+}
+
+func (a *App) OSDriver() string {
+	return runtime.GOOS
 }
 
 func (a *App) AddLANPrinter(ip string) error {

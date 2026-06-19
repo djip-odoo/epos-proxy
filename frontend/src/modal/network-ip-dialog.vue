@@ -1,9 +1,18 @@
 <template>
-  <div class="mt-6 text-center">
+  <div class="mt-6 flex flex-row items-center gap-2">
     <div @click="showAddDialog = true"
-      class="border-2 border-dashed border-gray-300 bg-gray-50 rounded-lg px-4 py-3 text-gray-600 hover:border-gray-400 hover:bg-gray-100 cursor-pointer">
+      class="border-2 border-dashed flex-grow-2 text-center justify-center items-center border-gray-300 bg-gray-50 rounded-lg px-4 py-3 text-gray-600 hover:border-gray-400 hover:bg-gray-100 cursor-pointer">
       + Add Network Printer
     </div>
+    <button @click="openFixModal('NETWORK')" class="w-12 h-12 rounded-xl border border-gray-200
+         bg-white text-gray-600 hover:text-odoo
+         hover:border-odoo-light transition" title="Network Printer Docs">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 mx-auto" fill="none" viewBox="0 0 24 24"
+        stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5A4.5 4.5 0 003 9.5V19a4 4 0 014-4h5m0-8.747C13.168 5.477 14.754 5 16.5 5A4.5 4.5 0 0121 9.5V19a4 4 0 00-4-4h-5" />
+      </svg>
+    </button>
   </div>
   <teleport to="body">
     <transition enter-active-class="transition duration-200 ease-out" enter-from-class="opacity-0"
@@ -49,6 +58,7 @@
 import { ref, watch, nextTick } from 'vue'
 import CloseButton from './close-button.vue'
 import { AddLANPrinter } from '../../wailsjs/go/main/App'
+import { openFixModal } from './use-docs'
 
 const emit = defineEmits(['notify', 'refresh'])
 

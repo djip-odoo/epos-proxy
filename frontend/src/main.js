@@ -1,6 +1,9 @@
-import './app.css';
-import PrinterList from "./printer-list.vue";
-import {createApp} from 'vue'
+import './app.css'
+import App from './App.vue'
+import { createApp } from 'vue'
+import { useDocs } from './modal/use-docs'
 
-const app = createApp(PrinterList)
+useDocs()
+
+const app = createApp(App)
 app.mount('#app')
