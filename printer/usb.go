@@ -99,10 +99,7 @@ func GetPrinterInfo(ctx *gousb.Context, descToFind *gousb.DeviceDesc) (*LibUsbPr
 	}()
 
 	device := devices[0]
-	isPrinter, deviceID := isPrinterDevice(device)
-	if !isPrinter {
-		return nil, nil
-	}
+	deviceID := getPrinterDeviceID(device)
 	info := LibUsbPrinter{}
 	productName, _ := device.Product()
 	vendorName, _ := device.Manufacturer()
@@ -143,10 +140,15 @@ func fingerprintKey(desc *gousb.DeviceDesc) string {
 	)
 }
 
-func findPrinterEndpoint(dev *gousb.DeviceDesc) (EndpointInfo, bool) {
-	for cfgNum, cfg := range dev.Configs {
+func findPrinterEndpoint(desc *gousb.DeviceDesc) (EndpointInfo, bool) {
+	missingBulkOut := false
+	logger.Debugf("Finding printer endpoint for device: %v", desc)
+	for cfgNum, cfg := range desc.Configs {
 		for _, iFace := range cfg.Interfaces {
 			for _, alt := range iFace.AltSettings {
+				if alt.Class != gousb.ClassPrinter && !isKnownPrinter(desc) {
+					continue
+				}
 				if epNum, ok := matchBulkOutEndpoint(alt); ok {
 					return EndpointInfo{
 						config:           cfgNum,
@@ -154,17 +156,19 @@ func findPrinterEndpoint(dev *gousb.DeviceDesc) (EndpointInfo, bool) {
 						alternateSetting: alt.Alternate,
 						outEndpoint:      epNum,
 					}, true
+				} else {
+					missingBulkOut = true
 				}
 			}
 		}
+	}
+	if missingBulkOut {
+		logger.Warnf("Printer device rejected during endpoint matching: VID=%s, PID=%s, reason=no bulk OUT endpoint found", desc.Vendor, desc.Product)
 	}
 	return EndpointInfo{}, false
 }
 
 func matchBulkOutEndpoint(alt gousb.InterfaceSetting) (int, bool) {
-	if alt.Class != gousb.ClassPrinter && alt.Class != gousb.ClassVendorSpec {
-		return 0, false
-	}
 	for _, ep := range alt.Endpoints {
 		if ep.Direction == gousb.EndpointDirectionOut &&
 			ep.TransferType == gousb.TransferTypeBulk {

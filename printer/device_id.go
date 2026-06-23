@@ -1,7 +1,7 @@
 package printer
 
 import (
-	"fmt"
+	"epos-proxy/logger"
 	"regexp"
 	"strings"
 	"unicode"
@@ -27,14 +27,13 @@ var keyAliases = map[string]string{
 	"CLASS": "CLS",
 }
 
-func getPrinterDeviceID(dev *gousb.Device) (DeviceID, bool, error) {
+func getPrinterDeviceID(dev *gousb.Device) DeviceID {
 	buf := make([]byte, 1024)
 
 	for _, cfg := range dev.Desc.Configs {
 		for _, iFace := range cfg.Interfaces {
 			for _, alt := range iFace.AltSettings {
-				if alt.Class != gousb.ClassPrinter &&
-					alt.Class != gousb.ClassVendorSpec {
+				if alt.Class != gousb.ClassPrinter && !isKnownPrinter(dev.Desc) {
 					continue
 				}
 				n, err := dev.Control(
@@ -60,18 +59,13 @@ func getPrinterDeviceID(dev *gousb.Device) (DeviceID, bool, error) {
 
 				raw := sanitizeDeviceID(string(buf[2 : 2+strLen]))
 				deviceID := parseDeviceID(raw)
-
-				if len(deviceID) == 0 {
-					continue
-				}
 				deviceID["RAW"] = raw
-				isPrinter := alt.Class == gousb.ClassPrinter
-				return deviceID, isPrinter, nil
+				return deviceID
 			}
 		}
 	}
-
-	return DeviceID{}, false, fmt.Errorf("device id not found")
+	logger.Warnf("device id not found for device: VID=%s, PID=%s", dev.Desc.Vendor, dev.Desc.Product)
+	return DeviceID{}
 }
 
 func parseDeviceID(raw string) DeviceID {
