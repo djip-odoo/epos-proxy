@@ -2,7 +2,6 @@ package printer
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/google/gousb"
 )
@@ -20,14 +19,8 @@ var knownPrinterVIDPID = map[string]struct{}{
 	"0483:5720": {}, // STMicroelectronics
 }
 
-func isPrinterDevice(device *gousb.Device) (bool, DeviceID) {
-	deviceID, usbPrinterClass, _ := getPrinterDeviceID(device)
-	isPrinter := usbPrinterClass || strings.Contains(deviceID["CLS"], "PRINTER")
-
-	vidPid := fmt.Sprintf("%04x:%04x", uint16(device.Desc.Vendor), uint16(device.Desc.Product))
-	if _, ok := knownPrinterVIDPID[vidPid]; ok {
-		isPrinter = true
-	}
-
-	return isPrinter, deviceID
+func isKnownPrinter(desc *gousb.DeviceDesc) bool {
+	vidPid := fmt.Sprintf("%04x:%04x", uint16(desc.Vendor), uint16(desc.Product))
+	_, ok := knownPrinterVIDPID[vidPid]
+	return ok
 }
