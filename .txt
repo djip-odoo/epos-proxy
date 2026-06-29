@@ -1,0 +1,202 @@
+# Connect a single printer directly to your laptop using an Ethernet cable.
+
+Connect the printer directly to your laptop using an Ethernet cable.	
+Determine the printer's current IP address:
+It might print a receipt which contains IP address information
+If no receipt printed automatically follow steps to print self-test print
+Turn the printer off.
+Press and hold the FEED button.
+Turn the printer on while continuing to hold the FEED button.
+Release the button after the self-test page is printed.
+This test print contains the IP information
+e.g.:
+Ip address: 192.168.192.168
+Subnet: 255.255.255.0
+Gateway:  192.168.192.168
+Open a web browser and enter the printer's IP address (e.g. 192.168.192.168).
+If the printer configuration page opens than move to next (5)
+If the printer configuration page does not open, configure a manual IP address on your laptop:
+Open Network & Internet Settings.
+Select Ethernet.
+Click Edit IP assignment
+Change Automatic(DHCP) -> Manual
+Enable IPV4 than configure as below example
+IP Address: 192.168.192.169
+Subnet Mask: 255.255.255.0
+Default Gateway: 192.168.192.1
+Preferred DNS: 8.8.8.8
+Save the settings.
+The printer configuration page should now be accessible.
+Now open the epos proxy app and Click + Add Network Printer, enter the printer IP (e.g. 192.168.192.168) address, and click Add.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Connect multiple printers with your laptop using an Ethernet cable.
+
+This setup is intended for environments where multiple printers are connected directly to a laptop through a network switch without a router.
+To ensure connectivity, configure all hardware on the identical subnet with fixed IP addresses.
+IP Assignment Example
+Device
+IP Address
+Laptop
+192.168.1.10
+Printer 1
+192.168.1.11
+Printer 2
+192.168.1.12
+Printer 3
+192.168.1.13
+
+
+Primary Network Parameters
+Subnet Mask: 255.255.255.0
+Default Gateway: 192.168.1.10
+DNS Server: 8.8.8.8
+
+Configure Printers One at a Time
+Many printers ship with the same default static IP address. To avoid IP conflicts, configure each printer individually before connecting all printers to the switch.
+Connect only one printer directly to the laptop using an Ethernet cable (do not connect through a router or switch).
+Print a self-test page and note the printer's current IP address and network settings.
+Open a web browser and navigate to the printer's IP address.
+Open the printer's Network Settings page.
+If the printer configuration page does not open, configure a manual IP address on your laptop:
+Open Network & Internet Settings.
+Select Ethernet.
+Click Edit IP assignment
+Change Automatic(DHCP) -> Manual
+Enable IPV4 than configure as below example
+IP Address: 192.168.192.169
+Subnet Mask: 255.255.255.0
+Default Gateway: 192.168.192.1
+Preferred DNS: 8.8.8.8
+Save the settings.
+Open the printer's Network Settings page.
+Disable DHCP if it is enabled.
+Assign a unique static IP address.
+Examples:
+Printer 1: 192.168.1.11
+Printer 2: 192.168.1.12
+Printer 3: 192.168.1.13
+Use the following settings:
+Subnet Mask:     255.255.255.0
+Default Gateway: 192.168.1.10
+DNS Server:      8.8.8.8
+Save the settings.
+Restart the printer if required.
+Disconnect the printer.
+Repeat the process for each remaining printer.
+After all printers have been assigned unique IP addresses, proceed to the next steps.
+Connect the Hardware
+Connect the laptop to a network switch.
+Connect all printers to the same switch using Ethernet cables.
+Power on the switch and all printers.
+Configure the Laptop
+Configure the laptop Ethernet adapter with a static IP address.
+Example:
+IP Address:      192.168.1.10
+Subnet Mask:     255.255.255.0
+Default Gateway: 192.168.1.1
+Preferred DNS:   8.8.8.8
+Add Printers to ePOS Proxy
+For each printer:
+Open the ePOS Proxy application.
+Click + Add Network Printer.
+Enter the printer IP address.
+Click Add.
+
+
+
+
+
+# Connect the printer to your laptop via the router in between
+
+Network Setup Example
+This setup is intended for environments where multiple printers are connected to the same router as the laptop.
+Important: Reserve a fixed IP address for each printer within the router's network range. This ensures the printers always receive the same IP address and remain accessible through the router.
+For example, if the router's network uses the range 192.168.1.1 – 192.168.1.255, assign or reserve IP addresses such as:
+IP Assignment Example
+Device
+IP Address
+Laptop
+192.168.1.10
+Printer 1
+192.168.1.11
+Printer 2
+192.168.1.12
+Printer 3
+192.168.1.13
+
+
+Primary Network Parameters
+Subnet Mask: 255.255.255.0
+Default Gateway: 192.168.1.1
+DNS Server: 8.8.8.8
+
+Configure Printers One at a Time
+Many printers ship with the same default static IP address. To avoid IP conflicts, configure each printer individually before connecting all printers to the router.
+Connect only one printer directly to the laptop using an Ethernet cable (do not connect through a router or switch).
+Print a self-test page and note the printer's current IP address and network settings.
+Check whether DHCP is enabled on the printer in the self-test page.
+If DHCP is enabled, reserve a fixed IP address for the printer in the router and proceed to the next printer.
+If DHCP is disabled or not supported, continue with the steps below to assign a static IP address manually.
+Open a web browser and navigate to the printer's IP address.
+Open the printer's Network Settings page.
+If the printer configuration page does not open, configure a manual IP address on your laptop:
+Open Network & Internet Settings.
+Select Ethernet.
+Click Edit IP assignment
+Change Automatic(DHCP) -> Manual
+Enable IPV4 than configure as below example
+IP Address: 192.168.192.169
+Subnet Mask: 255.255.255.0
+Default Gateway: 192.168.192.1
+Preferred DNS: 8.8.8.8
+Save the settings.
+Open the printer's Network Settings page.
+Assign a unique static IP address.
+Examples:
+Printer 1: 192.168.1.11
+Printer 2: 192.168.1.12
+Printer 3: 192.168.1.13
+Use the following settings:
+Subnet Mask:     255.255.255.0
+Default Gateway: 192.168.1.1
+DNS Server:      8.8.8.8
+Save the settings.
+Restart the printer if required.
+Disconnect the printer.
+Repeat the process for each remaining printer.
+After all printers have been assigned unique IP addresses, proceed to the next steps.
+Connect the Hardware
+Connect the laptop to a router.
+Connect all printers to the same router using Ethernet cables.
+Power on the router and all printers.
+Note: If the router does not have enough Ethernet ports for all printers, connect a network switch to the router and connect the printers to the switch.
+Add Printers to ePOS Proxy
+For each printer:
+Open the ePOS Proxy application.
+Click + Add Network Printer.
+Enter the printer IP address.
+Click Add.
+
+
+Important Note: Ethernet Connection Between Printer and Router
+For reliable operation, keep an always-on device (like computer) connected to the same wired Ethernet network as the printer. Some network setups may cause the printer to become unreachable after being idle for a short time if there is no active device like computer in the network.
+		

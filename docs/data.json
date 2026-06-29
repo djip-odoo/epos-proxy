@@ -1,0 +1,308 @@
+{
+  "title": "Odoo Printer Manager",
+  "description": "A comprehensive guide to network setup, barcode configuration, and product synchronization.",
+  "logo": "images/logo.png",
+  "nav": [
+    { "id": "requirements", "label": "Requirements" },
+    { "id": "wifi", "label": "Connect the Scale to Wi-Fi" },
+    { "id": "barcode", "label": "Configure a Custom Barcode Format" },
+    { "id": "odoo", "label": "Configure Products in Odoo" },
+    { "id": "export", "label": "Export Product Data from Odoo" },
+    { "id": "plu", "label": "Prepare the PLU Data File" },
+    { "id": "import", "label": "Import Product Data into the Scale" },
+    { "id": "verify", "label": "Verify the Integration" }
+  ],
+  "sections": [
+    {
+      "id": "requirements",
+      "blocks": [
+        { "type": "heading", "level": 2, "text": "Requirements" },
+        { "type": "paragraph", "html": "Before starting, make sure you have the following assets ready:" },
+        {
+          "type": "list",
+          "ordered": false,
+          "items": [
+            "An RLS1000 weighing scale",
+            "A Windows computer connected to the same network",
+            "The RLS Software installed on the computer",
+            {
+              "html": "RLS Software download: <a href=\"https://posiflexindia-my.sharepoint.com/personal/dlsupport4_posiflexindia_com/_layouts/15/onedrive.aspx?id=%2Fpersonal%2Fdlsupport4%5Fposiflexindia%5Fcom%2FDocuments%2FRLS%20Software%2Ezip&parent=%2Fpersonal%2Fdlsupport4%5Fposiflexindia%5Fcom%2FDocuments&ga=1\" target=\"_blank\" rel=\"noopener noreferrer\">Download RLS Software</a>"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "wifi",
+      "blocks": [
+        { "type": "heading", "level": 2, "text": "Connect the Scale to Wi-Fi" },
+        {
+          "type": "video-cta",
+          "url": "https://drive.google.com/file/d/1EnVZub593nA7wir2Y8VGE4DWRVNsAEPr/view?usp=sharing",
+          "title": "Watch Configuration Video",
+          "description": "Follow our step-by-step video guide for Wi-Fi setup."
+        },
+        { "type": "heading", "level": 3, "text": "Access the Scale Configuration Menu" },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Press and hold the <strong>[SET]</strong> key for approximately 3 seconds.",
+            "The scale enters the system configuration mode.",
+            "Use <strong>[↑]</strong> and <strong>[↓]</strong> keys (or the numeric keypad) to navigate.",
+            "Press <strong>[PRN/ENTER]</strong> to confirm."
+          ]
+        },
+        { "type": "heading", "level": 3, "text": "Configure Wi-Fi Settings" },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Open the <strong>SET WIFI</strong> menu.",
+            "Select <strong>SSID</strong> and enter your Wi-Fi name.",
+            "Open <strong>Wi-Fi Security Mode</strong>.",
+            "Select <strong>WPA2-PSK/AES</strong> (or your router's security mode).",
+            "Enter the Wi-Fi password."
+          ]
+        },
+        { "type": "heading", "level": 3, "text": "Configure Network Settings" },
+        {
+          "type": "paragraph",
+          "html": "Windows network settings reference: <a href=\"https://support.microsoft.com/en-US/Windows/Experience/Connectivity-Networking/essential-network-settings-and-tasks-in-windows\" target=\"_blank\" rel=\"noopener noreferrer\">Microsoft Documentation</a>"
+        },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Open the <strong>SET IP</strong> menu.",
+            "Configure the scale IP address.",
+            "Configure the subnet mask.",
+            "Configure the gateway address."
+          ]
+        },
+        {
+          "type": "note",
+          "html": "<strong>Important:</strong> The scale's IP address must be within the same subnet as your router and must not conflict with other devices on the network."
+        },
+        { "type": "heading", "level": 3, "text": "Restart and Verify Connectivity" },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Save the settings and restart the scale.",
+            "Wait until the Wi-Fi icon appears on the screen."
+          ]
+        },
+        {
+          "type": "image",
+          "src": "images/Connected.jpg",
+          "alt": "Scale LCD Screen",
+          "caption": "Successful Wi-Fi connection indicator on the scale display."
+        },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Open the RLS Software on your PC.",
+            "Enter the scale name and assigned IP address.",
+            "Click <strong>Check Connection</strong>."
+          ]
+        },
+        {
+          "type": "image",
+          "src": "images/001.png",
+          "alt": "RLS Software Connection Check",
+          "caption": "Locate the \"Check Connection\" button in the RLS Software."
+        },
+        {
+          "type": "image",
+          "src": "images/002.png",
+          "alt": "RLS Software Connection Success",
+          "caption": "Confirmation of a successful connection (Transfer Status OK)."
+        }
+      ]
+    },
+    {
+      "id": "barcode",
+      "blocks": [
+        { "type": "heading", "level": 2, "text": "Configure a Custom Barcode Format" },
+        {
+          "type": "paragraph",
+          "html": "The scale must generate barcodes that align with Odoo's barcode nomenclature for weight-based products."
+        },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Open the RLS Software.",
+            "Click the <strong>Settings</strong> (gear) icon.",
+            "Navigate to the <strong>Custom Barcode</strong> tab.",
+            "Select an unused barcode slot (e.g., <strong>103</strong>).",
+            "Enter the following format: <code>21IIIIIWWWWWW</code>",
+            "Set <strong>Right Digit</strong> to <strong>3</strong>.",
+            "Save the configuration.",
+            "Click <strong>Download</strong> to push the settings to the scale."
+          ]
+        },
+        {
+          "type": "image",
+          "src": "images/003.png",
+          "alt": "Custom Barcode Configuration",
+          "caption": "Setting up the barcode format in RLS Software."
+        }
+      ]
+    },
+    {
+      "id": "odoo",
+      "blocks": [
+        { "type": "heading", "level": 2, "text": "Configure Products in Odoo" },
+        {
+          "type": "paragraph",
+          "html": "Ensure each product in Odoo has a barcode prefix that matches your scale's configuration (e.g., beginning with <code>21</code>)."
+        },
+        {
+          "type": "note",
+          "html": "For detailed instructions, refer to the <a href=\"https://www.odoo.com/documentation/19.0/applications/inventory_and_mrp/barcode/operations/barcode_nomenclature.html#example-product-weight-barcode\" target=\"_blank\" rel=\"noopener noreferrer\">Odoo Barcode Documentation</a>."
+        }
+      ]
+    },
+    {
+      "id": "export",
+      "blocks": [
+        { "type": "heading", "level": 2, "text": "Export Product Data from Odoo" },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Navigate to the <strong>Products</strong> menu in Odoo.",
+            "Select the products you wish to sync.",
+            "Click <strong>Action → Export</strong>.",
+            "Select the following fields:",
+            {
+              "list": {
+                "ordered": false,
+                "items": [
+                  "Product Name",
+                  "Barcode",
+                  "Sales Price"
+                ]
+              }
+            },
+            "Choose <strong>XLSX</strong> format and click <strong>Export</strong>."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "plu",
+      "blocks": [
+        { "type": "heading", "level": 2, "text": "Prepare the PLU Data File" },
+        {
+          "type": "paragraph",
+          "html": "Format your exported XLSX data according to the required PLU table below."
+        },
+        {
+          "type": "sample-link",
+          "url": "https://docs.google.com/spreadsheets/d/1ys7XJDsgTagS2eKJ9zekMeMchcoBFrZK/edit?usp=sharing&ouid=110497631151356246513&rtpof=true&sd=true",
+          "label": "Download Sample PLU Format (XLSX)"
+        },
+        {
+          "type": "converter-cta",
+          "title": "Automated PLU Converter",
+          "description": "Quickly convert your Odoo exports to the scale-ready format.",
+          "url": "converter/index.html",
+          "button": "Open Converter Tool"
+        },
+        {
+          "type": "table",
+          "headers": ["Field", "Description"],
+          "rows": [
+            ["Product Name", "The name displayed on the scale's screen."],
+            ["PLU No", "The unique lookup number for the product."],
+            ["Price", "The unit price of the product."],
+            ["Unit", "Weight unit (kg or g)."],
+            ["Barcode Type", "Must match your custom barcode slot (e.g., 103)."]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "import",
+      "blocks": [
+        { "type": "heading", "level": 2, "text": "Import Product Data into the Scale" },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Open the RLS Software and select <strong>PLU Manager</strong>."
+          ]
+        },
+        {
+          "type": "image",
+          "src": "images/004.png",
+          "alt": "PLU Manager Icon",
+          "caption": "Access the PLU Manager from the toolbar."
+        },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Go to <strong>File → From Excel Input PLU</strong> and select your prepared file."
+          ]
+        },
+        {
+          "type": "image",
+          "src": "images/005.png",
+          "alt": "Import PLU Data",
+          "caption": "Importing product data from an XLSX file."
+        },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Verify the communication settings (IP address) and click <strong>OK</strong>."
+          ]
+        },
+        {
+          "type": "image",
+          "src": "images/006.png",
+          "alt": "Communication Configuration",
+          "caption": "Confirm the scale IP address before downloading."
+        },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Monitor the download progress. Once completed, the data is synced."
+          ]
+        },
+        {
+          "type": "image",
+          "src": "images/007.png",
+          "alt": "Download Progress",
+          "caption": "Transferring PLU data to the scale."
+        }
+      ]
+    },
+    {
+      "id": "verify",
+      "blocks": [
+        { "type": "heading", "level": 2, "text": "Verify the Integration" },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Place a product on the scale.",
+            "Enter its <strong>PLU number</strong> (e.g., 1, 3, or 13).",
+            "Press <strong>[PRN/ENTER]</strong> to print the label.",
+            "In Odoo Point of Sale, scan the printed barcode."
+          ]
+        },
+        {
+          "type": "note",
+          "html": "<strong>Success Check:</strong> The product should appear in the POS cart with the correct weight and calculated total price."
+        }
+      ]
+    }
+  ]
+}
