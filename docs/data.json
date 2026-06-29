@@ -1,306 +1,578 @@
 {
-  "title": "Odoo Printer Manager",
-  "description": "A comprehensive guide to network setup, barcode configuration, and product synchronization.",
+  "title": "Odoo Printer Manager (ePOS Proxy)",
+  "description": "Complete guide to installing ePOS Proxy, configuring printer drivers, and connecting printers to Odoo via USB or Ethernet.",
   "logo": "images/logo.png",
   "nav": [
-    { "id": "requirements", "label": "Requirements" },
-    { "id": "wifi", "label": "Connect the Scale to Wi-Fi" },
-    { "id": "barcode", "label": "Configure a Custom Barcode Format" },
-    { "id": "odoo", "label": "Configure Products in Odoo" },
-    { "id": "export", "label": "Export Product Data from Odoo" },
-    { "id": "plu", "label": "Prepare the PLU Data File" },
-    { "id": "import", "label": "Import Product Data into the Scale" },
-    { "id": "verify", "label": "Verify the Integration" }
+    {
+      "id": "prerequisite", "label": "Prerequisites",
+      "subnav": [
+        { "id": "prereq-params", "label": "Odoo 18.0 System Parameters" }
+      ]
+    },
+    {
+      "id": "step1", "label": "Step 1 — Install ePOS Proxy"
+    },
+    {
+      "id": "step2", "label": "Step 2 — Install Printer Driver",
+      "subnav": [
+        { "id": "step2-windows", "label": "Windows" },
+        { "id": "step2-linux", "label": "Linux" }
+      ]
+    },
+    {
+      "id": "step3", "label": "Step 3 — Configure in Odoo",
+      "subnav": [
+        { "id": "step3-lan", "label": "LAN Printer Setup" }
+      ]
+    },
+    {
+      "id": "supported", "label": "Supported Printers"
+    },
+    {
+      "id": "single-direct", "label": "Single Printer — Direct Connection",
+      "subnav": [
+        { "id": "single-determine-ip", "label": "Determine IP Address" },
+        { "id": "single-access-config", "label": "Access Configuration Page" },
+        { "id": "single-manual-ip", "label": "Configure Manual IP on Laptop" },
+        { "id": "single-add-epos", "label": "Add to ePOS Proxy" }
+      ]
+    },
+    {
+      "id": "multi-switch", "label": "Multiple Printers — via Switch",
+      "subnav": [
+        { "id": "switch-ip-assignment", "label": "IP Assignment Example" },
+        { "id": "switch-configure-one", "label": "Configure Printers One at a Time" },
+        { "id": "switch-connect-hardware", "label": "Connect the Hardware" },
+        { "id": "switch-configure-laptop", "label": "Configure the Laptop" },
+        { "id": "switch-add-epos", "label": "Add to ePOS Proxy" }
+      ]
+    },
+    {
+      "id": "multi-router", "label": "Multiple Printers — via Router",
+      "subnav": [
+        { "id": "router-network-example", "label": "Network Setup Example" },
+        { "id": "router-configure-one", "label": "Configure Printers One at a Time" },
+        { "id": "router-connect-hardware", "label": "Connect the Hardware" },
+        { "id": "router-add-epos", "label": "Add to ePOS Proxy" }
+      ]
+    }
   ],
   "sections": [
     {
-      "id": "requirements",
+      "id": "prerequisite",
       "blocks": [
-        { "type": "heading", "level": 2, "text": "Requirements" },
-        { "type": "paragraph", "html": "Before starting, make sure you have the following assets ready:" },
+        { "type": "heading", "level": 2, "text": "Prerequisites" },
+        {
+          "type": "table",
+          "headers": ["Requirement", "Version / Details"],
+          "rows": [
+            ["Odoo", "18.0 & above"],
+            ["Windows", "10"],
+            ["Chrome", "142 and upgrade"]
+          ]
+        },
+        { "type": "heading", "level": 3, "text": "Odoo upto 19.0 — Add System Parameters", "id": "prereq-params" },
+        {
+          "type": "paragraph",
+          "html": "If you are using Odoo upto 19.0, add the following system parameter:"
+        },
+        {
+          "type": "pre",
+          "code": "Key:   point_of_sale.use_lna\nValue: 1"
+        }
+      ]
+    },
+    {
+      "id": "step1",
+      "blocks": [
+        { "type": "heading", "level": 2, "text": "Step 1: Install the Odoo Desktop Application" },
+        {
+          "type": "paragraph",
+          "html": "Download the ePOS Proxy application for your platform:"
+        },
+        {
+          "type": "table",
+          "headers": ["Platform", "Download"],
+          "rows": [
+            ["Windows", "<a href=\"https://github.com/odoo/epos-proxy/releases/latest\" target=\"_blank\">epos-proxy-win64-installer.exe</a>"],
+            ["Linux", "<a href=\"https://github.com/odoo/epos-proxy/releases/latest\" target=\"_blank\">epos-proxy-linux64</a>"],
+            ["Mac", "<a href=\"https://github.com/odoo/epos-proxy/releases/latest\" target=\"_blank\">epos-proxy-osx-arm64.dmg</a>"]
+          ]
+        },
+        {
+          "type": "paragraph",
+          "html": "Latest releases: <a href=\"https://github.com/odoo/epos-proxy/releases/latest\" target=\"_blank\" rel=\"noopener noreferrer\">https://github.com/odoo/epos-proxy/releases/latest</a>"
+        }
+      ]
+    },
+    {
+      "id": "step2",
+      "blocks": [
+        { "type": "heading", "level": 2, "text": "Step 2: Download & Install Printer Driver" },
+        { "type": "heading", "level": 3, "text": "Windows", "id": "step2-windows" },
+        {
+          "type": "paragraph",
+          "html": "Download the driver from the <strong>Zadig</strong> app or <a href=\"https://zadig.akeo.ie/\" target=\"_blank\" rel=\"noopener noreferrer\">click here to download it directly</a>."
+        },
         {
           "type": "list",
-          "ordered": false,
+          "ordered": true,
           "items": [
-            "An RLS1000 weighing scale",
-            "A Windows computer connected to the same network",
-            "The RLS Software installed on the computer",
+            "Attach the printer to your system via USB.",
+            "Open <strong>Zadig</strong>.",
+            "Go to <strong>Menu > Options </strong> and enable <strong>List All Devices</strong>.",
+            "Find and select your printer from the dropdown.",
+            "Select <strong>WinUSB</strong> or <strong>libusb</strong> from the dropdown.",
+            "Click <strong>Replace Driver</strong> and close Zadig."
+          ]
+        },
+        { "type": "heading", "level": 3, "text": "Linux", "id": "step2-linux" },
+        {
+          "type": "paragraph",
+          "html": "Follow the steps to make <code>epos-proxy-linux64</code> executable:"
+        },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Open the folder where <code>epos-proxy-linux64</code> was downloaded.",
+            "Right-click and choose <strong>Open in Terminal</strong>.",
+            "Run this command to make it executable:",
             {
-              "html": "RLS Software download: <a href=\"https://posiflexindia-my.sharepoint.com/personal/dlsupport4_posiflexindia_com/_layouts/15/onedrive.aspx?id=%2Fpersonal%2Fdlsupport4%5Fposiflexindia%5Fcom%2FDocuments%2FRLS%20Software%2Ezip&parent=%2Fpersonal%2Fdlsupport4%5Fposiflexindia%5Fcom%2FDocuments&ga=1\" target=\"_blank\" rel=\"noopener noreferrer\">Download RLS Software</a>"
+              "list": {
+                "ordered": false,
+                "items": [
+                  {
+                    "type": "pre",
+                    "code": "chmod +x ./epos-proxy-linux64"
+                  }
+                ]
+              }
+            },
+            "Install the required library:",
+            {
+              "list": {
+                "ordered": false,
+                "items": [
+                  {
+                    "type": "pre",
+                    "code": "sudo apt install libwebkit2gtk-4.1-0"
+                  }
+                ]
+              }
             }
           ]
         }
       ]
     },
     {
-      "id": "wifi",
+      "id": "step3",
       "blocks": [
-        { "type": "heading", "level": 2, "text": "Connect the Scale to Wi-Fi" },
-        {
-          "type": "video-cta",
-          "url": "https://drive.google.com/file/d/1EnVZub593nA7wir2Y8VGE4DWRVNsAEPr/view?usp=sharing",
-          "title": "Watch Configuration Video",
-          "description": "Follow our step-by-step video guide for Wi-Fi setup."
-        },
-        { "type": "heading", "level": 3, "text": "Access the Scale Configuration Menu" },
-        {
-          "type": "list",
-          "ordered": true,
-          "items": [
-            "Press and hold the <strong>[SET]</strong> key for approximately 3 seconds.",
-            "The scale enters the system configuration mode.",
-            "Use <strong>[↑]</strong> and <strong>[↓]</strong> keys (or the numeric keypad) to navigate.",
-            "Press <strong>[PRN/ENTER]</strong> to confirm."
-          ]
-        },
-        { "type": "heading", "level": 3, "text": "Configure Wi-Fi Settings" },
-        {
-          "type": "list",
-          "ordered": true,
-          "items": [
-            "Open the <strong>SET WIFI</strong> menu.",
-            "Select <strong>SSID</strong> and enter your Wi-Fi name.",
-            "Open <strong>Wi-Fi Security Mode</strong>.",
-            "Select <strong>WPA2-PSK/AES</strong> (or your router's security mode).",
-            "Enter the Wi-Fi password."
-          ]
-        },
-        { "type": "heading", "level": 3, "text": "Configure Network Settings" },
+        { "type": "heading", "level": 2, "text": "Step 3: Configure the Printer in Odoo" },
         {
           "type": "paragraph",
-          "html": "Windows network settings reference: <a href=\"https://support.microsoft.com/en-US/Windows/Experience/Connectivity-Networking/essential-network-settings-and-tasks-in-windows\" target=\"_blank\" rel=\"noopener noreferrer\">Microsoft Documentation</a>"
+          "html": "When the printer connects to the ePOS Proxy application, an IP address will be displayed. Copy the IP using the <strong>Copy IP</strong> button."
         },
         {
-          "type": "list",
-          "ordered": true,
-          "items": [
-            "Open the <strong>SET IP</strong> menu.",
-            "Configure the scale IP address.",
-            "Configure the subnet mask.",
-            "Configure the gateway address."
-          ]
+          "type": "paragraph",
+          "html": "Configure this printer in Odoo using the same procedure as is followed for <strong>EPSON</strong> printers."
         },
         {
           "type": "note",
-          "html": "<strong>Important:</strong> The scale's IP address must be within the same subnet as your router and must not conflict with other devices on the network."
+          "html": "<strong>Important:</strong> You must enable <strong>LNA (Local Network Access)</strong> in the ePOS Proxy application for the printer to communicate with Odoo."
         },
-        { "type": "heading", "level": 3, "text": "Restart and Verify Connectivity" },
-        {
-          "type": "list",
-          "ordered": true,
-          "items": [
-            "Save the settings and restart the scale.",
-            "Wait until the Wi-Fi icon appears on the screen."
-          ]
-        },
-        {
-          "type": "image",
-          "src": "images/Connected.jpg",
-          "alt": "Scale LCD Screen",
-          "caption": "Successful Wi-Fi connection indicator on the scale display."
-        },
-        {
-          "type": "list",
-          "ordered": true,
-          "items": [
-            "Open the RLS Software on your PC.",
-            "Enter the scale name and assigned IP address.",
-            "Click <strong>Check Connection</strong>."
-          ]
-        },
-        {
-          "type": "image",
-          "src": "images/001.png",
-          "alt": "RLS Software Connection Check",
-          "caption": "Locate the \"Check Connection\" button in the RLS Software."
-        },
-        {
-          "type": "image",
-          "src": "images/002.png",
-          "alt": "RLS Software Connection Success",
-          "caption": "Confirmation of a successful connection (Transfer Status OK)."
-        }
-      ]
-    },
-    {
-      "id": "barcode",
-      "blocks": [
-        { "type": "heading", "level": 2, "text": "Configure a Custom Barcode Format" },
+        { "type": "heading", "level": 3, "text": "LAN Printer Setup", "id": "step3-lan" },
         {
           "type": "paragraph",
-          "html": "The scale must generate barcodes that align with Odoo's barcode nomenclature for weight-based products."
+          "html": "For LAN printer connections (Ethernet), follow the dedicated network setup steps in this guide:"
         },
+        {
+          "type": "list",
+          "ordered": false,
+          "items": [
+            { "html": "<a href=\"#single-direct\">Single Printer — Direct Connection via Ethernet</a>" },
+            { "html": "<a href=\"#multi-switch\">Multiple Printers — via Network Switch</a>" },
+            { "html": "<a href=\"#multi-router\">Multiple Printers — via Router</a>" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "supported",
+      "blocks": [
+        { "type": "heading", "level": 2, "text": "Supported Printers" },
+        {
+          "type": "list",
+          "ordered": false,
+          "items": [
+            "Rugtek",
+            "Essae",
+            "Shreyansh",
+            "TVS",
+            "Epson TM-T88IV"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "single-direct",
+      "blocks": [
+        { "type": "heading", "level": 2, "text": "Connect a Single Printer Directly to Your Laptop Using an Ethernet Cable" },
+        { "type": "paragraph", "html": "Connect the printer directly to your laptop using an Ethernet cable." },
+        { "type": "heading", "level": 3, "text": "Determine the Printer's Current IP Address", "id": "single-determine-ip" },
+        { "type": "paragraph", "html": "It might print a receipt which contains IP address information. If no receipt printed automatically, follow steps to print a self-test page:" },
         {
           "type": "list",
           "ordered": true,
           "items": [
-            "Open the RLS Software.",
-            "Click the <strong>Settings</strong> (gear) icon.",
-            "Navigate to the <strong>Custom Barcode</strong> tab.",
-            "Select an unused barcode slot (e.g., <strong>103</strong>).",
-            "Enter the following format: <code>21IIIIIWWWWWW</code>",
-            "Set <strong>Right Digit</strong> to <strong>3</strong>.",
-            "Save the configuration.",
-            "Click <strong>Download</strong> to push the settings to the scale."
+            "Turn the printer off.",
+            "Press and hold the <strong>FEED</strong> button.",
+            "Turn the printer on while continuing to hold the <strong>FEED</strong> button.",
+            "Release the button after the self-test page is printed.",
+            "This test print contains the IP information."
           ]
         },
         {
-          "type": "image",
-          "src": "images/003.png",
-          "alt": "Custom Barcode Configuration",
-          "caption": "Setting up the barcode format in RLS Software."
-        }
-      ]
-    },
-    {
-      "id": "odoo",
-      "blocks": [
-        { "type": "heading", "level": 2, "text": "Configure Products in Odoo" },
+          "type": "pre",
+          "code": "IP address: 192.168.192.168\nSubnet: 255.255.255.0\nGateway: 192.168.192.168"
+        },
+        { "type": "heading", "level": 3, "text": "Access the Printer Configuration Page", "id": "single-access-config" },
         {
           "type": "paragraph",
-          "html": "Ensure each product in Odoo has a barcode prefix that matches your scale's configuration (e.g., beginning with <code>21</code>)."
+          "html": "Open a web browser and enter the printer's IP address (e.g. 192.168.192.168)."
         },
         {
-          "type": "note",
-          "html": "For detailed instructions, refer to the <a href=\"https://www.odoo.com/documentation/19.0/applications/inventory_and_mrp/barcode/operations/barcode_nomenclature.html#example-product-weight-barcode\" target=\"_blank\" rel=\"noopener noreferrer\">Odoo Barcode Documentation</a>."
-        }
-      ]
-    },
-    {
-      "id": "export",
-      "blocks": [
-        { "type": "heading", "level": 2, "text": "Export Product Data from Odoo" },
+          "type": "list",
+          "ordered": false,
+          "items": [
+            { "html": "If the printer configuration page opens, proceed to step <strong>5</strong>." },
+            { "html": "If the printer configuration page does not open, configure a manual IP address on your laptop:" }
+          ]
+        },
+        { "type": "heading", "level": 3, "text": "Configure a Manual IP Address on Your Laptop", "id": "single-manual-ip" },
         {
           "type": "list",
           "ordered": true,
           "items": [
-            "Navigate to the <strong>Products</strong> menu in Odoo.",
-            "Select the products you wish to sync.",
-            "Click <strong>Action → Export</strong>.",
-            "Select the following fields:",
+            "Open <strong>Network & Internet Settings</strong>.",
+            "Select <strong>Ethernet</strong>.",
+            "Click <strong>Edit IP assignment</strong>.",
+            "Change <strong>Automatic (DHCP)</strong> → <strong>Manual</strong>.",
+            "Enable <strong>IPv4</strong> and configure as below example:",
             {
               "list": {
                 "ordered": false,
                 "items": [
-                  "Product Name",
-                  "Barcode",
-                  "Sales Price"
+                  "IP Address: 192.168.192.169",
+                  "Subnet Mask: 255.255.255.0",
+                  "Default Gateway: 192.168.192.1",
+                  "Preferred DNS: 8.8.8.8"
                 ]
               }
             },
-            "Choose <strong>XLSX</strong> format and click <strong>Export</strong>."
+            "Save the settings."
           ]
-        }
-      ]
-    },
-    {
-      "id": "plu",
-      "blocks": [
-        { "type": "heading", "level": 2, "text": "Prepare the PLU Data File" },
+        },
         {
           "type": "paragraph",
-          "html": "Format your exported XLSX data according to the required PLU table below."
+          "html": "The printer configuration page should now be accessible."
+        },
+        { "type": "heading", "level": 3, "text": "Add the Printer to ePOS Proxy", "id": "single-add-epos" },
+        {
+          "type": "paragraph",
+          "html": "Open the ePOS Proxy app, click <strong>+ Add Network Printer</strong>, enter the printer IP address (e.g. 192.168.192.168), and click <strong>Add</strong>."
+        }
+      ]
+    },
+    {
+      "id": "multi-switch",
+      "blocks": [
+        { "type": "heading", "level": 2, "text": "Connect Multiple Printers with Your Laptop Using an Ethernet Cable" },
+        {
+          "type": "paragraph",
+          "html": "This setup is intended for environments where multiple printers are connected directly to a laptop through a network switch without a router."
         },
         {
-          "type": "sample-link",
-          "url": "https://docs.google.com/spreadsheets/d/1ys7XJDsgTagS2eKJ9zekMeMchcoBFrZK/edit?usp=sharing&ouid=110497631151356246513&rtpof=true&sd=true",
-          "label": "Download Sample PLU Format (XLSX)"
+          "type": "paragraph",
+          "html": "To ensure connectivity, configure all hardware on the identical subnet with fixed IP addresses."
         },
-        {
-          "type": "converter-cta",
-          "title": "Automated PLU Converter",
-          "description": "Quickly convert your Odoo exports to the scale-ready format.",
-          "url": "converter/index.html",
-          "button": "Open Converter Tool"
-        },
+        { "type": "heading", "level": 3, "text": "IP Assignment Example", "id": "switch-ip-assignment" },
         {
           "type": "table",
-          "headers": ["Field", "Description"],
+          "headers": ["Device", "IP Address"],
           "rows": [
-            ["Product Name", "The name displayed on the scale's screen."],
-            ["PLU No", "The unique lookup number for the product."],
-            ["Price", "The unit price of the product."],
-            ["Unit", "Weight unit (kg or g)."],
-            ["Barcode Type", "Must match your custom barcode slot (e.g., 103)."]
-          ]
-        }
-      ]
-    },
-    {
-      "id": "import",
-      "blocks": [
-        { "type": "heading", "level": 2, "text": "Import Product Data into the Scale" },
-        {
-          "type": "list",
-          "ordered": true,
-          "items": [
-            "Open the RLS Software and select <strong>PLU Manager</strong>."
-          ]
-        },
-        {
-          "type": "image",
-          "src": "images/004.png",
-          "alt": "PLU Manager Icon",
-          "caption": "Access the PLU Manager from the toolbar."
-        },
-        {
-          "type": "list",
-          "ordered": true,
-          "items": [
-            "Go to <strong>File → From Excel Input PLU</strong> and select your prepared file."
-          ]
-        },
-        {
-          "type": "image",
-          "src": "images/005.png",
-          "alt": "Import PLU Data",
-          "caption": "Importing product data from an XLSX file."
-        },
-        {
-          "type": "list",
-          "ordered": true,
-          "items": [
-            "Verify the communication settings (IP address) and click <strong>OK</strong>."
-          ]
-        },
-        {
-          "type": "image",
-          "src": "images/006.png",
-          "alt": "Communication Configuration",
-          "caption": "Confirm the scale IP address before downloading."
-        },
-        {
-          "type": "list",
-          "ordered": true,
-          "items": [
-            "Monitor the download progress. Once completed, the data is synced."
-          ]
-        },
-        {
-          "type": "image",
-          "src": "images/007.png",
-          "alt": "Download Progress",
-          "caption": "Transferring PLU data to the scale."
-        }
-      ]
-    },
-    {
-      "id": "verify",
-      "blocks": [
-        { "type": "heading", "level": 2, "text": "Verify the Integration" },
-        {
-          "type": "list",
-          "ordered": true,
-          "items": [
-            "Place a product on the scale.",
-            "Enter its <strong>PLU number</strong> (e.g., 1, 3, or 13).",
-            "Press <strong>[PRN/ENTER]</strong> to print the label.",
-            "In Odoo Point of Sale, scan the printed barcode."
+            ["Laptop", "192.168.1.10"],
+            ["Printer 1", "192.168.1.11"],
+            ["Printer 2", "192.168.1.12"],
+            ["Printer 3", "192.168.1.13"]
           ]
         },
         {
           "type": "note",
-          "html": "<strong>Success Check:</strong> The product should appear in the POS cart with the correct weight and calculated total price."
+          "html": "<strong>Primary Network Parameters</strong><br>Subnet Mask: 255.255.255.0<br>Default Gateway: 192.168.1.10<br>DNS Server: 8.8.8.8"
+        },
+        { "type": "heading", "level": 3, "text": "Configure Printers One at a Time", "id": "switch-configure-one" },
+        {
+          "type": "paragraph",
+          "html": "Many printers ship with the same default static IP address. To avoid IP conflicts, configure each printer individually before connecting all printers to the switch."
+        },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Connect only one printer directly to the laptop using an Ethernet cable (do not connect through a router or switch).",
+            "Print a self-test page and note the printer's current IP address and network settings.",
+            "Open a web browser and navigate to the printer's IP address.",
+            "Open the printer's <strong>Network Settings</strong> page."
+          ]
+        },
+        { "type": "heading", "level": 4, "text": "If the Printer Configuration Page Does Not Open" },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Open <strong>Network & Internet Settings</strong>.",
+            "Select <strong>Ethernet</strong>.",
+            "Click <strong>Edit IP assignment</strong>.",
+            "Change <strong>Automatic (DHCP)</strong> → <strong>Manual</strong>.",
+            "Enable <strong>IPv4</strong> and configure as below example:",
+            {
+              "list": {
+                "ordered": false,
+                "items": [
+                  "IP Address: 192.168.192.169",
+                  "Subnet Mask: 255.255.255.0",
+                  "Default Gateway: 192.168.192.1",
+                  "Preferred DNS: 8.8.8.8"
+                ]
+              }
+            },
+            "Save the settings."
+          ]
+        },
+        {
+          "type": "paragraph",
+          "html": "Open the printer's <strong>Network Settings</strong> page."
+        },
+        { "type": "heading", "level": 4, "text": "Assign a Static IP Address" },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Disable <strong>DHCP</strong> if it is enabled.",
+            "Assign a unique static IP address:",
+            {
+              "list": {
+                "ordered": false,
+                "items": [
+                  "Printer 1: 192.168.1.11",
+                  "Printer 2: 192.168.1.12",
+                  "Printer 3: 192.168.1.13"
+                ]
+              }
+            },
+            {
+              "html": "Use the following settings:<br>Subnet Mask: 255.255.255.0<br>Default Gateway: 192.168.1.10<br>DNS Server: 8.8.8.8"
+            },
+            "Save the settings.",
+            "Restart the printer if required.",
+            "Disconnect the printer.",
+            "Repeat the process for each remaining printer."
+          ]
+        },
+        {
+          "type": "paragraph",
+          "html": "After all printers have been assigned unique IP addresses, proceed to the next steps."
+        },
+        { "type": "heading", "level": 3, "text": "Connect the Hardware", "id": "switch-connect-hardware" },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Connect the laptop to a network switch.",
+            "Connect all printers to the same switch using Ethernet cables.",
+            "Power on the switch and all printers."
+          ]
+        },
+        { "type": "heading", "level": 3, "text": "Configure the Laptop", "id": "switch-configure-laptop" },
+        {
+          "type": "paragraph",
+          "html": "Configure the laptop Ethernet adapter with a static IP address:"
+        },
+        {
+          "type": "pre",
+          "code": "IP Address:      192.168.1.10\nSubnet Mask:     255.255.255.0\nDefault Gateway: 192.168.1.1\nPreferred DNS:   8.8.8.8"
+        },
+        { "type": "heading", "level": 3, "text": "Add Printers to ePOS Proxy", "id": "switch-add-epos" },
+        {
+          "type": "paragraph",
+          "html": "For each printer:"
+        },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Open the ePOS Proxy application.",
+            "Click <strong>+ Add Network Printer</strong>.",
+            "Enter the printer IP address.",
+            "Click <strong>Add</strong>."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "multi-router",
+      "blocks": [
+        { "type": "heading", "level": 2, "text": "Connect the Printer to Your Laptop via the Router" },
+        {
+          "type": "paragraph",
+          "html": "This setup is intended for environments where multiple printers are connected to the same router as the laptop."
+        },
+        {
+          "type": "paragraph",
+          "html": "<strong>Important:</strong> Reserve a fixed IP address for each printer within the router's network range. This ensures the printers always receive the same IP address and remain accessible through the router."
+        },
+        {
+          "type": "paragraph",
+          "html": "For example, if the router's network uses the range 192.168.1.1 – 192.168.1.255, assign or reserve IP addresses such as:"
+        },
+        { "type": "heading", "level": 3, "text": "Network Setup Example", "id": "router-network-example" },
+        {
+          "type": "table",
+          "headers": ["Device", "IP Address"],
+          "rows": [
+            ["Laptop", "192.168.1.10"],
+            ["Printer 1", "192.168.1.11"],
+            ["Printer 2", "192.168.1.12"],
+            ["Printer 3", "192.168.1.13"]
+          ]
+        },
+        {
+          "type": "note",
+          "html": "<strong>Primary Network Parameters</strong><br>Subnet Mask: 255.255.255.0<br>Default Gateway: 192.168.1.1<br>DNS Server: 8.8.8.8"
+        },
+        { "type": "heading", "level": 3, "text": "Configure Printers One at a Time", "id": "router-configure-one" },
+        {
+          "type": "paragraph",
+          "html": "Many printers ship with the same default static IP address. To avoid IP conflicts, configure each printer individually before connecting all printers to the router."
+        },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Connect only one printer directly to the laptop using an Ethernet cable (do not connect through a router or switch).",
+            "Print a self-test page and note the printer's current IP address and network settings.",
+            "Check whether DHCP is enabled on the printer in the self-test page."
+          ]
+        },
+        { "type": "heading", "level": 4, "text": "If DHCP Is Enabled" },
+        {
+          "type": "paragraph",
+          "html": "Reserve a fixed IP address for the printer in the router and proceed to the next printer."
+        },
+        { "type": "heading", "level": 4, "text": "If DHCP Is Disabled or Not Supported" },
+        {
+          "type": "paragraph",
+          "html": "Continue with the steps below to assign a static IP address manually."
+        },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Open a web browser and navigate to the printer's IP address.",
+            "Open the printer's <strong>Network Settings</strong> page.",
+            "If the printer configuration page does not open, configure a manual IP address on your laptop:"
+          ]
+        },
+        { "type": "heading", "level": 4, "text": "Configure a Manual IP Address on Your Laptop" },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Open <strong>Network & Internet Settings</strong>.",
+            "Select <strong>Ethernet</strong>.",
+            "Click <strong>Edit IP assignment</strong>.",
+            "Change <strong>Automatic (DHCP)</strong> → <strong>Manual</strong>.",
+            "Enable <strong>IPv4</strong> and configure as below example:",
+            {
+              "list": {
+                "ordered": false,
+                "items": [
+                  "IP Address: 192.168.192.169",
+                  "Subnet Mask: 255.255.255.0",
+                  "Default Gateway: 192.168.192.1",
+                  "Preferred DNS: 8.8.8.8"
+                ]
+              }
+            },
+            "Save the settings."
+          ]
+        },
+        {
+          "type": "paragraph",
+          "html": "Open the printer's <strong>Network Settings</strong> page."
+        },
+        { "type": "heading", "level": 4, "text": "Assign a Static IP Address" },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Assign a unique static IP address:",
+            {
+              "list": {
+                "ordered": false,
+                "items": [
+                  "Printer 1: 192.168.1.11",
+                  "Printer 2: 192.168.1.12",
+                  "Printer 3: 192.168.1.13"
+                ]
+              }
+            },
+            {
+              "html": "Use the following settings:<br>Subnet Mask: 255.255.255.0<br>Default Gateway: 192.168.1.1<br>DNS Server: 8.8.8.8"
+            },
+            "Save the settings.",
+            "Restart the printer if required.",
+            "Disconnect the printer.",
+            "Repeat the process for each remaining printer."
+          ]
+        },
+        {
+          "type": "paragraph",
+          "html": "After all printers have been assigned unique IP addresses, proceed to the next steps."
+        },
+        { "type": "heading", "level": 3, "text": "Connect the Hardware", "id": "router-connect-hardware" },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Connect the laptop to a router.",
+            "Connect all printers to the same router using Ethernet cables.",
+            "Power on the router and all printers."
+          ]
+        },
+        {
+          "type": "note",
+          "html": "If the router does not have enough Ethernet ports for all printers, connect a network switch to the router and connect the printers to the switch."
+        },
+        { "type": "heading", "level": 3, "text": "Add Printers to ePOS Proxy", "id": "router-add-epos" },
+        {
+          "type": "paragraph",
+          "html": "For each printer:"
+        },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Open the ePOS Proxy application.",
+            "Click <strong>+ Add Network Printer</strong>.",
+            "Enter the printer IP address.",
+            "Click <strong>Add</strong>."
+          ]
+        },
+        {
+          "type": "note",
+          "html": "<strong>Important Note — Ethernet Connection Between Printer and Router:</strong> For reliable operation, keep an always-on device (like a computer) connected to the same wired Ethernet network as the printer. Some network setups may cause the printer to become unreachable after being idle for a short time if there is no active device on the network."
         }
       ]
     }

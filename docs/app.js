@@ -25,6 +25,9 @@
         if (item.list) {
             return renderListBlock(item.list);
         }
+        if (item.type === 'pre') {
+            return renderPreBlock(item);
+        }
         return document.createDocumentFragment();
     }
 
@@ -61,7 +64,7 @@
             const tr = document.createElement('tr');
             row.forEach(function (cell) {
                 const td = document.createElement('td');
-                td.textContent = cell;
+                td.innerHTML = cell;
                 tr.appendChild(td);
             });
             tbody.appendChild(tr);
@@ -109,6 +112,25 @@
         return a;
     }
 
+    function renderPreBlock(block) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'code-block';
+        const pre = document.createElement('pre');
+        pre.textContent = block.code;
+        wrapper.appendChild(pre);
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', function () {
+            navigator.clipboard.writeText(block.code).then(function () {
+                btn.textContent = 'Copied!';
+                setTimeout(function () { btn.textContent = 'Copy'; }, 2000);
+            });
+        });
+        wrapper.appendChild(btn);
+        return wrapper;
+    }
+
     function renderSampleLink(block) {
         const a = document.createElement('a');
         a.href = block.url;
@@ -138,13 +160,16 @@
 
     function renderSection(section) {
         const frag = document.createDocumentFragment();
+        var first = true;
 
         section.blocks.forEach(function (block) {
             var el;
             switch (block.type) {
                 case 'heading': {
                     el = document.createElement('h' + block.level);
-                    if (section.id) el.id = section.id;
+                    if (first && section.id) el.id = section.id;
+                    if (block.id) el.id = block.id;
+                    first = false;
                     el.textContent = block.text;
                     break;
                 }
@@ -173,6 +198,10 @@
                     el = renderVideoCTA(block);
                     break;
                 }
+                case 'pre': {
+                    el = renderPreBlock(block);
+                    break;
+                }
                 case 'sample-link': {
                     el = renderSampleLink(block);
                     break;
@@ -184,7 +213,10 @@
                 default:
                     return;
             }
-            if (el) frag.appendChild(el);
+            if (el) {
+                frag.appendChild(el);
+                first = false;
+            }
         });
 
         return frag;
@@ -199,12 +231,26 @@
         div.appendChild(h2);
 
         const ul = document.createElement('ul');
-        data.nav.forEach(function (item) {
+        data.nav.forEach(function (item, i) {
             const li = document.createElement('li');
             const a = document.createElement('a');
             a.href = '#' + item.id;
             a.textContent = item.label;
+            a.setAttribute('data-index', i + 1);
             li.appendChild(a);
+            if (item.subnav && item.subnav.length) {
+                const subul = document.createElement('ul');
+                subul.className = 'toc-sub';
+                item.subnav.forEach(function (sub) {
+                    const subli = document.createElement('li');
+                    const suba = document.createElement('a');
+                    suba.href = '#' + sub.id;
+                    suba.textContent = sub.label;
+                    subli.appendChild(suba);
+                    subul.appendChild(subli);
+                });
+                li.appendChild(subul);
+            }
             ul.appendChild(li);
         });
         div.appendChild(ul);
