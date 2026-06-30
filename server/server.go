@@ -4,6 +4,8 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"net"
+	"sync"
 	"sync/atomic"
 
 	"epos-proxy/escpos"
@@ -25,9 +27,11 @@ type Server struct {
 	app     *fiber.App
 	Port    int
 	running atomic.Bool
+	mu      sync.RWMutex
+	wg      sync.WaitGroup
 }
 
-func New(port int, mgr *printer.Manager) *Server {
+func New(port int, host string, mgr *printer.Manager) (*Server, error) {
 	app := fiber.New(fiber.Config{
 		AppName: "ePOS proxy",
 	})
@@ -47,18 +51,26 @@ func New(port int, mgr *printer.Manager) *Server {
 		return printData(mgr, ctx, "")
 	})
 
+	bindAddr := fmt.Sprintf("%s:%d", host, port)
+
+	ln, err := net.Listen("tcp", bindAddr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to bind %s: %w", bindAddr, err)
+	}
+
 	server := &Server{app: app, Port: port}
 	server.running.Store(true)
+	server.wg.Add(1)
 	go func() {
-		logger.Infof("HTTP server listening on 0.0.0.0:%d", port)
-		err := app.Listen(fmt.Sprintf("0.0.0.0:%d", port))
-		if err != nil {
+		defer server.wg.Done()
+		logger.Infof("HTTP server listening on %s", bindAddr)
+		if err := app.Listener(ln); err != nil {
 			logger.Error("EPOS Server Error: ", err)
 		}
 		server.running.Store(false)
 		logger.Warn("HTTP server stopped")
 	}()
-	return server
+	return server, nil
 }
 
 func printData(mgr *printer.Manager, ctx fiber.Ctx, printerID string) error {
@@ -93,9 +105,12 @@ func printData(mgr *printer.Manager, ctx fiber.Ctx, printerID string) error {
 	return ctx.XML(EPOSResponse{Success: true, Code: "", Status: ""})
 }
 
+// Stop shuts down the HTTP server and waits for the serve goroutine to exit.
 func (s *Server) Stop() error {
 	logger.Infof("Stopping HTTP server")
-	return s.app.Shutdown()
+	err := s.app.Shutdown()
+	s.wg.Wait() // wait for the goroutine to fully exit
+	return err
 }
 
 func (s *Server) Running() bool {

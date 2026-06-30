@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"sync"
 	"time"
 
 	"epos-proxy/config"
@@ -21,6 +22,7 @@ import (
 type App struct {
 	ctx            context.Context
 	webserver      *server.Server
+	serverMu       sync.Mutex // to prevent server start/stop while status is being fetched
 	config         *config.Manager
 	printerManager *printer.Manager
 	autoStart      *autostart.App
@@ -61,15 +63,52 @@ func (a *App) startup(ctx context.Context) {
 		logger.Warn("Unable to resolve port, using default")
 	}
 
-	a.webserver = server.New(port, a.printerManager)
+	ws, err := server.New(port, serverHost(cfg), a.printerManager)
+	if err != nil {
+		logger.Errorf("Failed to start HTTP server: %v", err)
+		return
+	}
+
+	a.webserver = ws
+}
+
+func serverHost(cfg *config.Manager) string {
+	if cfg.IsLANAccessEnabled() {
+		return "0.0.0.0"
+	}
+	return "127.0.0.1"
 }
 
 func (a *App) shutdown(ctx context.Context) {
-	logger.Infof("Stopping proxy server")
+	a.serverMu.Lock()
+	defer a.serverMu.Unlock()
 
-	if err := a.webserver.Stop(); err != nil {
-		logger.Errorf("Server stop error: %v", err)
+	logger.Infof("Stopping proxy server")
+	if a.webserver != nil {
+		if err := a.webserver.Stop(); err != nil {
+			logger.Errorf("Server stop error: %v", err)
+		}
 	}
+}
+
+func (a *App) RestartServer() {
+	a.serverMu.Lock()
+	defer a.serverMu.Unlock()
+
+	if a.webserver != nil {
+		if err := a.webserver.Stop(); err != nil {
+			logger.Errorf("Failed to stop current server: %v", err)
+		}
+	}
+
+	port := a.config.GetPort()
+	logger.Infof("Restarting server on host %s:%d", serverHost(a.config), port)
+	ws, err := server.New(port, serverHost(a.config), a.printerManager)
+	if err != nil {
+		logger.Errorf("Failed to start HTTP server: %v", err)
+		return
+	}
+	a.webserver = ws
 }
 
 type Printer struct {
@@ -98,13 +137,13 @@ type Status struct {
 }
 
 func (a *App) GetPrinterIp(id string) string {
-	ip := fmt.Sprintf("127.0.0.1:%d/p/%s", a.webserver.Port, id)
+	settings := a.GetLANSettings()
+	ip := fmt.Sprintf("%s:%d/p/%s", settings.IP, settings.Port, id)
 	logger.Debugf("Generated printer endpoint: %s", ip)
 	return ip
 }
 
 func (a *App) Status() Status {
-
 	logger.Debug("Collecting printer status")
 
 	printers := make([]Printer, 0)
@@ -151,6 +190,9 @@ func (a *App) Status() Status {
 		})
 	}
 
+	a.serverMu.Lock()
+	defer a.serverMu.Unlock()
+
 	return Status{
 		ServerRunning:       a.webserver.Running(),
 		DefaultIp:           fmt.Sprintf("127.0.0.1:%d", a.webserver.Port),
@@ -162,7 +204,6 @@ func (a *App) Status() Status {
 }
 
 func (a *App) AddLANPrinter(ip string) error {
-
 	logger.Debugf("Adding LAN printer: %s", ip)
 
 	ip, err := printer.ValidateIPAddress(ip)
@@ -179,12 +220,10 @@ func (a *App) AddLANPrinter(ip string) error {
 	}
 
 	logger.Debugf("LAN printer added successfully: %s", ip)
-
 	return nil
 }
 
 func (a *App) ConfirmRemoveLANPrinter(ip string) (bool, error) {
-
 	logger.Debugf("Remove LAN printer requested: %s", ip)
 
 	result, err := wailsruntime.MessageDialog(a.ctx, wailsruntime.MessageDialogOptions{
