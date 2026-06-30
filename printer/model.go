@@ -2,6 +2,7 @@ package printer
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"sync"
 	"time"
@@ -89,4 +90,24 @@ type LibUsbPrinter struct {
 	Name     string
 	VidPid   string
 	DeviceId DeviceID
+}
+
+func (p LibUsbPrinter) String() string {
+	return fmt.Sprintf(
+		"Printer{Name:%q, Serial:%q, VIDPID:%s, Path:%q, DeviceId: %v}",
+		p.Name,
+		p.Serial,
+		p.VidPid,
+		p.Path,
+		p.DeviceId,
+	)
+}
+
+func (p PrinterID) String() string {
+	return fmt.Sprintf(
+		"Printer{Serial:%q, VidPid:%s, Path:%q}",
+		p.Serial,
+		p.VidPid,
+		p.Path,
+	)
 }

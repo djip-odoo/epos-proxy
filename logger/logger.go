@@ -2,6 +2,7 @@ package logger
 
 import (
 	"epos-proxy/buildinfo"
+	"epos-proxy/config"
 	"os"
 	"path/filepath"
 
@@ -12,13 +13,10 @@ import (
 var log = logrus.New()
 
 var logDir string
+var supportMode bool
 
-func InitLogger() {
-	dir, err := os.UserConfigDir()
-	if err != nil {
-		Fatalf("Failed to get user config dir: %v", err)
-	}
-	logDir = filepath.Join(dir, "EposProxy", "logs")
+func InitLogger(cfg *config.Manager) {
+	logDir = filepath.Join(cfg.ConfigDirectory(), "logs")
 	if err := os.MkdirAll(logDir, 0755); err != nil {
 		Fatalf("Failed to create log directory: %v", err)
 	}
@@ -32,15 +30,32 @@ func InitLogger() {
 		MaxAge:     5,  // days
 		Compress:   false,
 	})
-
-	// log.SetReportCaller(true)
-
 	log.SetFormatter(&logrus.TextFormatter{
 		FullTimestamp: true,
 	})
 
 	log.SetLevel(logrus.InfoLevel)
+	if cfg.HasArgs("--verbose", "--support-mode") || cfg.Data.SupportMode {
+		log.SetLevel(logrus.DebugLevel)
+		supportMode = true
+	}
+
 	Infof("Starting Epos Proxy v: %s", buildinfo.GetVersionInfo())
+}
+
+func SetSupportMode(enabled bool) {
+	supportMode = enabled
+	if enabled {
+		log.SetLevel(logrus.DebugLevel)
+		Infof("Support mode enabled: verbose logging is active")
+	} else {
+		log.SetLevel(logrus.InfoLevel)
+		Infof("Support mode disabled: concise logging is active")
+	}
+}
+
+func IsSupportMode() bool {
+	return supportMode
 }
 
 // Wrappers

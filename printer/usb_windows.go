@@ -27,11 +27,11 @@ func getPrinterFriendlyName(vid, pid string) string {
 	}
 
 	// Fallback: look up clean model name from USBPRINT registry
-	logger.Debug("Falling back to registry lookup for printer friendly name")
+	logger.Debugf("Falling back to registry lookup for printer friendly name")
 	if regName := findUSBPrintModel(vid, pid); regName != "" {
 		return regName
 	}
-	logger.Debug("Using generic name for printer")
+	logger.Debugf("Using generic name for printer")
 
 	return fmt.Sprintf("USB ID: %s %s", vid, pid)
 }
@@ -88,7 +88,7 @@ func findUSBPrintModel(vid, pid string) string {
 	logger.Debugf("Found ParentIdPrefix: %s for VID:%s PID:%s", prefix, vid, pid)
 	prefixUpper := strings.ToUpper(prefix)
 
-	logger.Debug("Opening registry key for USBPRINT models")
+	logger.Debugf("Opening registry key for USBPRINT models")
 	root, err := registry.OpenKey(
 		registry.LOCAL_MACHINE,
 		`SYSTEM\CurrentControlSet\Enum\USBPRINT`,

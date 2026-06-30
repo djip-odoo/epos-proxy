@@ -25,6 +25,14 @@ func createMenu(app *App) *menu.Menu {
 		wailsruntime.EventsEmit(app.ctx, "open-firewall-prompt")
 	})
 
+	enabled := false
+	if app != nil && app.config != nil {
+		enabled = app.config.Data.SupportMode
+	}
+	settingsMenu.AddCheckbox("Support Mode", enabled, nil, func(cb *menu.CallbackData) {
+		handleSupportModeToggle(app, cb)
+	})
+
 	settingsMenu.AddText("About", nil, func(_ *menu.CallbackData) {
 		showAboutDialog(app)
 	})
@@ -38,11 +46,7 @@ func createMenu(app *App) *menu.Menu {
 }
 
 func handleAutoStartToggle(app *App, cb *menu.CallbackData) {
-	checked := cb.MenuItem.Checked
-
-	logger.Debugf("Auto Start toggled: %v", checked)
-
-	if checked {
+	if checked := cb.MenuItem.Checked; checked {
 		if err := app.EnableAutostart(); err != nil {
 			logger.Errorf("Failed to enable autostart: %v", err)
 		}
@@ -73,7 +77,6 @@ func (app *App) ConfirmQuit() bool {
 		return false
 	}
 
-	logger.Debug("Confirmed quit action")
 	return true
 }
 
@@ -81,10 +84,19 @@ func showAboutDialog(app *App) {
 	_, err := wailsruntime.MessageDialog(app.ctx, wailsruntime.MessageDialogOptions{
 		Type:    wailsruntime.InfoDialog,
 		Title:   "About Printer Manager",
-		Message: buildinfo.GetVersionInfo()
+		Message: buildinfo.GetVersionInfo(),
 	})
 
 	if err != nil {
 		logger.Errorf("Failed to show about dialog: %v", err)
 	}
+}
+
+func handleSupportModeToggle(app *App, cb *menu.CallbackData) {
+	checked := cb.MenuItem.Checked
+	logger.Infof("Support Mode toggled: %v", checked)
+	if err := app.config.SetSupportMode(checked); err != nil {
+		logger.Errorf("Failed to save support mode configuration: %v", err)
+	}
+	logger.SetSupportMode(checked)
 }

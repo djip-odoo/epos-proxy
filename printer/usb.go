@@ -9,7 +9,7 @@ import (
 )
 
 func ListUSBPrinters() (*Printers, error) {
-	logger.Debug("Starting USB printer detection")
+	logger.Debugf("ListUSBPrinters: Starting USB printer detection")
 	ctx := gousb.NewContext()
 	defer func(ctx *gousb.Context) {
 		_ = ctx.Close()
@@ -70,7 +70,7 @@ func ListUSBPrinters() (*Printers, error) {
 }
 
 func GetPrinterInfo(ctx *gousb.Context, descToFind *gousb.DeviceDesc) (*LibUsbPrinter, error) {
-	logger.Debugf("Attempting to get info for USB device: Bus %d, Address %d, Vendor %04X, Product %04X", descToFind.Bus, descToFind.Address, uint16(descToFind.Vendor), uint16(descToFind.Product))
+	logger.Debugf("GetPrinterInfo: Attempting to get info for USB device: Bus %d, Address %d, Vendor %04X, Product %04X", descToFind.Bus, descToFind.Address, uint16(descToFind.Vendor), uint16(descToFind.Product))
 	var found bool
 	devices, err := ctx.OpenDevices(func(desc *gousb.DeviceDesc) bool {
 		if found {
@@ -126,7 +126,7 @@ func GetPrinterInfo(ctx *gousb.Context, descToFind *gousb.DeviceDesc) (*LibUsbPr
 	info.Path = pathToString(descToFind)
 	info.VidPid = fmt.Sprintf("%04X:%04X", uint16(descToFind.Vendor), uint16(descToFind.Product))
 	info.DeviceId = deviceID
-	logger.Debugf("USB printer: %s (Serial: %s)", info.Name, info.Serial)
+	logger.Debugf("GetPrinterInfo: Printer info: %s", info)
 	return &info, nil
 }
 

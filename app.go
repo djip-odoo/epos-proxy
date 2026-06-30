@@ -26,41 +26,31 @@ type App struct {
 	autoStart      *autostart.App
 }
 
-func NewApp() *App {
+func NewApp(cfg *config.Manager) *App {
 	a := &App{}
+
+	if cfg != nil {
+		a.config = cfg
+	}
 
 	a.autoStart = &autostart.App{
 		Name:        "epos-proxy",
 		DisplayName: "ePOS Proxy",
 		Exec:        []string{os.Args[0]},
 	}
-
 	return a
 }
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	logger.Debugf("Application startup")
-
-	cfg, err := config.NewManager()
-	if err != nil {
-		logger.Fatalf("Config initialization failed: %v", err)
-	}
-
-	if err := cfg.Load(); err != nil {
-		logger.Warnf("Config load warning: %v", err)
-	}
-
-	logger.Debugf("Config loaded from %s", cfg.Path())
-
-	a.config = cfg
 	a.printerManager = printer.NewManager()
-	port, err := cfg.ResolvePort()
+	port, err := a.config.ResolvePort()
 	if err != nil {
 		logger.Warn("Unable to resolve port, using default")
 	}
 
-	if err := cfg.CheckPortChange(); err != nil {
+	if err := a.config.CheckPortChange(); err != nil {
 		logger.Errorf("Failed to check port change: %v", err)
 	}
 
@@ -131,9 +121,7 @@ func (a *App) Status() Status {
 	errorMsg := ""
 
 	if err == nil {
-
 		logger.Debugf("Detected %d available USB printers", len(printerInfos.Available))
-
 		for _, info := range printerInfos.Available {
 			printers = append(printers, Printer{
 				Id:     info.Id,
@@ -182,15 +170,18 @@ func (a *App) AddLANPrinter(ip string) error {
 
 	ip, err := printer.ValidateIPAddress(ip)
 	if err != nil {
-		return fmt.Errorf("invalid IP address: %s, error: %v", ip, err)
+		logger.Errorf("Invalid IP address: %v", err)
+		return fmt.Errorf("invalid IP address: %v", err)
 	}
 
 	if err := printer.CheckLANPrinter(ip); err != nil {
-		return fmt.Errorf("LAN printer unreachable: %s, error: %v", ip, err)
+		logger.Errorf("LAN printer unreachable: %v", err)
+		return fmt.Errorf("LAN printer unreachable: %v", err)
 	}
 
 	if err := a.config.AddLanEposPrinter(ip); err != nil {
-		return fmt.Errorf("failed to save LAN printer: %s, error: %v", ip, err)
+		logger.Errorf("Failed to save LAN printer: %v", err)
+		return fmt.Errorf("failed to save LAN printer: %v", err)
 	}
 
 	logger.Debugf("LAN printer added successfully: %s", ip)
@@ -199,7 +190,6 @@ func (a *App) AddLANPrinter(ip string) error {
 
 func (a *App) ConfirmRemoveLANPrinter(ip string) (bool, error) {
 	logger.Debugf("Remove LAN printer requested: %s", ip)
-
 	result, err := wailsruntime.MessageDialog(a.ctx, wailsruntime.MessageDialogOptions{
 		Type:          wailsruntime.QuestionDialog,
 		Title:         "Remove Printer",
@@ -215,9 +205,10 @@ func (a *App) ConfirmRemoveLANPrinter(ip string) (bool, error) {
 		if err := a.config.RemoveLANPrinter(ip); err != nil {
 			return false, fmt.Errorf("failed to remove LAN printer: %w", err)
 		}
+		logger.Infof("LAN printer removed successfully: %s", ip)
 		return true, nil
 	}
-	logger.Infof("Remove LAN printer cancelled, Remove printer dialog result: %s", result)
+	logger.Debugf("Remove LAN printer cancelled, Remove printer dialog result: %s", result)
 	return false, nil
 }
 
@@ -229,8 +220,7 @@ func (a *App) CheckLANPrinterStatus(ip string) bool {
 func (a *App) DownloadLogs() {
 	logger.Debugf("Download logs requested")
 	configDir := a.config.ConfigDirectory()
-	zipName := fmt.Sprintf("epos-proxy-logs-%s.zip",
-		time.Now().Format("2006-01-02"))
+	zipName := fmt.Sprintf("epos-proxy-logs-%s.zip", time.Now().Format("2006-01-02"))
 	logger.Debugf("Creating logs archive: %s", zipName)
 	savePath, err := wailsruntime.SaveFileDialog(a.ctx, wailsruntime.SaveDialogOptions{
 		Title:           "Save Archive",

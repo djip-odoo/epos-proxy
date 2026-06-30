@@ -24,6 +24,7 @@ type AppConfig struct {
 	OldPort                 int      `json:"old_port"`
 	OS               string   `json:"os"`
 	Arch             string   `json:"arch"`
+	SupportMode      bool     `json:"support_mode"`
 }
 
 func defaults() AppConfig {
@@ -34,6 +35,7 @@ func defaults() AppConfig {
 		FirewallAccepted:        false,
 		OS:                      runtime.GOOS,
 		Arch:                      runtime.GOARCH,
+		SupportMode:             false,
 	}
 }
 
@@ -58,6 +60,18 @@ func NewManager() (*Manager, error) {
 		path: filepath.Join(dir, "config.json"),
 		Data: defaults(),
 	}, nil
+}
+
+func (cm *Manager) HasArgs(args ...string) bool {
+	for _, arg := range args {
+		for _, osArg := range os.Args[1:] {
+			if osArg == arg {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func (cm *Manager) ConfigDirectory() string {
@@ -105,41 +119,9 @@ func (cm *Manager) saveLocked() error {
 
 func (cm *Manager) Path() string { return cm.path }
 
-func (cm *Manager) AddLanEposPrinter(ip string) error {
+func (cm *Manager) SetSupportMode(enabled bool) error {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
-
-	for _, existing := range cm.Data.LANPrinters {
-		if existing == ip {
-			return nil // Already exists
-		}
-	}
-	cm.Data.LANPrinters = append(cm.Data.LANPrinters, ip)
+	cm.Data.SupportMode = enabled
 	return cm.saveLocked()
-}
-
-func (cm *Manager) RemoveLANPrinter(ip string) error {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-
-	for i, existing := range cm.Data.LANPrinters {
-		if existing == ip {
-			cm.Data.LANPrinters = append(cm.Data.LANPrinters[:i], cm.Data.LANPrinters[i+1:]...)
-			return cm.saveLocked()
-		}
-	}
-	return nil // Not found, nothing to remove
-}
-
-func (cm *Manager) GetLANPrinters() []string {
-	cm.mu.RLock()
-	defer cm.mu.RUnlock()
-
-	if cm.Data.LANPrinters == nil {
-		return []string{}
-	}
-	// Return a copy to avoid races if caller modifies the slice
-	result := make([]string, len(cm.Data.LANPrinters))
-	copy(result, cm.Data.LANPrinters)
-	return result
 }

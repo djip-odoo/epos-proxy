@@ -68,11 +68,11 @@ func printData(mgr *printer.Manager, ctx fiber.Ctx, printerID string) error {
 		logger.Errorf("XML parsing error: %v", err)
 		return ctx.XML(EPOSResponse{Success: false, Code: "SchemaError", Status: ""})
 	}
-	logger.Debug("XML parsed successfully")
+	logger.Debugf("XML parsed successfully")
 
 	reply, err := mgr.WriteAsync(printerID, jobData)
 	if err == nil {
-		logger.Debug("Print job queued")
+		logger.Debugf("Print job queued")
 		result := <-reply
 		if !result.OK {
 			err = result.Err
