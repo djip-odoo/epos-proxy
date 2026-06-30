@@ -67,7 +67,7 @@
 
 <script setup>
 import {computed, onMounted, onUnmounted, ref} from 'vue'
-import {CheckLANPrinterStatus, ConfirmRemoveLANPrinter, Status} from '../wailsjs/go/main/App'
+import {CheckLANPrinterStatus, ConfirmRemoveLANPrinter, Status} from '../bindings/epos-proxy/app'
 import {brewSteps, linuxSteps, zadigSteps} from "./modal/fix-step";
 import StepModal from "./modal/step-modal.vue";
 import NetworkIpDialog from "./modal/network-ip-dialog.vue";

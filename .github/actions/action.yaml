@@ -128,7 +128,7 @@ runs:
                 # install wails
                 - name: Install Wails
                   if: inputs.build == 'true'
-                  run: go install github.com/wailsapp/wails/v2/cmd/wails@${{inputs.wails-version}}
+                  run: go install github.com/wailsapp/wails/v3/cmd/wails@${{inputs.wails-version}}
                   shell: bash
                 - name: Install Linux Wails deps
                   if: inputs.build == 'true' && runner.os == 'Linux'

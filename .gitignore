@@ -6,6 +6,6 @@ frontend/dist
 
 .idea/
 
-/frontend/wailsjs/
+/frontend/bindings/
 .vscode/
 package.json.md5

@@ -1,23 +1,14 @@
-/*
-#cgo darwin CFLAGS:  -I/opt/homebrew/opt/libusb/include/libusb-1.0
-#cgo darwin LDFLAGS: /opt/homebrew/opt/libusb/lib/libusb-1.0.a -framework IOKit -framework CoreFoundation
-#include <libusb-1.0/libusb.h>
-*/
 package main
 
 import (
 	"C"
-	"context"
 	"embed"
-	"epos-proxy/logger"
-	"os"
 
-	"github.com/wailsapp/wails/v2"
-	"github.com/wailsapp/wails/v2/pkg/options"
-	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
-	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
+	"epos-proxy/config"
+	"epos-proxy/logger"
+
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
-import "epos-proxy/config"
 
 //go:embed all:frontend/dist
 var assets embed.FS
@@ -25,52 +16,36 @@ var assets embed.FS
 func main() {
 	cfg := config.InitConfig()
 	logger.InitLogger(cfg)
-	app := NewApp(cfg)
-	windowStartState := options.Normal
-	for _, arg := range os.Args[1:] {
-		if arg == "--minimized" {
-			logger.Debugf("Application started with --minimized flag")
-			windowStartState = options.Minimised
-			break
-		}
-	}
+	svc := NewApp(cfg)
 
-	err := wails.Run(&options.App{
-		Title:                    "ePOS Proxy",
-		Width:                    800,
-		Height:                   600,
-		Menu:                     createMenu(app),
-		EnableDefaultContextMenu: true,
-		WindowStartState:         windowStartState,
-		AssetServer: &assetserver.Options{
-			Assets: assets,
+	wailsApp := application.New(application.Options{
+		Name:        "ePOS Proxy",
+		Description: "Expose USB and network printers as HTTP endpoints",
+		Services: []application.Service{
+			application.NewService(svc),
 		},
-		SingleInstanceLock: &options.SingleInstanceLock{
-			UniqueId: "epos-proxy-single-instance",
-			OnSecondInstanceLaunch: func(secondInstanceData options.SecondInstanceData) {
-				logger.Warn("Second instance detected, focusing existing window")
-				wailsruntime.WindowShow(app.ctx)
-				wailsruntime.WindowUnminimise(app.ctx)
-			},
+		Assets: application.AssetOptions{
+			Handler: application.AssetFileServerFS(assets),
 		},
-		OnBeforeClose: func(ctx context.Context) (prevent bool) {
-			if app.ConfirmQuit() {
-				logger.Infof("User confirmed quit")
-				return false
-			}
-
-			logger.Infof("Close requested, minimizing window instead of quitting")
-			wailsruntime.WindowMinimise(ctx)
-			return true
+		Mac: application.MacOptions{
+			ApplicationShouldTerminateAfterLastWindowClosed: false,
 		},
-		BackgroundColour: &options.RGBA{R: 255, G: 255, B: 255, A: 1},
-		OnStartup:        app.startup,
-		OnDomReady:       app.domReady,
-		Bind: []interface{}{
-			app,
+		SingleInstance: &application.SingleInstanceOptions{
+			UniqueID: "epos-proxy-single-instance",
 		},
 	})
 
+	wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
+		Title:            "ePOS Proxy",
+		Width:            800,
+		Height:           600,
+		BackgroundColour: application.NewRGB(255, 255, 255),
+		URL:              "/",
+	})
+
+	createMenu(wailsApp, svc)
+
+	err := wailsApp.Run()
 	if err != nil {
 		logger.Errorf("Application crashed: %v", err)
 	}

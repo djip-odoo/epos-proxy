@@ -37,7 +37,7 @@
                 <p class="text-gray-500 whitespace-pre-line">{{ steps[currentStep].desc }}</p>
 
                 <a v-if="steps[currentStep].link" :href="steps[currentStep].link" target="_blank"
-                   @click.prevent="BrowserOpenURL(steps[currentStep].link)"
+                   @click.prevent="Browser.OpenURL(steps[currentStep].link)"
                    class="inline-flex items-center mt-3 px-3 py-2 rounded-lg border border-stone-300 text-stone-600 hover:bg-stone-50 hover:border-stone-400"
                 >
                   {{ steps[currentStep].linkLabel }}
@@ -90,7 +90,7 @@
 <script setup>
 import {nextTick, onUnmounted, ref, watch} from 'vue'
 import {useStepModal} from './use-step-modal'
-import {BrowserOpenURL} from "../../wailsjs/runtime"
+import {Browser} from "@wailsio/runtime"
 import CloseButton from './close-button.vue'
 
 const props = defineProps({

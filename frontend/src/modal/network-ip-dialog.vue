@@ -48,7 +48,7 @@
 <script setup>
 import { ref, watch, nextTick } from 'vue'
 import CloseButton from './close-button.vue'
-import { AddLANPrinter } from '../../wailsjs/go/main/App'
+import { AddLANPrinter } from '../../bindings/epos-proxy/app'
 import { useToast } from '../hooks/useToast.js'
 const { notify } = useToast()
 
