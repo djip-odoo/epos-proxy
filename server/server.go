@@ -31,7 +31,7 @@ type Server struct {
 	wg      sync.WaitGroup
 }
 
-func New(port int, host string, mgr *printer.Manager) (*Server, error) {
+func New(port int, mgr *printer.Manager) (*Server, error) {
 	app := fiber.New(fiber.Config{
 		AppName: "ePOS proxy",
 	})
@@ -51,7 +51,7 @@ func New(port int, host string, mgr *printer.Manager) (*Server, error) {
 		return printData(mgr, ctx, "")
 	})
 
-	bindAddr := fmt.Sprintf("%s:%d", host, port)
+	bindAddr := fmt.Sprintf("0.0.0.0:%d", port)
 
 	ln, err := net.Listen("tcp", bindAddr)
 	if err != nil {

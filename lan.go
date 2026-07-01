@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"runtime"
 
 	"epos-proxy/logger"
 	"epos-proxy/util"
@@ -15,56 +16,56 @@ type LANSettings struct {
 
 func (a *App) GetLANSettings() LANSettings {
 	ip := "127.0.0.1"
-	if a.config.IsLANAccessEnabled() {
-		if lanIP, err := util.GetLocalIP(); err == nil {
-			ip = lanIP
-		} else {
-			logger.Errorf("Failed to get local IP: %v", err)
-		}
+	if lanIP, err := util.GetLocalIP(); err == nil {
+		ip = lanIP
+	} else {
+		logger.Errorf("Failed to get local network IP: %v", err)
 	}
-
 	return LANSettings{
-		Enabled: a.config.IsLANAccessEnabled(),
+		Enabled: a.config.IsFirewallAccepted(),
 		IP:      ip,
 		Port:    a.config.GetPort(),
 	}
 }
 
-func (a *App) EnableLANAccess() error {
-	logger.Infof("Enabling LAN Access")
+func (a *App) ConfigureFirewall() error {
+	logger.Infof("Configuring firewall")
 	port := a.config.GetPort()
 
-	err := util.AllowPortThroughFirewall(port)
+	var err error
+	switch runtime.GOOS {
+	case "windows":
+		err = util.AllowApplicationThroughFirewall()
+	case "linux":
+		err = util.AllowPortThroughFirewall(port)
+	default:
+		return fmt.Errorf("unsupported operating system: %s", runtime.GOOS)
+	}
+
 	if err != nil {
-		logger.Errorf("Failed to allow port through firewall: %v", err)
-		return fmt.Errorf("firewall error: %v", err)
+		if err == util.ErrAuthCancelled {
+			logger.Warnf("Firewall configuration cancelled by user")
+			a.config.SetFirewallPromptCompleted(true)
+			a.config.SetFirewallAccepted(false)
+			return err
+		}
+		logger.Errorf("Failed to configure firewall: %v", err)
+		return err
 	}
 
-	a.config.SetLANAccess(true)
-	if err := a.config.Save(); err != nil {
-		logger.Errorf("Failed to save config: %v", err)
-		return fmt.Errorf("config error: %v", err)
-	}
-
-	a.RestartServer()
+	logger.Infof("Firewall configured successfully")
+	a.config.SetFirewallPromptCompleted(true)
+	a.config.SetFirewallAccepted(true)
 	return nil
 }
 
-func (a *App) DisableLANAccess() error {
-	logger.Infof("Disabling LAN Access")
-	port := a.config.GetPort()
-
-	err := util.BlockPortThroughFirewall(port)
-	if err != nil {
-		logger.Errorf("Failed to block port through firewall: %v", err)
-	}
-
-	a.config.SetLANAccess(false)
-	if err := a.config.Save(); err != nil {
-		logger.Errorf("Failed to save config: %v", err)
-		return fmt.Errorf("config error: %v", err)
-	}
-
-	a.RestartServer()
+func (a *App) SkipFirewallPrompt() error {
+	logger.Infof("User skipped firewall prompt ('Not Now')")
+	a.config.SetFirewallPromptCompleted(true)
+	a.config.SetFirewallAccepted(false)
 	return nil
+}
+
+func (a *App) IsFirewallPromptCompleted() bool {
+	return a.config.IsFirewallPromptCompleted()
 }

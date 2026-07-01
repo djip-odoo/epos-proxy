@@ -3,6 +3,7 @@ package util
 import (
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -13,27 +14,31 @@ var ErrAuthCancelled = errors.New("authentication cancelled")
 
 const firewallRuleName = "EPOS Proxy LAN Access"
 
-func allowPortOS(port int) error {
-	logger.Infof("Attempting to allow port %d through Windows firewall", port)
+func allowApplicationOS() error {
+	exePath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("failed to get executable path: %w", err)
+	}
+	logger.Infof("Attempting to allow executable %s through Windows firewall", exePath)
 
-	args := fmt.Sprintf(
-		`advfirewall firewall add rule name="%s" dir=in action=allow protocol=TCP localport=%d profile=private,domain`,
+	// Best effort delete first to avoid duplicate rules
+	deleteArgs := fmt.Sprintf(`advfirewall firewall delete rule name="%s"`, firewallRuleName)
+	_ = runElevated("netsh.exe", deleteArgs)
+
+	addArgs := fmt.Sprintf(
+		`advfirewall firewall add rule name="%s" dir=in action=allow program="%s" enable=yes profile=private,domain`,
 		firewallRuleName,
-		port,
+		exePath,
 	)
+	return runElevated("netsh.exe", addArgs)
+}
 
-	return runElevated("netsh.exe", args)
+func allowPortOS(port int) error {
+	return fmt.Errorf("allowPortOS should not be called on Windows; use allowApplicationOS instead")
 }
 
 func blockPortOS(port int) error {
-	logger.Infof("Removing firewall rule")
-
-	args := fmt.Sprintf(
-		`advfirewall firewall delete rule name="%s"`,
-		firewallRuleName,
-	)
-
-	return runElevated("netsh.exe", args)
+	return fmt.Errorf("blockPortOS should not be called on Windows; use blockApplicationOS instead")
 }
 
 func runElevated(exe, args string) error {

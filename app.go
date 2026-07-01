@@ -63,7 +63,11 @@ func (a *App) startup(ctx context.Context) {
 		logger.Warn("Unable to resolve port, using default")
 	}
 
-	ws, err := server.New(port, serverHost(cfg), a.printerManager)
+	if err := cfg.CheckPortChange(port); err != nil {
+		logger.Errorf("Failed to check port change: %v", err)
+	}
+
+	ws, err := server.New(port, a.printerManager)
 	if err != nil {
 		logger.Errorf("Failed to start HTTP server: %v", err)
 		return
@@ -72,11 +76,12 @@ func (a *App) startup(ctx context.Context) {
 	a.webserver = ws
 }
 
-func serverHost(cfg *config.Manager) string {
-	if cfg.IsLANAccessEnabled() {
-		return "0.0.0.0"
+func (a *App) domReady(ctx context.Context) {
+	logger.Debug("DOM is ready")
+	if !a.config.IsFirewallPromptCompleted() {
+		logger.Debug("Firewall prompt not completed, triggering frontend event")
+		wailsruntime.EventsEmit(ctx, "open-firewall-prompt")
 	}
-	return "127.0.0.1"
 }
 
 func (a *App) shutdown(ctx context.Context) {
@@ -89,26 +94,6 @@ func (a *App) shutdown(ctx context.Context) {
 			logger.Errorf("Server stop error: %v", err)
 		}
 	}
-}
-
-func (a *App) RestartServer() {
-	a.serverMu.Lock()
-	defer a.serverMu.Unlock()
-
-	if a.webserver != nil {
-		if err := a.webserver.Stop(); err != nil {
-			logger.Errorf("Failed to stop current server: %v", err)
-		}
-	}
-
-	port := a.config.GetPort()
-	logger.Infof("Restarting server on host %s:%d", serverHost(a.config), port)
-	ws, err := server.New(port, serverHost(a.config), a.printerManager)
-	if err != nil {
-		logger.Errorf("Failed to start HTTP server: %v", err)
-		return
-	}
-	a.webserver = ws
 }
 
 type Printer struct {
@@ -129,7 +114,6 @@ type UnavailablePrinter struct {
 
 type Status struct {
 	ServerRunning       bool                 `json:"serverRunning"`
-	DefaultIp           string               `json:"defaultIp"`
 	ErrorMsg            string               `json:"errorMsg"`
 	Printers            []Printer            `json:"printers"`
 	UnavailablePrinters []UnavailablePrinter `json:"unavailablePrinters"`
@@ -195,7 +179,6 @@ func (a *App) Status() Status {
 
 	return Status{
 		ServerRunning:       a.webserver.Running(),
-		DefaultIp:           fmt.Sprintf("127.0.0.1:%d", a.webserver.Port),
 		Printers:            printers,
 		UnavailablePrinters: unavailablePrinters,
 		ErrorMsg:            errorMsg,

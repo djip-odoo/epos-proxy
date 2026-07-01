@@ -11,57 +11,41 @@ import (
 
 var ErrAuthCancelled = errors.New("authentication cancelled")
 
+func allowApplicationOS() error {
+	return nil
+}
+
 func allowPortOS(port int) error {
 	logger.Infof("Allowing port %d through Linux firewall", port)
 
-	portTCP := fmt.Sprintf("%d/tcp", port)
-	return runFirewallCommand(
-		[]string{"ufw", "allow", portTCP},
-		[]string{"firewall-cmd", fmt.Sprintf("--add-port=%s", portTCP), "--permanent"},
-		[]string{"firewall-cmd", "--reload"},
-	)
+	if _, err := exec.LookPath("ufw"); err != nil {
+		return fmt.Errorf(
+			"UFW is not installed. Install UFW and try enabling network printing again",
+		)
+	}
+
+	return runElevatedLinux([]string{
+		"ufw",
+		"allow",
+		fmt.Sprintf("%d/tcp", port),
+	})
 }
 
 func blockPortOS(port int) error {
 	logger.Infof("Blocking port %d through Linux firewall", port)
 
-	portTCP := fmt.Sprintf("%d/tcp", port)
-	return runFirewallCommand(
-		[]string{"ufw", "delete", "allow", portTCP},
-		[]string{"firewall-cmd", fmt.Sprintf("--remove-port=%s", portTCP), "--permanent"},
-		[]string{"firewall-cmd", "--reload"},
-	)
-}
-
-func runFirewallCommand(ufwArgs, firewalldArgs, firewalldReloadArgs []string) error {
-	if _, err := exec.LookPath("ufw"); err == nil {
-		if err := runElevatedLinux(ufwArgs); err == nil {
-			return nil
-		} else if errors.Is(err, ErrAuthCancelled) {
-			return err
-		} else {
-			logger.Warnf("UFW failed, falling back to firewalld: %v", err)
-		}
+	if _, err := exec.LookPath("ufw"); err != nil {
+		return fmt.Errorf(
+			"UFW is not installed. Install UFW and try enabling network printing again",
+		)
 	}
 
-	if _, err := exec.LookPath("firewall-cmd"); err == nil {
-		if err := runElevatedLinux(firewalldArgs); err != nil {
-			if errors.Is(err, ErrAuthCancelled) {
-				return err
-			}
-			return fmt.Errorf("firewalld failed: %w", err)
-		}
-		if err := runElevatedLinux(firewalldReloadArgs); err != nil {
-			if errors.Is(err, ErrAuthCancelled) {
-				return err
-			}
-			return fmt.Errorf("firewalld reload failed: %w", err)
-		}
-		return nil
-	}
-
-	return fmt.Errorf("no supported firewall manager found (tried ufw, firewalld); " +
-		"if using iptables directly, add a rule manually: iptables -A INPUT -p tcp --dport <port> -j ACCEPT")
+	return runElevatedLinux([]string{
+		"ufw",
+		"delete",
+		"allow",
+		fmt.Sprintf("%d/tcp", port),
+	})
 }
 
 func runElevatedLinux(args []string) error {
@@ -87,8 +71,10 @@ func runWithPkexec(args []string) error {
 
 	outStr := strings.ToLower(string(output))
 	if strings.Contains(outStr, "error executing command as another user:") {
-		if strings.Contains(outStr, "no such file") || strings.Contains(outStr, "command not found") || strings.Contains(outStr, "cannot find") {
-			return fmt.Errorf("pkexec: command not found %q — is %s installed?", args[0], args[0])
+		if strings.Contains(outStr, "no such file") ||
+			strings.Contains(outStr, "command not found") ||
+			strings.Contains(outStr, "cannot find") {
+			return fmt.Errorf("command %q not found", args[0])
 		}
 		return ErrAuthCancelled
 	}
@@ -99,11 +85,7 @@ func runWithPkexec(args []string) error {
 		}
 	}
 
-	return fmt.Errorf(
-		"pkexec failed: %w\n%s",
-		err,
-		string(output),
-	)
+	return fmt.Errorf("pkexec failed: %w\n%s", err, string(output))
 }
 
 func runWithKdesudo(args []string) error {
@@ -116,7 +98,8 @@ func runWithKdesudo(args []string) error {
 	}
 
 	outStr := strings.ToLower(string(output))
-	if strings.Contains(outStr, "cancel") || strings.Contains(outStr, "dismissed") {
+	if strings.Contains(outStr, "cancel") ||
+		strings.Contains(outStr, "dismissed") {
 		return ErrAuthCancelled
 	}
 
@@ -126,9 +109,5 @@ func runWithKdesudo(args []string) error {
 		}
 	}
 
-	return fmt.Errorf(
-		"kdesudo failed: %w\n%s",
-		err,
-		string(output),
-	)
+	return fmt.Errorf("kdesudo failed: %w\n%s", err, string(output))
 }

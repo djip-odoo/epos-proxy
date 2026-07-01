@@ -9,17 +9,22 @@ import (
 
 func createMenu(app *App) *menu.Menu {
 	mainMenu := menu.NewMenu()
-	appMenu := mainMenu.AddSubmenu("App")
+	settingsMenu := mainMenu.AddSubmenu("Settings")
 
-	appMenu.AddText("Download Logs", nil, func(_ *menu.CallbackData) {
+	settingsMenu.AddText("Download Logs", nil, func(_ *menu.CallbackData) {
 		app.DownloadLogs()
 	})
 
-	appMenu.AddCheckbox("Auto Start", app.IsAutostartEnabled(), nil, func(cb *menu.CallbackData) {
+	settingsMenu.AddCheckbox("Auto Start", app.IsAutostartEnabled(), nil, func(cb *menu.CallbackData) {
 		handleAutoStartToggle(app, cb)
 	})
 
-	appMenu.AddText("Quit", nil, func(_ *menu.CallbackData) {
+	settingsMenu.AddText("Network Printing", nil, func(_ *menu.CallbackData) {
+		logger.Infof("Network Printing menu item clicked")
+		wailsruntime.EventsEmit(app.ctx, "open-firewall-prompt")
+	})
+
+	settingsMenu.AddText("Quit", nil, func(_ *menu.CallbackData) {
 		logger.Infof("Quit requested by user")
 		wailsruntime.Quit(app.ctx)
 	})

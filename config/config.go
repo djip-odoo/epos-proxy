@@ -18,14 +18,17 @@ const (
 )
 
 type AppConfig struct {
-	Port             int      `json:"port"`
-	LANPrinters      []string `json:"lan_printers,omitempty"`
-	LANAccessEnabled bool     `json:"lan_access_enabled"`
+	Port                    int      `json:"port"`
+	LANPrinters             []string `json:"lan_printers,omitempty"`
+	FirewallPromptCompleted bool     `json:"firewall_prompt_completed"`
+	FirewallAccepted        bool     `json:"firewall_accepted"`
 }
 
 func defaults() AppConfig {
 	return AppConfig{
-		Port: 0,
+		Port:                    0,
+		FirewallPromptCompleted: false,
+		FirewallAccepted:        false,
 	}
 }
 
