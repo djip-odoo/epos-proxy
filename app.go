@@ -55,13 +55,31 @@ func (a *App) startup(ctx context.Context) {
 
 	a.config = cfg
 	a.printerManager = printer.NewManager()
-
 	port, err := cfg.ResolvePort()
 	if err != nil {
 		logger.Warn("Unable to resolve port, using default")
 	}
 
+	if err := cfg.CheckPortChange(); err != nil {
+		logger.Errorf("Failed to check port change: %v", err)
+	}
+
 	a.webserver = server.New(port, a.printerManager)
+}
+
+func (a *App) domReady(ctx context.Context) {
+	logger.Debug("DOM is ready")
+	if !a.config.IsFirewallPromptCompleted() {
+		if exists, err := util.CheckIfRuleExist(); err == nil && exists {
+			logger.Infof("Firewall rule already exists for port %d, skipping prompt")
+			if err = a.SkipFirewallPrompt(); err != nil {
+				logger.Errorf("Error: %v", err)
+			}
+		} else {
+			logger.Infof("Firewall prompt not completed, triggering frontend event")
+			wailsruntime.EventsEmit(ctx, "open-firewall-prompt")
+		}
+	}
 }
 
 func (a *App) shutdown(ctx context.Context) {
@@ -90,7 +108,6 @@ type UnavailablePrinter struct {
 
 type Status struct {
 	ServerRunning       bool                 `json:"serverRunning"`
-	DefaultIp           string               `json:"defaultIp"`
 	ErrorMsg            string               `json:"errorMsg"`
 	Printers            []Printer            `json:"printers"`
 	UnavailablePrinters []UnavailablePrinter `json:"unavailablePrinters"`
@@ -98,13 +115,13 @@ type Status struct {
 }
 
 func (a *App) GetPrinterIp(id string) string {
-	ip := fmt.Sprintf("127.0.0.1:%d/p/%s", a.webserver.Port, id)
+	settings := a.GetLANSettings()
+	ip := fmt.Sprintf("%s:%d/p/%s", settings.IP, settings.Port, id)
 	logger.Debugf("Generated printer endpoint: %s", ip)
 	return ip
 }
 
 func (a *App) Status() Status {
-
 	logger.Debug("Collecting printer status")
 
 	printers := make([]Printer, 0)
@@ -153,7 +170,6 @@ func (a *App) Status() Status {
 
 	return Status{
 		ServerRunning:       a.webserver.Running(),
-		DefaultIp:           fmt.Sprintf("127.0.0.1:%d", a.webserver.Port),
 		Printers:            printers,
 		UnavailablePrinters: unavailablePrinters,
 		ErrorMsg:            errorMsg,
@@ -162,7 +178,6 @@ func (a *App) Status() Status {
 }
 
 func (a *App) AddLANPrinter(ip string) error {
-
 	logger.Debugf("Adding LAN printer: %s", ip)
 
 	ip, err := printer.ValidateIPAddress(ip)
@@ -179,12 +194,10 @@ func (a *App) AddLANPrinter(ip string) error {
 	}
 
 	logger.Debugf("LAN printer added successfully: %s", ip)
-
 	return nil
 }
 
 func (a *App) ConfirmRemoveLANPrinter(ip string) (bool, error) {
-
 	logger.Debugf("Remove LAN printer requested: %s", ip)
 
 	result, err := wailsruntime.MessageDialog(a.ctx, wailsruntime.MessageDialogOptions{
@@ -267,5 +280,53 @@ func (a *App) DisableAutostart() error {
 		return a.autoStart.Disable()
 	}
 
+	return nil
+}
+
+type LANSettings struct {
+	Enabled bool   `json:"enabled"`
+	IP      string `json:"ip"`
+	Port    int    `json:"port"`
+}
+
+func (a *App) GetLANSettings() LANSettings {
+	return LANSettings{
+		Enabled: a.config.IsFirewallAccepted(),
+		IP:      util.GetLocalIP(),
+		Port:    a.config.GetPort(),
+	}
+}
+
+func (a *App) ConfigureFirewall() error {
+	logger.Infof("Configuring firewall")
+	err := util.SetFirewallRule(a.config.GetPort(), a.config.GetOldPort())
+	if err != nil {
+		if err == util.ErrAuthCancelled {
+			logger.Warnf("Firewall configuration cancelled by user")
+			if err := a.config.UpdateFirewallPreference(true, false); err != nil {
+				logger.Errorf("Failed to save config: %v", err)
+				return fmt.Errorf("config error: %v", err)
+			}
+			return err
+		}
+		logger.Errorf("Failed to configure firewall: %v", err)
+		return err
+	}
+
+	logger.Infof("Firewall configured successfully")
+	if err := a.config.UpdateFirewallPreference(true, true); err != nil {
+		logger.Errorf("Failed to save config: %v", err)
+		return fmt.Errorf("config error: %v", err)
+	}
+
+	return nil
+}
+
+func (a *App) SkipFirewallPrompt() error {
+	logger.Infof("User skipped firewall prompt ('Not Now')")
+	if err := a.config.UpdateFirewallPreference(true, false); err != nil {
+		logger.Errorf("Failed to save config: %v", err)
+		return fmt.Errorf("config error: %v", err)
+	}
 	return nil
 }
