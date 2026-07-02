@@ -34,10 +34,10 @@ func createMenu(wailsApp *application.App, svc *App) {
 		}
 	})
 
-	// appMenu.Add("Network Printing").OnClick(func(_ *application.Context) {
-	// 	logger.Infof("Network Printing menu item clicked")
-	// 	wailsApp.Events().Emit("open-firewall-prompt")
-	// })
+	appMenu.Add("Network Printing").OnClick(func(_ *application.Context) {
+		logger.Infof("Network Printing menu item clicked")
+		wailsApp.Get().Event("open-firewall-prompt")
+	})
 
 	enabled := false
 	if svc.config != nil {
