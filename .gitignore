@@ -9,3 +9,5 @@ frontend/dist
 /frontend/bindings/
 .vscode/
 package.json.md5
+.task
+bin/

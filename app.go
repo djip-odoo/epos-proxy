@@ -55,6 +55,7 @@ func (a *App) ServiceStartup(ctx context.Context, options application.ServiceOpt
 	}
 
 	a.webserver = server.New(port, a.printerManager)
+	return nil
 }
 
 func (a *App) domReady(ctx context.Context) {
@@ -67,7 +68,7 @@ func (a *App) domReady(ctx context.Context) {
 			}
 		} else {
 			logger.Infof("Firewall prompt not completed, triggering frontend event")
-			wailsruntime.EventsEmit(ctx, "open-firewall-prompt")
+			application.Get().Event.Emit("open-firewall-prompt")
 		}
 	}
 }

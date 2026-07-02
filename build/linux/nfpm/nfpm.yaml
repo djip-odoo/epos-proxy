@@ -3,26 +3,26 @@
 #
 # The lines below are called `modelines`. See `:help modeline`
 
-name: "shelliq"
+name: "epos-proxy"
 arch: ${GOARCH}
 platform: "linux"
 version: "0.1.0"
 section: "default"
 priority: "extra"
 maintainer: ${GIT_COMMITTER_NAME} <${GIT_COMMITTER_EMAIL}>
-description: "A shelliq application"
-vendor: "My Company"
+description: "Expose USB and network printers as HTTP endpoints"
+vendor: "ePOS Proxy"
 homepage: "https://wails.io"
 license: "MIT"
 release: "1"
 
 contents:
-  - src: "./bin/shelliq"
-    dst: "/usr/local/bin/shelliq"
+  - src: "./bin/epos-proxy"
+    dst: "/usr/local/bin/epos-proxy"
   - src: "./build/appicon.png"
-    dst: "/usr/share/icons/hicolor/128x128/apps/shelliq.png"
-  - src: "./build/linux/shelliq.desktop"
-    dst: "/usr/share/applications/shelliq.desktop"
+    dst: "/usr/share/icons/hicolor/128x128/apps/epos-proxy.png"
+  - src: "./build/linux/epos-proxy.desktop"
+    dst: "/usr/share/applications/epos-proxy.desktop"
 
 # Default dependencies for the GTK4 + WebKitGTK 6.0 stack (Ubuntu 24.04+ / Debian 13+)
 depends:

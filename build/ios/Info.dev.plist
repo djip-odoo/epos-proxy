@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleExecutable</key>
-    <string>shelliq</string>
+    <string>epos-proxy</string>
     <key>CFBundleIdentifier</key>
-    <string>com.example.shelliq.dev</string>
+    <string>com.epos-proxy.app.dev</string>
     <key>CFBundleName</key>
     <string>My Product (Dev)</string>
     <key>CFBundleDisplayName</key>
