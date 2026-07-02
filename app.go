@@ -55,13 +55,29 @@ func (a *App) startup(ctx context.Context) {
 
 	a.config = cfg
 	a.printerManager = printer.NewManager()
-
 	port, err := cfg.ResolvePort()
 	if err != nil {
 		logger.Warn("Unable to resolve port, using default")
 	}
 
+	if err := cfg.CheckPortChange(); err != nil {
+		logger.Errorf("Failed to check port change: %v", err)
+	}
+
 	a.webserver = server.New(port, a.printerManager)
+}
+
+func (a *App) domReady(ctx context.Context) {
+	logger.Debug("DOM is ready")
+	if !a.config.IsFirewallPromptCompleted() {
+		if exists, err := util.CheckIfRuleExist(); err == nil && exists {
+			logger.Infof("Firewall rule already exists for port %d, skipping prompt")
+			a.SkipFirewallPrompt()
+		} else {
+			logger.Infof("Firewall prompt not completed, triggering frontend event")
+			wailsruntime.EventsEmit(ctx, "open-firewall-prompt")
+		}
+	}
 }
 
 func (a *App) shutdown(ctx context.Context) {
@@ -90,7 +106,6 @@ type UnavailablePrinter struct {
 
 type Status struct {
 	ServerRunning       bool                 `json:"serverRunning"`
-	DefaultIp           string               `json:"defaultIp"`
 	ErrorMsg            string               `json:"errorMsg"`
 	Printers            []Printer            `json:"printers"`
 	UnavailablePrinters []UnavailablePrinter `json:"unavailablePrinters"`
@@ -98,13 +113,13 @@ type Status struct {
 }
 
 func (a *App) GetPrinterIp(id string) string {
-	ip := fmt.Sprintf("127.0.0.1:%d/p/%s", a.webserver.Port, id)
+	settings := a.GetLANSettings()
+	ip := fmt.Sprintf("%s:%d/p/%s", settings.IP, settings.Port, id)
 	logger.Debugf("Generated printer endpoint: %s", ip)
 	return ip
 }
 
 func (a *App) Status() Status {
-
 	logger.Debug("Collecting printer status")
 
 	printers := make([]Printer, 0)
@@ -153,7 +168,6 @@ func (a *App) Status() Status {
 
 	return Status{
 		ServerRunning:       a.webserver.Running(),
-		DefaultIp:           fmt.Sprintf("127.0.0.1:%d", a.webserver.Port),
 		Printers:            printers,
 		UnavailablePrinters: unavailablePrinters,
 		ErrorMsg:            errorMsg,
@@ -162,7 +176,6 @@ func (a *App) Status() Status {
 }
 
 func (a *App) AddLANPrinter(ip string) error {
-
 	logger.Debugf("Adding LAN printer: %s", ip)
 
 	ip, err := printer.ValidateIPAddress(ip)
@@ -179,12 +192,10 @@ func (a *App) AddLANPrinter(ip string) error {
 	}
 
 	logger.Debugf("LAN printer added successfully: %s", ip)
-
 	return nil
 }
 
 func (a *App) ConfirmRemoveLANPrinter(ip string) (bool, error) {
-
 	logger.Debugf("Remove LAN printer requested: %s", ip)
 
 	result, err := wailsruntime.MessageDialog(a.ctx, wailsruntime.MessageDialogOptions{
