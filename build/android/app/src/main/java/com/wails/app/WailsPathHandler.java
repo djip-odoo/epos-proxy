@@ -36,6 +36,8 @@ public class WailsPathHandler implements WebViewAssetLoader.PathHandler {
         // Normalize path
         if (path.isEmpty() || path.equals("/")) {
             path = "/index.html";
+        } else if (!path.startsWith("/")) {
+            path = "/" + path;
         }
 
         // Get asset from Go
@@ -47,7 +49,7 @@ public class WailsPathHandler implements WebViewAssetLoader.PathHandler {
         }
 
         // Determine MIME type
-        String mimeType = bridge.getAssetMimeType(path);
+        String mimeType = getMimeType(path);
         if (DEBUG) Log.d(TAG, "Serving " + path + " with type " + mimeType + " (" + data.length + " bytes)");
 
         // Create response
@@ -64,5 +66,33 @@ public class WailsPathHandler implements WebViewAssetLoader.PathHandler {
                 headers,
                 inputStream
         );
+    }
+
+    private String getMimeType(String path) {
+        String lowerPath = path.toLowerCase();
+        if (lowerPath.endsWith(".html") || lowerPath.endsWith(".htm")) {
+            return "text/html";
+        } else if (lowerPath.endsWith(".js") || lowerPath.endsWith(".mjs")) {
+            return "text/javascript";
+        } else if (lowerPath.endsWith(".css")) {
+            return "text/css";
+        } else if (lowerPath.endsWith(".svg")) {
+            return "image/svg+xml";
+        } else if (lowerPath.endsWith(".png")) {
+            return "image/png";
+        } else if (lowerPath.endsWith(".jpg") || lowerPath.endsWith(".jpeg")) {
+            return "image/jpeg";
+        } else if (lowerPath.endsWith(".json")) {
+            return "application/json";
+        } else if (lowerPath.endsWith(".ico")) {
+            return "image/x-icon";
+        } else if (lowerPath.endsWith(".woff")) {
+            return "font/woff";
+        } else if (lowerPath.endsWith(".woff2")) {
+            return "font/woff2";
+        } else if (lowerPath.endsWith(".ttf")) {
+            return "font/ttf";
+        }
+        return bridge.getAssetMimeType(path);
     }
 }
