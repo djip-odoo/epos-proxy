@@ -61,6 +61,18 @@ import org.json.JSONObject;
 
 import java.util.Locale;
 import java.util.concurrent.Executor;
+import java.util.HashMap;
+import java.util.HashSet;
+import android.hardware.usb.UsbManager;
+import android.hardware.usb.UsbDevice;
+import android.hardware.usb.UsbInterface;
+import android.hardware.usb.UsbEndpoint;
+import android.hardware.usb.UsbDeviceConnection;
+import android.hardware.usb.UsbConstants;
+import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
+import android.content.IntentFilter;
+import android.util.Base64;
 
 /**
  * WailsBridge manages the connection between the Java/Android side and the Go
@@ -100,6 +112,7 @@ public class WailsBridge {
 
     // Native methods - implemented in Go
     private static native void nativeInit(WailsBridge bridge);
+    private static native void nativeInitPrinterBridge(WailsBridge bridge);
     private static native void nativeShutdown();
     private static native void nativeOnStart();
     private static native void nativeOnResume();
@@ -131,6 +144,7 @@ public class WailsBridge {
         }
         try {
             nativeInit(this);
+            nativeInitPrinterBridge(this);
             initialized = true;
             Log.i(TAG, "Wails bridge initialized");
         } catch (Exception e) {
@@ -1306,5 +1320,232 @@ public class WailsBridge {
     /** Dialog button callback that no-ops once the Go side is gone. */
     private void dialogCallback(int callbackID, int buttonIndex) {
         if (initialized) nativeDialogCallback(callbackID, buttonIndex);
+    }
+
+    private static final HashSet<String> knownPrinters = new HashSet<>();
+    static {
+        knownPrinters.add("2aaf:6015");
+        knownPrinters.add("04b8:0e32");
+        knownPrinters.add("04b8:0202");
+        knownPrinters.add("04b8:0203");
+        knownPrinters.add("2d84:c7c8");
+        knownPrinters.add("4b43:3830");
+        knownPrinters.add("0483:5720");
+        knownPrinters.add("2aaf:6004");
+    }
+
+    private boolean isPrinter(UsbDevice device) {
+        for (int i = 0; i < device.getInterfaceCount(); i++) {
+            if (device.getInterface(i).getInterfaceClass() == UsbConstants.USB_CLASS_PRINTER) {
+                return true;
+            }
+        }
+        String vidPid = String.format("%04x:%04x", device.getVendorId(), device.getProductId()).toLowerCase();
+        return knownPrinters.contains(vidPid);
+    }
+
+    public String listUSBPrinters(String arg) {
+        JSONArray arr = new JSONArray();
+        try {
+            UsbManager usbManager = (UsbManager) activity.getSystemService(Context.USB_SERVICE);
+            if (usbManager != null) {
+                for (UsbDevice device : usbManager.getDeviceList().values()) {
+                    if (isPrinter(device)) {
+                        JSONObject obj = new JSONObject();
+                        obj.put("path", device.getDeviceName());
+                        obj.put("vidPid", String.format("%04X:%04X", device.getVendorId(), device.getProductId()));
+                        
+                        String serial = "";
+                        if (usbManager.hasPermission(device)) {
+                            try {
+                                serial = device.getSerialNumber();
+                            } catch (SecurityException ignored) {}
+                        }
+                        obj.put("serial", serial != null ? serial : "");
+                        
+                        String mfg = device.getManufacturerName();
+                        String prod = device.getProductName();
+                        String name = (mfg != null ? mfg : "") + " " + (prod != null ? prod : "");
+                        name = name.trim();
+                        if (name.isEmpty()) {
+                            name = "USB Printer (" + obj.getString("vidPid") + ")";
+                        }
+                        obj.put("name", name);
+                        arr.put(obj);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "listUSBPrinters failed", e);
+        }
+        return arr.toString();
+    }
+
+    private static final String ACTION_USB_PERMISSION = "com.wails.app.USB_PERMISSION";
+    private final Object usbLock = new Object();
+    private boolean permissionResult = false;
+
+    public String printUSB(String jsonArg) {
+        JSONObject res = new JSONObject();
+        try {
+            JSONObject args = new JSONObject(jsonArg);
+            String path = args.getString("path");
+            String dataBase64 = args.getString("data");
+            byte[] data = Base64.decode(dataBase64, Base64.DEFAULT);
+
+            UsbManager usbManager = (UsbManager) activity.getSystemService(Context.USB_SERVICE);
+            if (usbManager == null) {
+                res.put("ok", false);
+                res.put("error", "UsbManager not available");
+                return res.toString();
+            }
+
+            UsbDevice targetDevice = null;
+            for (UsbDevice device : usbManager.getDeviceList().values()) {
+                if (device.getDeviceName().equals(path)) {
+                    targetDevice = device;
+                    break;
+                }
+            }
+
+            if (targetDevice == null) {
+                String vidPid = args.optString("vidPid", "");
+                String serial = args.optString("serial", "");
+                for (UsbDevice device : usbManager.getDeviceList().values()) {
+                    String devVidPid = String.format("%04X:%04X", device.getVendorId(), device.getProductId());
+                    boolean match = false;
+                    if (!vidPid.isEmpty()) {
+                        match = devVidPid.equalsIgnoreCase(vidPid);
+                    }
+                    if (match && !serial.isEmpty() && usbManager.hasPermission(device)) {
+                        try {
+                            match = serial.equalsIgnoreCase(device.getSerialNumber());
+                        } catch (SecurityException ignored) {
+                            match = false;
+                        }
+                    }
+                    if (match) {
+                        targetDevice = device;
+                        break;
+                    }
+                }
+            }
+
+            if (targetDevice == null) {
+                res.put("ok", false);
+                res.put("error", "Printer device not found");
+                return res.toString();
+            }
+
+            if (!usbManager.hasPermission(targetDevice)) {
+                final UsbDevice devToAuth = targetDevice;
+                synchronized (usbLock) {
+                    permissionResult = false;
+                    BroadcastReceiver usbReceiver = new BroadcastReceiver() {
+                        @Override
+                        public void onReceive(Context context, Intent intent) {
+                            if (ACTION_USB_PERMISSION.equals(intent.getAction())) {
+                                synchronized (usbLock) {
+                                    UsbDevice device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
+                                    if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
+                                        permissionResult = true;
+                                    }
+                                    usbLock.notifyAll();
+                                }
+                            }
+                        }
+                    };
+
+                    int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_MUTABLE : 0;
+                    PendingIntent permissionIntent = PendingIntent.getBroadcast(
+                            activity, 0, new Intent(ACTION_USB_PERMISSION), flags);
+                    
+                    IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
+                    activity.registerReceiver(usbReceiver, filter);
+                    
+                    usbManager.requestPermission(devToAuth, permissionIntent);
+                    
+                    try {
+                        usbLock.wait(10000);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                    
+                    activity.unregisterReceiver(usbReceiver);
+                }
+                
+                if (!permissionResult && !usbManager.hasPermission(targetDevice)) {
+                    res.put("ok", false);
+                    res.put("error", "USB permission denied by user");
+                    return res.toString();
+                }
+            }
+
+            UsbInterface usbInterface = null;
+            UsbEndpoint outEndpoint = null;
+
+            for (int i = 0; i < targetDevice.getInterfaceCount(); i++) {
+                UsbInterface intf = targetDevice.getInterface(i);
+                for (int j = 0; j < intf.getEndpointCount(); j++) {
+                    UsbEndpoint ep = intf.getEndpoint(j);
+                    if (ep.getType() == UsbConstants.USB_ENDPOINT_XFER_BULK && ep.getDirection() == UsbConstants.USB_DIR_OUT) {
+                        usbInterface = intf;
+                        outEndpoint = ep;
+                        break;
+                    }
+                }
+                if (outEndpoint != null) break;
+            }
+
+            if (usbInterface == null || outEndpoint == null) {
+                res.put("ok", false);
+                res.put("error", "No bulk OUT endpoint found on device");
+                return res.toString();
+            }
+
+            UsbDeviceConnection connection = usbManager.openDevice(targetDevice);
+            if (connection == null) {
+                res.put("ok", false);
+                res.put("error", "Failed to open UsbDeviceConnection");
+                return res.toString();
+            }
+
+            try {
+                if (!connection.claimInterface(usbInterface, true)) {
+                    connection.close();
+                    res.put("ok", false);
+                    res.put("error", "Failed to claim USB interface");
+                    return res.toString();
+                }
+
+                int offset = 0;
+                int timeoutMs = 5000;
+                while (offset < data.length) {
+                    int chunk = Math.min(data.length - offset, 8192);
+                    byte[] buffer = new byte[chunk];
+                    System.arraycopy(data, offset, buffer, 0, chunk);
+                    int transferred = connection.bulkTransfer(outEndpoint, buffer, chunk, timeoutMs);
+                    if (transferred < 0) {
+                        res.put("ok", false);
+                        res.put("error", "Bulk transfer failed with error code: " + transferred);
+                        return res.toString();
+                    }
+                    offset += transferred;
+                }
+
+                res.put("ok", true);
+            } finally {
+                connection.releaseInterface(usbInterface);
+                connection.close();
+            }
+
+        } catch (Exception e) {
+            Log.e(TAG, "printUSB failed", e);
+            try {
+                res.put("ok", false);
+                res.put("error", e.getMessage() != null ? e.getMessage() : e.toString());
+            } catch (Exception ignored) {}
+        }
+        return res.toString();
     }
 }
