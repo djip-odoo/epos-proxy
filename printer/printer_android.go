@@ -5,6 +5,7 @@ package printer
 /*
 #include <jni.h>
 #include <stdlib.h>
+#include <string.h>
 
 static JavaVM* g_jvm = NULL;
 static jobject g_bridge = NULL;

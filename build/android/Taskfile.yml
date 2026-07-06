@@ -4,6 +4,9 @@ includes:
   common: ../Taskfile.yml
 
 vars:
+  PACKAGE_MANAGER: '{{.PACKAGE_MANAGER | default "npm"}}'
+  APP_NAME: '{{.APP_NAME | default "epos-proxy"}}'
+  BIN_DIR: '{{.BIN_DIR | default "bin"}}'
   APP_ID: '{{.APP_ID | default "com.wails.app"}}'
   MIN_SDK: '21'
   TARGET_SDK: '34'
@@ -265,6 +268,18 @@ tasks:
     deps:
       - task: ensure-emulator
       - task: build
+    cmds:
+      - task: assemble:apk
+      - '"{{.ADB}}" uninstall {{.APP_ID}} 2>/dev/null || true'
+      - '"{{.ADB}}" install "{{.BIN_DIR}}/{{.APP_NAME}}.apk"'
+      - '"{{.ADB}}" shell am start -n {{.APP_ID}}/com.wails.app.MainActivity'
+
+  run:device:
+    summary: Build, install and launch a debug build on the connected physical Android device
+    deps:
+      - task: build
+        vars:
+          ARCH: arm64
     cmds:
       - task: assemble:apk
       - '"{{.ADB}}" uninstall {{.APP_ID}} 2>/dev/null || true'
