@@ -59,3 +59,19 @@ tasks:
     summary: Builds and runs the Docker image
     cmds:
       - task: common:run:docker
+
+  build:android:
+    summary: Builds the application for Android (debug)
+    cmds:
+      - task: android:build
+
+  run:android:
+    summary: Builds, installs, and runs the application on Android emulator/device
+    cmds:
+      - task: android:run
+
+  package:android:
+    summary: Packages a production release APK for Android
+    cmds:
+      - task: android:package
+

@@ -1,0 +1,5 @@
+{
+  "Replace": {
+    "/home/odoo/odoo/epos-proxy/main_android.gen.go": "/home/odoo/odoo/epos-proxy/build/android/gen/main_android.gen.go"
+  }
+}
