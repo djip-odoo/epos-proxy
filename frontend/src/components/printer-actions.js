@@ -5,6 +5,11 @@ export async function copyPrinterFieldValue(printer, field, copiedIds) {
 }
 
 async function sendEposPrint(printerIp, name, openCashDrawer = false) {
+  let targetIp = printerIp
+  if (targetIp.includes('/p/')) {
+    targetIp = targetIp.replace(/^[^/:]+/, '127.0.0.1')
+  }
+
   const content = openCashDrawer
     ? '<pulse />'
     : `
@@ -15,7 +20,7 @@ async function sendEposPrint(printerIp, name, openCashDrawer = false) {
         <cut type="feed" />
       `
 
-  return await fetch(`http://${printerIp}/cgi-bin/epos/service.cgi`, {
+  return await fetch(`http://${targetIp}/cgi-bin/epos/service.cgi`, {
     method: 'POST',
     body: `<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
           <s:Body>

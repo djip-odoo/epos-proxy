@@ -11,3 +11,13 @@ frontend/dist
 package.json.md5
 .task
 bin/
+
+# Compiled executables
+epos-proxy
+epos-proxy.exe
+
+# Logs
+*.log
+logs/
+build/android/.gradle/
+build/android/build/

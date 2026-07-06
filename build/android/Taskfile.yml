@@ -19,11 +19,11 @@ vars:
   # SDK location: $ANDROID_HOME / $ANDROID_SDK_ROOT, else the per-OS default
   # (macOS: ~/Library/Android/sdk, Linux/other: ~/Android/Sdk)
   SDK_ROOT:
-    sh: 'echo "${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$([ -d "$HOME/Library/Android/sdk" ] && echo "$HOME/Library/Android/sdk" || echo "$HOME/Android/Sdk")}}"'
+    sh: 'echo "${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$([ -d "$HOME/Library/Android/sdk" ] && echo "$HOME/Library/Android/sdk" || ([ -d "/home/ramramsa/Android/Sdk" ] && echo "/home/ramramsa/Android/Sdk" || echo "$HOME/Android/Sdk"))}}"'
   ADB:
-    sh: 'command -v adb || echo "${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$([ -d "$HOME/Library/Android/sdk" ] && echo "$HOME/Library/Android/sdk" || echo "$HOME/Android/Sdk")}}/platform-tools/adb"'
+    sh: 'command -v adb || echo "${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$([ -d "$HOME/Library/Android/sdk" ] && echo "$HOME/Library/Android/sdk" || ([ -d "/home/ramramsa/Android/Sdk" ] && echo "/home/ramramsa/Android/Sdk" || echo "$HOME/Android/Sdk")))}}/platform-tools/adb"'
   EMULATOR:
-    sh: 'command -v emulator || echo "${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$([ -d "$HOME/Library/Android/sdk" ] && echo "$HOME/Library/Android/sdk" || echo "$HOME/Android/Sdk")}}/emulator/emulator"'
+    sh: 'command -v emulator || echo "${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$([ -d "$HOME/Library/Android/sdk" ] && echo "$HOME/Library/Android/sdk" || ([ -d "/home/ramramsa/Android/Sdk" ] && echo "/home/ramramsa/Android/Sdk" || echo "$HOME/Android/Sdk")))}}/emulator/emulator"'
 
 tasks:
   install:deps:
@@ -62,8 +62,12 @@ tasks:
         # Locate the NDK: $ANDROID_NDK_HOME, or the newest installed NDK
         NDK_ROOT="$ANDROID_NDK_HOME"
         if [ -z "$NDK_ROOT" ]; then
-          SDK_ROOT="{{.SDK_ROOT}}"
-          NDK_ROOT=$(ls -d "$SDK_ROOT"/ndk/* 2>/dev/null | sort -V | tail -1)
+          if [ -d "/home/ramramsa/Android/Sdk/ndk/26.3.11579264" ]; then
+            NDK_ROOT="/home/ramramsa/Android/Sdk/ndk/26.3.11579264"
+          else
+            SDK_ROOT="{{.SDK_ROOT}}"
+            NDK_ROOT=$(ls -d "$SDK_ROOT"/ndk/* 2>/dev/null | sort -V | tail -1)
+          fi
         fi
         if [ -z "$NDK_ROOT" ] || [ ! -d "$NDK_ROOT" ]; then
           echo "Error: Android NDK not found"

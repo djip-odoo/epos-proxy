@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 	"time"
 
@@ -227,17 +228,24 @@ func (a *App) DownloadLogs() {
 	zipName := fmt.Sprintf("epos-proxy-logs-%s.zip", time.Now().Format("2006-01-02"))
 	logger.Debugf("Creating logs archive: %s", zipName)
 
-	filePath, err := application.Get().Dialog.SaveFileWithOptions(&application.SaveFileDialogOptions{
-		Title:    "Save Archive",
-		Filename: zipName,
-		Filters:  []application.FileFilter{{DisplayName: "Zip Archives (*.zip)", Pattern: "*.zip"}},
-	}).PromptForSingleSelection()
-	if err != nil {
-		logger.Errorf("Save dialog failed: %v", err)
-		return
-	}
-	if filePath == "" {
-		return
+	var filePath string
+	var err error
+
+	if runtime.GOOS == "android" {
+		filePath = filepath.Join("/data/data/com.wails.app/files", zipName)
+	} else {
+		filePath, err = application.Get().Dialog.SaveFileWithOptions(&application.SaveFileDialogOptions{
+			Title:    "Save Archive",
+			Filename: zipName,
+			Filters:  []application.FileFilter{{DisplayName: "Zip Archives (*.zip)", Pattern: "*.zip"}},
+		}).PromptForSingleSelection()
+		if err != nil {
+			logger.Errorf("Save dialog failed: %v", err)
+			return
+		}
+		if filePath == "" {
+			return
+		}
 	}
 
 	err = util.CreateZip(filePath, map[string]string{"config": configDir})
@@ -250,6 +258,13 @@ func (a *App) DownloadLogs() {
 		return
 	}
 	logger.Infof("Logs successfully exported to: %s", filePath)
+
+	if runtime.GOOS == "android" {
+		application.Get().Dialog.Info().
+			SetTitle("Logs Exported").
+			SetMessage(fmt.Sprintf("Logs successfully exported to:\n\n%s\n\nRetrieve using:\nadb pull %s", filePath, filePath)).
+			Show()
+	}
 }
 
 func (a *App) IsAutostartEnabled() bool {
@@ -278,6 +293,28 @@ func (a *App) DisableAutostart() error {
 	}
 
 	return nil
+}
+
+func (a *App) SetSupportMode(enabled bool) error {
+	logger.Infof("Support Mode toggled: %v", enabled)
+	if err := a.config.SetSupportMode(enabled); err != nil {
+		logger.Errorf("Failed to save support mode configuration: %v", err)
+		return err
+	}
+	logger.SetSupportMode(enabled)
+	return nil
+}
+
+func (a *App) IsSupportModeEnabled() bool {
+	if a.config == nil {
+		return false
+	}
+	return a.config.Data.SupportMode
+}
+
+func (a *App) Quit() {
+	logger.Infof("Quit requested by user")
+	application.Get().Quit()
 }
 
 type LANSettings struct {

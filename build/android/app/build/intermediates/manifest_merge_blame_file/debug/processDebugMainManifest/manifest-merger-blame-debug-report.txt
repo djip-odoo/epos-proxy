@@ -74,7 +74,7 @@
 40-->[androidx.core:core:1.9.0] /home/odoo/.gradle/caches/9.2.1/transforms/73c870d790afa7d7ec2c3497162da36f/transformed/core-1.9.0/AndroidManifest.xml:26:22-94
 41
 42    <application
-42-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:27:5-61:19
+42-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:27:5-62:19
 43        android:allowBackup="true"
 43-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:28:9-35
 44        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
@@ -89,121 +89,123 @@
 49-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:31:9-54
 50        android:supportsRtl="true"
 50-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:32:9-35
-51        android:theme="@style/Theme.WailsApp" >
+51        android:theme="@style/Theme.WailsApp"
 51-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:33:9-46
-52        <activity
-52-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:36:9-45:20
-53            android:name="com.wails.app.MainActivity"
-53-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:37:13-41
-54            android:configChanges="orientation|screenSize|keyboardHidden|uiMode"
-54-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:39:13-81
-55            android:exported="true"
-55-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:38:13-36
-56            android:windowSoftInputMode="adjustResize" >
-56-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:40:13-55
-57            <intent-filter>
-57-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:41:13-44:29
-58                <action android:name="android.intent.action.MAIN" />
-58-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:42:17-69
-58-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:42:25-66
-59
-60                <category android:name="android.intent.category.LAUNCHER" />
-60-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:43:17-77
-60-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:43:27-74
-61            </intent-filter>
-62        </activity>
-63
-64        <provider
-65            android:name="androidx.core.content.FileProvider"
-65-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:48:13-62
-66            android:authorities="com.wails.app.fileprovider"
-66-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:49:13-64
-67            android:exported="false"
-67-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:50:13-37
-68            android:grantUriPermissions="true" >
-68-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:51:13-47
-69            <meta-data
-69-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:52:13-54:54
-70                android:name="android.support.FILE_PROVIDER_PATHS"
-70-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:53:17-67
-71                android:resource="@xml/file_paths" />
-71-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:54:17-51
-72        </provider>
-73
-74        <service
-74-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:57:9-60:56
-75            android:name="com.wails.app.WailsForegroundService"
-75-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:58:13-51
-76            android:exported="false"
-76-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:59:13-37
-77            android:foregroundServiceType="dataSync" />
-77-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:60:13-53
-78
-79        <provider
-79-->[androidx.emoji2:emoji2:1.2.0] /home/odoo/.gradle/caches/9.2.1/transforms/4f3963907b177616d34cb40151385d2b/transformed/emoji2-1.2.0/AndroidManifest.xml:24:9-32:20
-80            android:name="androidx.startup.InitializationProvider"
-80-->[androidx.emoji2:emoji2:1.2.0] /home/odoo/.gradle/caches/9.2.1/transforms/4f3963907b177616d34cb40151385d2b/transformed/emoji2-1.2.0/AndroidManifest.xml:25:13-67
-81            android:authorities="com.wails.app.androidx-startup"
-81-->[androidx.emoji2:emoji2:1.2.0] /home/odoo/.gradle/caches/9.2.1/transforms/4f3963907b177616d34cb40151385d2b/transformed/emoji2-1.2.0/AndroidManifest.xml:26:13-68
-82            android:exported="false" >
-82-->[androidx.emoji2:emoji2:1.2.0] /home/odoo/.gradle/caches/9.2.1/transforms/4f3963907b177616d34cb40151385d2b/transformed/emoji2-1.2.0/AndroidManifest.xml:27:13-37
-83            <meta-data
-83-->[androidx.emoji2:emoji2:1.2.0] /home/odoo/.gradle/caches/9.2.1/transforms/4f3963907b177616d34cb40151385d2b/transformed/emoji2-1.2.0/AndroidManifest.xml:29:13-31:52
-84                android:name="androidx.emoji2.text.EmojiCompatInitializer"
-84-->[androidx.emoji2:emoji2:1.2.0] /home/odoo/.gradle/caches/9.2.1/transforms/4f3963907b177616d34cb40151385d2b/transformed/emoji2-1.2.0/AndroidManifest.xml:30:17-75
-85                android:value="androidx.startup" />
-85-->[androidx.emoji2:emoji2:1.2.0] /home/odoo/.gradle/caches/9.2.1/transforms/4f3963907b177616d34cb40151385d2b/transformed/emoji2-1.2.0/AndroidManifest.xml:31:17-49
-86            <meta-data
-86-->[androidx.lifecycle:lifecycle-process:2.6.1] /home/odoo/.gradle/caches/9.2.1/transforms/b35a3e53938dc9480f4349c4c29e7a58/transformed/lifecycle-process-2.6.1/AndroidManifest.xml:29:13-31:52
-87                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
-87-->[androidx.lifecycle:lifecycle-process:2.6.1] /home/odoo/.gradle/caches/9.2.1/transforms/b35a3e53938dc9480f4349c4c29e7a58/transformed/lifecycle-process-2.6.1/AndroidManifest.xml:30:17-78
-88                android:value="androidx.startup" />
-88-->[androidx.lifecycle:lifecycle-process:2.6.1] /home/odoo/.gradle/caches/9.2.1/transforms/b35a3e53938dc9480f4349c4c29e7a58/transformed/lifecycle-process-2.6.1/AndroidManifest.xml:31:17-49
-89            <meta-data
-89-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:29:13-31:52
-90                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
-90-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:30:17-85
-91                android:value="androidx.startup" />
-91-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:31:17-49
-92        </provider>
-93
-94        <receiver
-94-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:34:9-52:20
-95            android:name="androidx.profileinstaller.ProfileInstallReceiver"
-95-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:35:13-76
-96            android:directBootAware="false"
-96-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:36:13-44
-97            android:enabled="true"
-97-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:37:13-35
-98            android:exported="true"
-98-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:38:13-36
-99            android:permission="android.permission.DUMP" >
-99-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:39:13-57
-100            <intent-filter>
-100-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:40:13-42:29
-101                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
-101-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:41:17-91
-101-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:41:25-88
-102            </intent-filter>
-103            <intent-filter>
-103-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:43:13-45:29
-104                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
-104-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:44:17-85
-104-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:44:25-82
-105            </intent-filter>
-106            <intent-filter>
-106-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:46:13-48:29
-107                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
-107-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:47:17-88
-107-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:47:25-85
-108            </intent-filter>
-109            <intent-filter>
-109-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:49:13-51:29
-110                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
-110-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:50:17-95
-110-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:50:25-92
-111            </intent-filter>
-112        </receiver>
-113    </application>
-114
-115</manifest>
+52        android:usesCleartextTraffic="true" >
+52-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:34:9-44
+53        <activity
+53-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:37:9-46:20
+54            android:name="com.wails.app.MainActivity"
+54-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:38:13-41
+55            android:configChanges="orientation|screenSize|keyboardHidden|uiMode"
+55-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:40:13-81
+56            android:exported="true"
+56-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:39:13-36
+57            android:windowSoftInputMode="adjustResize" >
+57-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:41:13-55
+58            <intent-filter>
+58-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:42:13-45:29
+59                <action android:name="android.intent.action.MAIN" />
+59-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:43:17-69
+59-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:43:25-66
+60
+61                <category android:name="android.intent.category.LAUNCHER" />
+61-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:44:17-77
+61-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:44:27-74
+62            </intent-filter>
+63        </activity>
+64
+65        <provider
+66            android:name="androidx.core.content.FileProvider"
+66-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:49:13-62
+67            android:authorities="com.wails.app.fileprovider"
+67-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:50:13-64
+68            android:exported="false"
+68-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:51:13-37
+69            android:grantUriPermissions="true" >
+69-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:52:13-47
+70            <meta-data
+70-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:53:13-55:54
+71                android:name="android.support.FILE_PROVIDER_PATHS"
+71-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:54:17-67
+72                android:resource="@xml/file_paths" />
+72-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:55:17-51
+73        </provider>
+74
+75        <service
+75-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:58:9-61:56
+76            android:name="com.wails.app.WailsForegroundService"
+76-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:59:13-51
+77            android:exported="false"
+77-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:60:13-37
+78            android:foregroundServiceType="dataSync" />
+78-->/home/odoo/odoo/epos-proxy/build/android/app/src/main/AndroidManifest.xml:61:13-53
+79
+80        <provider
+80-->[androidx.emoji2:emoji2:1.2.0] /home/odoo/.gradle/caches/9.2.1/transforms/4f3963907b177616d34cb40151385d2b/transformed/emoji2-1.2.0/AndroidManifest.xml:24:9-32:20
+81            android:name="androidx.startup.InitializationProvider"
+81-->[androidx.emoji2:emoji2:1.2.0] /home/odoo/.gradle/caches/9.2.1/transforms/4f3963907b177616d34cb40151385d2b/transformed/emoji2-1.2.0/AndroidManifest.xml:25:13-67
+82            android:authorities="com.wails.app.androidx-startup"
+82-->[androidx.emoji2:emoji2:1.2.0] /home/odoo/.gradle/caches/9.2.1/transforms/4f3963907b177616d34cb40151385d2b/transformed/emoji2-1.2.0/AndroidManifest.xml:26:13-68
+83            android:exported="false" >
+83-->[androidx.emoji2:emoji2:1.2.0] /home/odoo/.gradle/caches/9.2.1/transforms/4f3963907b177616d34cb40151385d2b/transformed/emoji2-1.2.0/AndroidManifest.xml:27:13-37
+84            <meta-data
+84-->[androidx.emoji2:emoji2:1.2.0] /home/odoo/.gradle/caches/9.2.1/transforms/4f3963907b177616d34cb40151385d2b/transformed/emoji2-1.2.0/AndroidManifest.xml:29:13-31:52
+85                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+85-->[androidx.emoji2:emoji2:1.2.0] /home/odoo/.gradle/caches/9.2.1/transforms/4f3963907b177616d34cb40151385d2b/transformed/emoji2-1.2.0/AndroidManifest.xml:30:17-75
+86                android:value="androidx.startup" />
+86-->[androidx.emoji2:emoji2:1.2.0] /home/odoo/.gradle/caches/9.2.1/transforms/4f3963907b177616d34cb40151385d2b/transformed/emoji2-1.2.0/AndroidManifest.xml:31:17-49
+87            <meta-data
+87-->[androidx.lifecycle:lifecycle-process:2.6.1] /home/odoo/.gradle/caches/9.2.1/transforms/b35a3e53938dc9480f4349c4c29e7a58/transformed/lifecycle-process-2.6.1/AndroidManifest.xml:29:13-31:52
+88                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+88-->[androidx.lifecycle:lifecycle-process:2.6.1] /home/odoo/.gradle/caches/9.2.1/transforms/b35a3e53938dc9480f4349c4c29e7a58/transformed/lifecycle-process-2.6.1/AndroidManifest.xml:30:17-78
+89                android:value="androidx.startup" />
+89-->[androidx.lifecycle:lifecycle-process:2.6.1] /home/odoo/.gradle/caches/9.2.1/transforms/b35a3e53938dc9480f4349c4c29e7a58/transformed/lifecycle-process-2.6.1/AndroidManifest.xml:31:17-49
+90            <meta-data
+90-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:29:13-31:52
+91                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+91-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:30:17-85
+92                android:value="androidx.startup" />
+92-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:31:17-49
+93        </provider>
+94
+95        <receiver
+95-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:34:9-52:20
+96            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+96-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:35:13-76
+97            android:directBootAware="false"
+97-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:36:13-44
+98            android:enabled="true"
+98-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:37:13-35
+99            android:exported="true"
+99-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:38:13-36
+100            android:permission="android.permission.DUMP" >
+100-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:39:13-57
+101            <intent-filter>
+101-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:40:13-42:29
+102                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+102-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:41:17-91
+102-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:41:25-88
+103            </intent-filter>
+104            <intent-filter>
+104-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:43:13-45:29
+105                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+105-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:44:17-85
+105-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:44:25-82
+106            </intent-filter>
+107            <intent-filter>
+107-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:46:13-48:29
+108                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+108-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:47:17-88
+108-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:47:25-85
+109            </intent-filter>
+110            <intent-filter>
+110-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:49:13-51:29
+111                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+111-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:50:17-95
+111-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/odoo/.gradle/caches/9.2.1/transforms/39d6c4f44d9ce3a7d7d08d2f36855d7d/transformed/profileinstaller-1.3.0/AndroidManifest.xml:50:25-92
+112            </intent-filter>
+113        </receiver>
+114    </application>
+115
+116</manifest>

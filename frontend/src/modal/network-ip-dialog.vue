@@ -163,7 +163,7 @@ async function submit() {
   try {
     await AddLANPrinter(ip)
     notify('Printer added successfully', 'success')
-    close(true)
+    onNetworkDialogClose(true)
   } catch (err) {
     console.log(err)
     notify(err || 'Failed to add printer', 'danger')

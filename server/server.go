@@ -36,6 +36,9 @@ func New(port int, mgr *printer.Manager) *Server {
 		AllowPrivateNetwork: true,
 	}))
 
+	app.Get("/", func(ctx fiber.Ctx) error {
+		return ctx.SendString("Server runnig")
+	})
 	app.Post("/p/:printerId/cgi-bin/epos/service.cgi", func(ctx fiber.Ctx) error {
 		printerId := ctx.Params("printerId")
 		logger.Debugf("Print request received for printer: %s", printerId)
