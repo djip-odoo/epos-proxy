@@ -1,102 +1,83 @@
 package main
 
 import (
+	"runtime"
+
 	"epos-proxy/buildinfo"
 	"epos-proxy/logger"
 
-	"github.com/wailsapp/wails/v2/pkg/menu"
-	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
-func createMenu(app *App) *menu.Menu {
-	mainMenu := menu.NewMenu()
-	settingsMenu := mainMenu.AddSubmenu("Settings")
+func createMenu(wailsApp *application.App, svc *App) {
+	menu := wailsApp.NewMenu()
+	if runtime.GOOS == "darwin" {
+		menu.AddRole(application.AppMenu)
+	}
+	menu.AddRole(application.FileMenu)
 
-	settingsMenu.AddText("Download Logs", nil, func(_ *menu.CallbackData) {
-		app.DownloadLogs()
+	appMenu := menu.AddSubmenu("App")
+
+	appMenu.Add("Download Logs").OnClick(func(_ *application.Context) {
+		svc.DownloadLogs()
 	})
 
-	settingsMenu.AddCheckbox("Auto Start", app.IsAutostartEnabled(), nil, func(cb *menu.CallbackData) {
-		handleAutoStartToggle(app, cb)
+	appMenu.AddCheckbox("Auto Start", svc.IsAutostartEnabled()).OnClick(func(ctx *application.Context) {
+		if ctx.ClickedMenuItem().Checked() {
+			if err := svc.EnableAutostart(); err != nil {
+				logger.Errorf("Failed to enable autostart: %v", err)
+			}
+		} else {
+			if err := svc.DisableAutostart(); err != nil {
+				logger.Errorf("Failed to disable autostart: %v", err)
+			}
+		}
 	})
 
-	settingsMenu.AddText("Network Printing", nil, func(_ *menu.CallbackData) {
-		logger.Infof("Network Printing menu item clicked")
-		wailsruntime.EventsEmit(app.ctx, "open-firewall-prompt")
-	})
+	// appMenu.Add("Network Printing").OnClick(func(_ *application.Context) {
+	// 	logger.Infof("Network Printing menu item clicked")
+	// 	application.Get().Event("open-firewall-prompt")
+	// })
 
 	enabled := false
-	if app != nil && app.config != nil {
-		enabled = app.config.Data.SupportMode
+	if svc.config != nil {
+		enabled = svc.config.Data.SupportMode
 	}
-	settingsMenu.AddCheckbox("Support Mode", enabled, nil, func(cb *menu.CallbackData) {
-		handleSupportModeToggle(app, cb)
-	})
-
-	settingsMenu.AddText("About", nil, func(_ *menu.CallbackData) {
-		showAboutDialog(app)
-	})
-
-	settingsMenu.AddText("Quit", nil, func(_ *menu.CallbackData) {
-		logger.Infof("Quit requested by user")
-		wailsruntime.Quit(app.ctx)
-	})
-
-	return mainMenu
-}
-
-func handleAutoStartToggle(app *App, cb *menu.CallbackData) {
-	if checked := cb.MenuItem.Checked; checked {
-		if err := app.EnableAutostart(); err != nil {
-			logger.Errorf("Failed to enable autostart: %v", err)
+	appMenu.AddCheckbox("Support Mode", enabled).OnClick(func(ctx *application.Context) {
+		checked := ctx.ClickedMenuItem().Checked()
+		logger.Infof("Support Mode toggled: %v", checked)
+		if err := svc.config.SetSupportMode(checked); err != nil {
+			logger.Errorf("Failed to save support mode configuration: %v", err)
 		}
-		return
-	}
-
-	if err := app.DisableAutostart(); err != nil {
-		logger.Errorf("Failed to disable autostart: %v", err)
-	}
-}
-
-func (app *App) ConfirmQuit() bool {
-	result, err := wailsruntime.MessageDialog(app.ctx, wailsruntime.MessageDialogOptions{
-		Type:          wailsruntime.QuestionDialog,
-		Title:         "Quit ePOS Proxy",
-		Message:       "Stopping the proxy will prevent POS from printing receipts.\n\nAre you sure you want to quit?",
-		Buttons:       []string{"Cancel", "Quit"},
-		DefaultButton: "Cancel",
+		logger.SetSupportMode(checked)
 	})
 
-	if err != nil {
-		logger.Errorf("Failed to show quit dialog: %v", err)
-		return false
-	}
-
-	// linux doesn't use Buttons overrides and uses No | Yes for question dialog
-	if result != "Yes" && result != "Quit" {
-		return false
-	}
-
-	return true
-}
-
-func showAboutDialog(app *App) {
-	_, err := wailsruntime.MessageDialog(app.ctx, wailsruntime.MessageDialogOptions{
-		Type:    wailsruntime.InfoDialog,
-		Title:   "About Printer Manager",
-		Message: buildinfo.GetVersionInfo(),
+	appMenu.Add("About").OnClick(func(_ *application.Context) {
+		application.Get().Dialog.Info().
+			SetTitle("About ePOS Proxy").
+			SetMessage(buildinfo.GetVersionInfo()).
+			Show()
 	})
 
-	if err != nil {
-		logger.Errorf("Failed to show about dialog: %v", err)
-	}
-}
+	appMenu.Add("Quit").OnClick(func(_ *application.Context) {
+		logger.Infof("Quit requested by user")
 
-func handleSupportModeToggle(app *App, cb *menu.CallbackData) {
-	checked := cb.MenuItem.Checked
-	logger.Infof("Support Mode toggled: %v", checked)
-	if err := app.config.SetSupportMode(checked); err != nil {
-		logger.Errorf("Failed to save support mode configuration: %v", err)
-	}
-	logger.SetSupportMode(checked)
+		resultChan := make(chan bool, 1)
+		dialog := application.Get().Dialog.Question().
+			SetTitle("Quit ePOS Proxy").
+			SetMessage("Stopping the proxy will prevent POS from printing receipts.\n\nAre you sure you want to quit?")
+		dialog.AddButton("Cancel").SetAsDefault().SetAsCancel().OnClick(func() {
+			resultChan <- false
+		})
+		dialog.AddButton("Quit").OnClick(func() {
+			resultChan <- true
+		})
+		dialog.Show()
+
+		if <-resultChan {
+			application.Get().Quit()
+		}
+	})
+
+	wailsApp.Menu.Set(menu)
 }

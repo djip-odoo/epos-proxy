@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 	"time"
 
@@ -14,10 +15,10 @@ import (
 	"epos-proxy/util"
 
 	autostart "github.com/emersion/go-autostart"
-	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
+
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
-// App struct
 type App struct {
 	ctx            context.Context
 	webserver      *server.Server
@@ -41,7 +42,7 @@ func NewApp(cfg *config.Manager) *App {
 	return a
 }
 
-func (a *App) startup(ctx context.Context) {
+func (a *App) ServiceStartup(ctx context.Context, options application.ServiceOptions) error {
 	a.ctx = ctx
 	logger.Debugf("Application startup")
 	a.printerManager = printer.NewManager()
@@ -55,6 +56,7 @@ func (a *App) startup(ctx context.Context) {
 	}
 
 	a.webserver = server.New(port, a.printerManager)
+	return nil
 }
 
 func (a *App) domReady(ctx context.Context) {
@@ -67,7 +69,7 @@ func (a *App) domReady(ctx context.Context) {
 			}
 		} else {
 			logger.Infof("Firewall prompt not completed, triggering frontend event")
-			wailsruntime.EventsEmit(ctx, "open-firewall-prompt")
+			application.Get().Event.Emit("open-firewall-prompt")
 		}
 	}
 }
@@ -190,25 +192,28 @@ func (a *App) AddLANPrinter(ip string) error {
 
 func (a *App) ConfirmRemoveLANPrinter(ip string) (bool, error) {
 	logger.Debugf("Remove LAN printer requested: %s", ip)
-	result, err := wailsruntime.MessageDialog(a.ctx, wailsruntime.MessageDialogOptions{
-		Type:          wailsruntime.QuestionDialog,
-		Title:         "Remove Printer",
-		Message:       fmt.Sprintf("Are you sure you want to remove the printer at %s?", ip),
-		Buttons:       []string{"Cancel", "Confirm"},
-		DefaultButton: "Cancel",
-		CancelButton:  "Cancel",
+
+	resultChan := make(chan bool, 1)
+	dialog := application.Get().Dialog.Question().
+		SetTitle("Remove Printer").
+		SetMessage(fmt.Sprintf("Are you sure you want to remove the printer at %s?", ip))
+	dialog.AddButton("Cancel").SetAsCancel().OnClick(func() {
+		resultChan <- false
 	})
-	if err != nil {
-		return false, fmt.Errorf("failed to show confirmation dialog: %w", err)
-	}
-	if result == "Confirm" || result == "Yes" {
+	dialog.AddButton("Confirm").SetAsDefault().OnClick(func() {
+		resultChan <- true
+	})
+	dialog.Show()
+
+	confirmed := <-resultChan
+	if confirmed {
 		if err := a.config.RemoveLANPrinter(ip); err != nil {
 			return false, fmt.Errorf("failed to remove LAN printer: %w", err)
 		}
 		logger.Infof("LAN printer removed successfully: %s", ip)
 		return true, nil
 	}
-	logger.Debugf("Remove LAN printer cancelled, Remove printer dialog result: %s", result)
+	logger.Debugf("Remove LAN printer cancelled")
 	return false, nil
 }
 
@@ -222,27 +227,44 @@ func (a *App) DownloadLogs() {
 	configDir := a.config.ConfigDirectory()
 	zipName := fmt.Sprintf("epos-proxy-logs-%s.zip", time.Now().Format("2006-01-02"))
 	logger.Debugf("Creating logs archive: %s", zipName)
-	savePath, err := wailsruntime.SaveFileDialog(a.ctx, wailsruntime.SaveDialogOptions{
-		Title:           "Save Archive",
-		DefaultFilename: zipName,
-		Filters: []wailsruntime.FileFilter{
-			{
-				DisplayName: "Zip Archives (*.zip)",
-				Pattern:     "*.zip",
-			},
-		},
-	})
-	err = util.CreateZip(savePath, map[string]string{"config": configDir})
+
+	var filePath string
+	var err error
+
+	if runtime.GOOS == "android" {
+		filePath = filepath.Join("/storage/emulated/0/Download", zipName)
+	} else {
+		filePath, err = application.Get().Dialog.SaveFileWithOptions(&application.SaveFileDialogOptions{
+			Title:    "Save Archive",
+			Filename: zipName,
+			Filters:  []application.FileFilter{{DisplayName: "Zip Archives (*.zip)", Pattern: "*.zip"}},
+		}).PromptForSingleSelection()
+		if err != nil {
+			logger.Errorf("Save dialog failed: %v", err)
+			return
+		}
+		if filePath == "" {
+			return
+		}
+	}
+
+	err = util.CreateZip(filePath, map[string]string{"config": configDir})
 	if err != nil {
 		logger.Errorf("Log export failed: %v", err)
-		wailsruntime.MessageDialog(a.ctx, wailsruntime.MessageDialogOptions{
-			Type:    wailsruntime.ErrorDialog,
-			Title:   "Download Logs Failed",
-			Message: err.Error(),
-		})
+		application.Get().Dialog.Error().
+			SetTitle("Download Logs Failed").
+			SetMessage(err.Error()).
+			Show()
 		return
 	}
-	logger.Infof("Logs successfully exported to: %s", savePath)
+	logger.Infof("Logs successfully exported to: %s", filePath)
+
+	if runtime.GOOS == "android" {
+		application.Get().Dialog.Info().
+			SetTitle("Logs Exported").
+			SetMessage(fmt.Sprintf("Logs successfully exported to:\n\n%s\n\nRetrieve using:\nadb pull %s", filePath, filePath)).
+			Show()
+	}
 }
 
 func (a *App) IsAutostartEnabled() bool {
@@ -271,6 +293,28 @@ func (a *App) DisableAutostart() error {
 	}
 
 	return nil
+}
+
+func (a *App) SetSupportMode(enabled bool) error {
+	logger.Infof("Support Mode toggled: %v", enabled)
+	if err := a.config.SetSupportMode(enabled); err != nil {
+		logger.Errorf("Failed to save support mode configuration: %v", err)
+		return err
+	}
+	logger.SetSupportMode(enabled)
+	return nil
+}
+
+func (a *App) IsSupportModeEnabled() bool {
+	if a.config == nil {
+		return false
+	}
+	return a.config.Data.SupportMode
+}
+
+func (a *App) Quit() {
+	logger.Infof("Quit requested by user")
+	application.Get().Quit()
 }
 
 type LANSettings struct {

@@ -48,7 +48,7 @@
 <script setup>
 import { ref, watch, nextTick } from 'vue'
 import CloseButton from './close-button.vue'
-import { AddLANPrinter } from '../../wailsjs/go/main/App'
+import { AddLANPrinter } from '../../bindings/epos-proxy/app'
 import { useToast } from '../hooks/useToast.js'
 const { notify } = useToast()
 
@@ -163,7 +163,7 @@ async function submit() {
   try {
     await AddLANPrinter(ip)
     notify('Printer added successfully', 'success')
-    close(true)
+    onNetworkDialogClose(true)
   } catch (err) {
     console.log(err)
     notify(err || 'Failed to add printer', 'danger')

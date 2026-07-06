@@ -6,6 +6,20 @@ frontend/dist
 
 .idea/
 
-/frontend/wailsjs/
+/frontend/bindings/
 .vscode/
 package.json.md5
+.task/
+bin/
+
+# Compiled executables
+epos-proxy
+epos-proxy.exe
+
+# Logs
+*.log
+logs/
+build/android/.gradle/
+build/android/build/
+build/linux/appimage/build/
+build/linux/appimage/epos-proxy.png

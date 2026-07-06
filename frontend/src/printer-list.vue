@@ -1,63 +1,66 @@
 <template>
   <div>
     <FirewallDialog :os="os" />
+    <div class="absolute top-4 right-6 z-50" v-if="os == 'android'">
+      <SettingsMenu />
+    </div>
     <div
         class="w-full max-w-full sm:max-w-md md:max-w-lg lg:max-w-xl bg-white/85 rounded-2xl shadow-lg overflow-hidden px-4 sm:px-6 py-2 sm:py-4">
 
       <div v-if="printers.length || unavailablePrinters.length" class="p-6">
-        <ul class="divide-y divide-gray-300">
+          <ul class="divide-y divide-gray-300">
 
-          <li v-for="printer in printers" :key="printer.id" class="text-left first:pt-0 py-6 last:pb-0 relative">
+            <li v-for="printer in printers" :key="printer.id" class="text-left first:pt-0 py-6 last:pb-0 relative">
 
-            <div class="flex items-center gap-2">
-              <span class="w-3 h-3 rounded-full shrink-0" :class="getPrinterStatusClass(printer)"></span>
-              <span class="min-w-0 font-medium text-gray-900 break-all flex-1">{{ printer.name }}</span>
-              <span
-                  v-if="printer.isLAN"
-                  @click="removeLanPrinter(printer)"
-                  class="text-gray-600 hover:text-danger cursor-pointer text-xl font-bold"
-                  title="Remove printer"
-              >×</span>
-            </div>
-            <div class="text-slate-600 mt-2 text-sm break-all">{{ printer.ip }}</div>
-            <PrinterActions :printer="printer" />
-          </li>
+              <div class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full shrink-0" :class="getPrinterStatusClass(printer)"></span>
+                <span class="min-w-0 font-medium text-gray-900 break-all flex-1">{{ printer.name }}</span>
+                <span
+                    v-if="printer.isLAN"
+                    @click="removeLanPrinter(printer)"
+                    class="text-gray-600 hover:text-danger cursor-pointer text-xl font-bold"
+                    title="Remove printer"
+                >×</span>
+              </div>
+              <div class="text-slate-600 mt-2 text-sm break-all">{{ printer.ip }}</div>
+              <PrinterActions :printer="printer" />
+            </li>
 
-          <li v-for="printer in unavailablePrinters" :key="printer.name"
-              class="text-left first:pt-0 py-6 last:pb-0 relative">
-            <div class="flex items-center gap-2">
-              <span class="w-3 h-3 rounded-full shrink-0 bg-danger"></span>
-              <span class="min-w-0 font-medium text-gray-900">{{ printer.name }}</span>
-            </div>
-            <div class="text-danger mt-1 text-wrap">Unable to communicate with this printer: {{
-                printer.errorMsg
-              }}
-            </div>
-            <div v-if="hasLibUsbErrorFix(printer.errorMsg)" class="flex gap-2 mt-4 flex-wrap">
-              <button
-                  class="flex-1 border bg-odoo text-white hover:bg-odoo-dark rounded-lg px-4 py-2 text-center cursor-pointer"
-                  @click="openFixModal(printer)"
-              >{{ getFixErrorText(printer.errorMsg) }}
-              </button>
-            </div>
-          </li>
+            <li v-for="printer in unavailablePrinters" :key="printer.name"
+                class="text-left first:pt-0 py-6 last:pb-0 relative">
+              <div class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full shrink-0 bg-danger"></span>
+                <span class="min-w-0 font-medium text-gray-900">{{ printer.name }}</span>
+              </div>
+              <div class="text-danger mt-1 text-wrap">Unable to communicate with this printer: {{
+                  printer.errorMsg
+                }}
+              </div>
+              <div v-if="hasLibUsbErrorFix(printer.errorMsg)" class="flex gap-2 mt-4 flex-wrap">
+                <button
+                    class="flex-1 border bg-odoo text-white hover:bg-odoo-dark rounded-lg px-4 py-2 text-center cursor-pointer"
+                    @click="openFixModal(printer)"
+                >{{ getFixErrorText(printer.errorMsg) }}
+                </button>
+              </div>
+            </li>
 
-        </ul>
-      </div>
+          </ul>
+        </div>
 
       <div v-if="loading" class="p-6">
-        <div class="font-medium text-lg text-center">Searching for printers...</div>
-      </div>
+          <div class="font-medium text-lg text-center">Searching for printers...</div>
+        </div>
       <div v-else-if="!printers.length && !unavailablePrinters.length" class="p-6">
-        <div class="font-medium text-lg text-center">No printers found</div>
-        <div class="mt-2 text-gray-600 text-center">Make sure your printer is powered on and connected via USB.</div>
-      </div>
+          <div class="font-medium text-lg text-center">No printers found</div>
+          <div class="mt-2 text-gray-600 text-center">Make sure your printer is powered on and connected via USB.</div>
+        </div>
 
-      <div v-if="errorMsg">
-        <div class="text-red-700 mt-4 text-center">Error: {{ errorMsg }}</div>
-      </div>
+        <div v-if="errorMsg">
+          <div class="text-red-700 mt-4 text-center">Error: {{ errorMsg }}</div>
+        </div>
 
-      <StepModal v-model="showFixModal" :steps="fixSteps"/>
+        <StepModal v-model="showFixModal" :steps="fixSteps"/>
 
     </div>
   </div>
@@ -67,12 +70,13 @@
 
 <script setup>
 import {computed, onMounted, onUnmounted, ref} from 'vue'
-import {CheckLANPrinterStatus, ConfirmRemoveLANPrinter, Status} from '../wailsjs/go/main/App'
+import {CheckLANPrinterStatus, ConfirmRemoveLANPrinter, Status} from '../bindings/epos-proxy/app'
 import {brewSteps, linuxSteps, zadigSteps} from "./modal/fix-step";
 import StepModal from "./modal/step-modal.vue";
 import NetworkIpDialog from "./modal/network-ip-dialog.vue";
 import FirewallDialog from "./modal/firewall-dialog.vue";
 import PrinterActions from './components/printer-actions.vue'
+import SettingsMenu from './components/settings-menu.vue'
 import { useToast } from './hooks/useToast.js'
 
 const printers = ref([])
@@ -231,5 +235,4 @@ async function removeLanPrinter(printer) {
     notify('Failed to remove printer', 'danger')
   }
 }
-
 </script>

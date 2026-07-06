@@ -46,9 +46,15 @@ type Manager struct {
 }
 
 func NewManager() (*Manager, error) {
-	base, err := os.UserConfigDir()
-	if err != nil {
-		return nil, fmt.Errorf("cannot locate user config dir: %w", err)
+	var base string
+	var err error
+	if runtime.GOOS == "android" {
+		base = "/data/data/com.wails.app/files"
+	} else {
+		base, err = os.UserConfigDir()
+		if err != nil {
+			return nil, fmt.Errorf("cannot locate user config dir: %w", err)
+		}
 	}
 
 	dir := filepath.Join(base, AppName)
@@ -75,9 +81,15 @@ func (cm *Manager) HasArgs(args ...string) bool {
 }
 
 func (cm *Manager) ConfigDirectory() string {
-	base, err := os.UserConfigDir()
-	if err != nil {
-		return ""
+	var base string
+	var err error
+	if runtime.GOOS == "android" {
+		base = "/data/data/com.wails.app/files"
+	} else {
+		base, err = os.UserConfigDir()
+		if err != nil {
+			return ""
+		}
 	}
 	return filepath.Join(base, AppName)
 }

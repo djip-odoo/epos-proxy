@@ -16,28 +16,38 @@ var logDir string
 var supportMode bool
 
 func InitLogger(cfg *config.Manager) {
-	logDir = filepath.Join(cfg.ConfigDirectory(), "logs")
-	if err := os.MkdirAll(logDir, 0755); err != nil {
-		Fatalf("Failed to create log directory: %v", err)
+	var configDir string
+	if cfg != nil {
+		configDir = cfg.ConfigDirectory()
+	} else {
+		configDir = "."
 	}
 
-	filename := filepath.Join(logDir, "epos-proxy.log")
+	logDir = filepath.Join(configDir, "logs")
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		log.SetOutput(os.Stderr)
+		log.Warnf("Failed to create log directory: %v", err)
+	} else {
+		filename := filepath.Join(logDir, "epos-proxy.log")
+		log.SetOutput(&lumberjack.Logger{
+			Filename:   filename,
+			MaxSize:    20, // MB
+			MaxBackups: 5,  // keep last x files
+			MaxAge:     5,  // days
+			Compress:   false,
+		})
+	}
 
-	log.SetOutput(&lumberjack.Logger{
-		Filename:   filename,
-		MaxSize:    20, // MB
-		MaxBackups: 5,  // keep last x files
-		MaxAge:     5,  // days
-		Compress:   false,
-	})
 	log.SetFormatter(&logrus.TextFormatter{
 		FullTimestamp: true,
 	})
 
 	log.SetLevel(logrus.InfoLevel)
-	if cfg.HasArgs("--verbose", "--support-mode") || cfg.Data.SupportMode {
-		log.SetLevel(logrus.DebugLevel)
-		supportMode = true
+	if cfg != nil {
+		if cfg.HasArgs("--verbose", "--support-mode") || cfg.Data.SupportMode {
+			log.SetLevel(logrus.DebugLevel)
+			supportMode = true
+		}
 	}
 
 	Infof("Starting Epos Proxy v: %s", buildinfo.GetVersionInfo())

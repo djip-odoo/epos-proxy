@@ -101,10 +101,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { EventsOn } from '../../wailsjs/runtime/runtime'
+import { ref, onMounted, onUnmounted } from 'vue'
+import { Events } from '@wailsio/runtime'
 import CloseButton from './close-button.vue'
-import { ConfigureFirewall, SkipFirewallPrompt } from '../../wailsjs/go/main/App'
+import { ConfigureFirewall, SkipFirewallPrompt } from '../../bindings/epos-proxy/app'
 import { useToast } from '../hooks/useToast.js'
 const { notify } = useToast()
 
@@ -117,13 +117,19 @@ const loading = ref(false)
 const error = ref(null)
 const authCancelled = ref(false)
 
+let unsubscribe
+
 onMounted(() => {
-  EventsOn('open-firewall-prompt', () => {
+  unsubscribe = Events.On('open-firewall-prompt', () => {
     showDialog.value = true
     authCancelled.value = false
     error.value = null
     loading.value = false
   })
+})
+
+onUnmounted(() => {
+  if (unsubscribe) unsubscribe()
 })
 
 async function handleEnable() {

@@ -6,8 +6,6 @@ import (
 	"net"
 	"sync"
 	"time"
-
-	"github.com/google/gousb"
 )
 
 type PrinterConnectionType int
@@ -44,11 +42,11 @@ type Printer struct {
 	lanIP          string
 	mu             sync.Mutex
 	// USB fields
-	usbCtx      *gousb.Context
-	device      *gousb.Device
-	config      *gousb.Config
-	iFace       *gousb.Interface
-	outEndpoint *gousb.OutEndpoint
+	usbCtx      usbContext
+	device      usbDevice
+	config      usbConfig
+	iFace       usbInterface
+	outEndpoint usbOutEndpoint
 	// LAN fields
 	tcpConn net.Conn
 	jobs    chan Job
