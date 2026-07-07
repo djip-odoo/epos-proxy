@@ -98,6 +98,13 @@ tasks:
             export GOARCH=amd64
             JNI_DIR="x86_64"
             ;;
+          arm|armeabi-v7a)
+            export CC="$TOOLCHAIN/bin/armv7a-linux-androideabi{{.MIN_SDK}}-clang"
+            export CXX="$TOOLCHAIN/bin/armv7a-linux-androideabi{{.MIN_SDK}}-clang++"
+            export GOARCH=arm
+            export GOARM=7
+            JNI_DIR="armeabi-v7a"
+            ;;
           *)
             echo "Unsupported architecture: {{.ARCH}}"
             exit 1
@@ -124,6 +131,9 @@ tasks:
       - task: compile:go:shared
         vars:
           ARCH: amd64
+      - task: compile:go:shared
+        vars:
+          ARCH: arm
 
   package:
     summary: Packages a production build of the application into a signed release APK
@@ -279,11 +289,11 @@ tasks:
       - '"{{.ADB}}" shell am start -n {{.APP_ID}}/com.wails.app.MainActivity'
 
   run:device:
-    summary: Build, install and launch a debug build on the connected physical Android device
+    summary: Build, install and launch a debug build on the connected physical Android device (armeabi-v7a)
     deps:
       - task: build
         vars:
-          ARCH: arm64
+          ARCH: arm
     cmds:
       - task: assemble:apk
       - '"{{.ADB}}" uninstall {{.APP_ID}} 2>/dev/null || true'

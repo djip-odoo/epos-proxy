@@ -35,3 +35,5 @@ require (
 	golang.org/x/net v0.53.0 // indirect
 	golang.org/x/text v0.37.0 // indirect
 )
+
+replace github.com/wailsapp/wails/v3 => ./vendor-patches/wails-v3

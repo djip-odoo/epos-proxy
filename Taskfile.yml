@@ -71,7 +71,7 @@ tasks:
       - task: android:run
 
   run:device:
-    summary: Builds, installs, and runs the application on connected physical Android device (ARM64)
+    summary: Builds, installs, and runs the application on connected physical Android device (armeabi-v7a)
     cmds:
       - task: android:run:device
 

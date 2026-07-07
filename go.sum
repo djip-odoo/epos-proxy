@@ -55,8 +55,6 @@ github.com/valyala/bytebufferpool v1.0.0 h1:GqA5TC/0021Y/b9FG4Oi9Mr3q7XYx6Kllzaw
 github.com/valyala/bytebufferpool v1.0.0/go.mod h1:6bBcMArwyJ5K/AmCkWv1jt77kVWyCJ6HpOuEn7z0Csc=
 github.com/valyala/fasthttp v1.69.0 h1:fNLLESD2SooWeh2cidsuFtOcrEi4uB4m1mPrkJMZyVI=
 github.com/valyala/fasthttp v1.69.0/go.mod h1:4wA4PfAraPlAsJ5jMSqCE2ug5tqUPwKXxVj8oNECGcw=
-github.com/wailsapp/wails/v3 v3.0.0-alpha2.109 h1:I2LX0NEzFn/p5yLJj53V3HzZ+5IWTNIEfU1BoWWGQWk=
-github.com/wailsapp/wails/v3 v3.0.0-alpha2.109/go.mod h1:wrdvmyeCsB/K3YqJDoH8E3MwcN8NXAMnEFaDTW46w60=
 github.com/wailsapp/wails/webview2 v1.0.27 h1:wjgAi/I8BBZ7kUGU8um3XF3ILEfzr96Q2Q1G4GPjMns=
 github.com/wailsapp/wails/webview2 v1.0.27/go.mod h1:zdM4jcO1IaC61RiJL5F1BzgoqBHFIdacz8gPr5exr0o=
 github.com/x448/float16 v0.8.4 h1:qLwI1I70+NjRFUR3zs1JPUCgaCXSh3SW62uAKT1mSBM=
