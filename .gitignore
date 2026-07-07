@@ -23,4 +23,3 @@ build/android/.gradle/
 build/android/build/
 build/linux/appimage/build/
 build/linux/appimage/epos-proxy.png
-vendor-patches/
