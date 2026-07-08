@@ -14,6 +14,7 @@ import (
 	"epos-proxy/server"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
 //go:embed all:frontend/dist
@@ -59,12 +60,18 @@ func main() {
 		Mac: application.MacOptions{
 			ApplicationShouldTerminateAfterLastWindowClosed: false,
 		},
+		Windows: application.WindowsOptions{
+			DisableQuitOnLastWindowClosed: true,
+		},
+		Linux: application.LinuxOptions{
+			DisableQuitOnLastWindowClosed: true,
+		},
 		SingleInstance: &application.SingleInstanceOptions{
 			UniqueID: "epos-proxy-single-instance",
 		},
 	})
 
-	wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
+	mainWindow := wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:            "ePOS Proxy",
 		Width:            800,
 		Height:           600,
@@ -72,7 +79,13 @@ func main() {
 		URL:              "/",
 	})
 
+	mainWindow.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
+		event.Cancel()
+		mainWindow.Hide()
+	})
+
 	createMenu(wailsApp, svc)
+	setupSystemTray(wailsApp, svc, mainWindow)
 
 	err := wailsApp.Run()
 	if err != nil {

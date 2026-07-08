@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "embed"
 	"runtime"
 
 	"epos-proxy/buildinfo"
@@ -8,6 +9,9 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
+
+//go:embed build/appicon.png
+var appIcon []byte
 
 func createMenu(wailsApp *application.App, svc *App) {
 	menu := wailsApp.NewMenu()
@@ -33,11 +37,6 @@ func createMenu(wailsApp *application.App, svc *App) {
 			}
 		}
 	})
-
-	// appMenu.Add("Network Printing").OnClick(func(_ *application.Context) {
-	// 	logger.Infof("Network Printing menu item clicked")
-	// 	application.Get().Event("open-firewall-prompt")
-	// })
 
 	enabled := false
 	if svc.config != nil {
@@ -80,4 +79,53 @@ func createMenu(wailsApp *application.App, svc *App) {
 	})
 
 	wailsApp.Menu.Set(menu)
+}
+
+func setupSystemTray(wailsApp *application.App, svc *App, mainWindow application.Window) {
+	systray := wailsApp.SystemTray.New()
+	systray.SetIcon(appIcon)
+	systray.SetTooltip("ePOS Proxy")
+	systray.AttachWindow(mainWindow)
+
+	// Custom click handlers to toggle window visibility
+	systray.OnClick(func() {
+		if mainWindow.IsVisible() {
+			mainWindow.Hide()
+		} else {
+			mainWindow.Show().Focus()
+		}
+	})
+	systray.OnDoubleClick(func() {
+		mainWindow.Show().Focus()
+	})
+
+	trayMenu := wailsApp.NewMenu()
+
+	trayMenu.Add("Show").OnClick(func(_ *application.Context) {
+		mainWindow.Show().Focus()
+	})
+
+	trayMenu.AddSeparator()
+
+	trayMenu.Add("Quit").OnClick(func(_ *application.Context) {
+		logger.Infof("Quit requested by user from system tray")
+
+		resultChan := make(chan bool, 1)
+		dialog := application.Get().Dialog.Question().
+			SetTitle("Quit ePOS Proxy").
+			SetMessage("Stopping the proxy will prevent POS from printing receipts.\n\nAre you sure you want to quit?")
+		dialog.AddButton("Cancel").SetAsDefault().SetAsCancel().OnClick(func() {
+			resultChan <- false
+		})
+		dialog.AddButton("Quit").OnClick(func() {
+			resultChan <- true
+		})
+		dialog.Show()
+
+		if <-resultChan {
+			application.Get().Quit()
+		}
+	})
+
+	systray.SetMenu(trayMenu)
 }
