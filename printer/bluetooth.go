@@ -2,6 +2,8 @@ package printer
 
 import (
 	"fmt"
+	"net"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -19,6 +21,27 @@ type rfcommBinding struct {
 	Channel int    // RFCOMM channel number
 	Index   int    // numeric index (0 = rfcomm0, 1 = rfcomm1, …)
 }
+
+type serialConn struct {
+	f    *os.File
+	path string
+}
+
+type serialAddr struct{ path string }
+
+func (a serialAddr) Network() string { return "rfcomm-serial" }
+func (a serialAddr) String() string  { return a.path }
+
+func (c *serialConn) Read(b []byte) (int, error)  { return c.f.Read(b) }
+func (c *serialConn) Write(b []byte) (int, error) { return c.f.Write(b) }
+func (c *serialConn) Close() error                { return c.f.Close() }
+
+func (c *serialConn) LocalAddr() net.Addr  { return serialAddr{c.path} }
+func (c *serialConn) RemoteAddr() net.Addr { return serialAddr{c.path} }
+
+func (c *serialConn) SetDeadline(t time.Time) error      { return c.f.SetDeadline(t) }
+func (c *serialConn) SetReadDeadline(t time.Time) error  { return c.f.SetReadDeadline(t) }
+func (c *serialConn) SetWriteDeadline(t time.Time) error { return c.f.SetWriteDeadline(t) }
 
 // parseMACToBytes converts "AA:BB:CC:DD:EE:FF" → [6]byte in reversed order
 // (little-endian as required by the BlueZ sockaddr_rc).

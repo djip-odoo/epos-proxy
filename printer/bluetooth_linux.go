@@ -125,12 +125,7 @@ func dialRFCOMM(mac string, channel int) (net.Conn, error) {
 		return nil, fmt.Errorf("failed to create os.File from RFCOMM socket")
 	}
 
-	conn, err := net.FileConn(file)
-	_ = file.Close() // net.FileConn duplicates the fd internally
-	if err != nil {
-		return nil, fmt.Errorf("create net.Conn from RFCOMM socket failed: %w", err)
-	}
-	return conn, nil
+	return &serialConn{f: file, path: file.Name()}, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -346,26 +341,7 @@ func bindRFCOMM(mac string, channel int) (*rfcommBinding, error) {
 // serialConn — net.Conn wrapper around *os.File (/dev/rfcommX)
 // ---------------------------------------------------------------------------
 
-type serialConn struct {
-	f    *os.File
-	path string
-}
 
-type serialAddr struct{ path string }
-
-func (a serialAddr) Network() string { return "rfcomm-serial" }
-func (a serialAddr) String() string  { return a.path }
-
-func (c *serialConn) Read(b []byte) (int, error)  { return c.f.Read(b) }
-func (c *serialConn) Write(b []byte) (int, error) { return c.f.Write(b) }
-func (c *serialConn) Close() error                { return c.f.Close() }
-
-func (c *serialConn) LocalAddr() net.Addr  { return serialAddr{c.path} }
-func (c *serialConn) RemoteAddr() net.Addr { return serialAddr{c.path} }
-
-func (c *serialConn) SetDeadline(t time.Time) error      { return c.f.SetDeadline(t) }
-func (c *serialConn) SetReadDeadline(t time.Time) error  { return c.f.SetReadDeadline(t) }
-func (c *serialConn) SetWriteDeadline(t time.Time) error { return c.f.SetWriteDeadline(t) }
 
 // openRFCOMMDevice opens /dev/rfcommX for read/write.
 // Does not require elevated privileges when the device node already exists.

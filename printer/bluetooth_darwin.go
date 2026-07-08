@@ -91,12 +91,7 @@ func dialRFCOMM(mac string, channel int) (net.Conn, error) {
 		cleanup()
 		return nil, fmt.Errorf("failed to create os.File from RFCOMM socket")
 	}
-	conn, err := net.FileConn(file)
-	_ = file.Close()
-	if err != nil {
-		return nil, fmt.Errorf("create net.Conn from RFCOMM socket failed: %w", err)
-	}
-	return conn, nil
+	return &serialConn{f: file, path: file.Name()}, nil
 }
 
 // ---------------------------------------------------------------------------
