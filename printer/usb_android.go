@@ -4,8 +4,8 @@ package printer
 
 import (
 	"encoding/json"
-	"fmt"
 	"epos-proxy/logger"
+	"fmt"
 )
 
 type androidUsbPrinterInfo struct {

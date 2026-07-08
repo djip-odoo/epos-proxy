@@ -371,4 +371,3 @@ func TestCheck_APIError_Surfaced(t *testing.T) {
 func TestProviderInterface(t *testing.T) {
 	var _ updater.Provider = (*github.Provider)(nil)
 }
-

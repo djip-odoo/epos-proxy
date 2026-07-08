@@ -404,7 +404,6 @@ func TestExtract_CopyFileCloseFails(t *testing.T) {
 	}
 }
 
-
 // ---- resolveTarget: template parse error returns original path ----
 
 func TestResolveTarget_TemplateParseError(t *testing.T) {
@@ -527,12 +526,12 @@ func (d *callbackErrDir) ReadDir(n int) ([]fs.DirEntry, error) {
 
 type callbackErrFileInfo struct{}
 
-func (i *callbackErrFileInfo) Name() string      { return "." }
-func (i *callbackErrFileInfo) Size() int64       { return 0 }
-func (i *callbackErrFileInfo) Mode() fs.FileMode { return fs.ModeDir | 0755 }
+func (i *callbackErrFileInfo) Name() string       { return "." }
+func (i *callbackErrFileInfo) Size() int64        { return 0 }
+func (i *callbackErrFileInfo) Mode() fs.FileMode  { return fs.ModeDir | 0755 }
 func (i *callbackErrFileInfo) ModTime() time.Time { return time.Time{} }
-func (i *callbackErrFileInfo) IsDir() bool       { return true }
-func (i *callbackErrFileInfo) Sys() interface{}  { return nil }
+func (i *callbackErrFileInfo) IsDir() bool        { return true }
+func (i *callbackErrFileInfo) Sys() interface{}   { return nil }
 
 type callbackErrEntry struct{}
 

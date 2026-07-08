@@ -15,8 +15,6 @@ func main() {
 
 	menu := app.NewMenu()
 
-	
-
 	menu.Add("Basic Warning").OnClick(func(ctx *application.Context) {
 		app.Dialog.Warning().
 			SetTitle("Warning").

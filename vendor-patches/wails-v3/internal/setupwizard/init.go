@@ -19,15 +19,15 @@ type InitData struct {
 	// Mode lets the frontend distinguish the init wizard from the setup wizard.
 	Mode string `json:"mode"`
 
-	ProjectName       string `json:"projectName"`
-	TemplateName      string `json:"templateName"`
-	ProductName       string `json:"productName"`
-	ProductCompany    string `json:"productCompany"`
-	ProductIdentifier string `json:"productIdentifier"`
+	ProjectName        string `json:"projectName"`
+	TemplateName       string `json:"templateName"`
+	ProductName        string `json:"productName"`
+	ProductCompany     string `json:"productCompany"`
+	ProductIdentifier  string `json:"productIdentifier"`
 	ProductDescription string `json:"productDescription"`
-	ProductVersion    string `json:"productVersion"`
-	ProductCopyright  string `json:"productCopyright"`
-	ProductComments   string `json:"productComments"`
+	ProductVersion     string `json:"productVersion"`
+	ProductCopyright   string `json:"productCopyright"`
+	ProductComments    string `json:"productComments"`
 	// UseInterfaces selects interface vs class bindings for TypeScript projects.
 	UseInterfaces bool `json:"useInterfaces"`
 

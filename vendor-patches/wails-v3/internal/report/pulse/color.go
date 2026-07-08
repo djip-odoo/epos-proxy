@@ -20,10 +20,10 @@ import (
 type Profile int
 
 const (
-	ProfileNone     Profile = iota // monochrome
-	ProfileANSI                    // 16 colours
-	ProfileANSI256                 // 256 colours
-	ProfileTrueCol                 // 24-bit
+	ProfileNone    Profile = iota // monochrome
+	ProfileANSI                   // 16 colours
+	ProfileANSI256                // 256 colours
+	ProfileTrueCol                // 24-bit
 )
 
 // DetectProfile returns the colour profile the receiving terminal advertises.

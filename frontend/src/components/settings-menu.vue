@@ -28,16 +28,6 @@
         <input type="checkbox" v-model="supportMode" @change="toggleSupportMode" class="w-4 h-4 rounded text-odoo accent-odoo cursor-pointer" />
       </div>
 
-      <div class="px-4 py-2.5 hover:bg-gray-50 flex items-center justify-between border-t border-gray-100">
-        <span class="text-sm font-medium flex items-center gap-2">
-          <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
-          Auto Start
-        </span>
-        <input type="checkbox" v-model="autoStart" @change="toggleAutoStart" class="w-4 h-4 rounded text-odoo accent-odoo cursor-pointer" />
-      </div>
-
       <button @click="showAboutModal = true; showMenu = false" class="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center gap-2 text-sm font-medium border-t border-gray-100 transition-colors cursor-pointer border-none bg-transparent">
         <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />

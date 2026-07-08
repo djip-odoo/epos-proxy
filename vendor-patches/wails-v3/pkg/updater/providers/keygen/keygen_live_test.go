@@ -17,26 +17,26 @@ import (
 // API using credentials supplied through environment variables. Skipped by
 // default; runs when the four required env vars are set:
 //
-//   WAILS_KEYGEN_ACCOUNT       account slug or UUID (e.g. "lea-anthony")
-//   WAILS_KEYGEN_TOKEN         prefixed token value (admi-/prod-/envi-/user-)
-//   WAILS_KEYGEN_FROM_VERSION  semver to upgrade FROM (must be a published release)
-//   WAILS_KEYGEN_PUBLIC_KEY    hex-encoded raw Ed25519 public key (32 bytes),
-//                              for verifying the per-artifact Ed25519ph signature
+//	WAILS_KEYGEN_ACCOUNT       account slug or UUID (e.g. "lea-anthony")
+//	WAILS_KEYGEN_TOKEN         prefixed token value (admi-/prod-/envi-/user-)
+//	WAILS_KEYGEN_FROM_VERSION  semver to upgrade FROM (must be a published release)
+//	WAILS_KEYGEN_PUBLIC_KEY    hex-encoded raw Ed25519 public key (32 bytes),
+//	                           for verifying the per-artifact Ed25519ph signature
 //
 // Optional:
 //
-//   WAILS_KEYGEN_PRODUCT   product slug / id to scope the upgrade lookup
-//   WAILS_KEYGEN_PACKAGE   package slug to narrow further
-//   WAILS_KEYGEN_CHANNEL   release channel (default: "stable")
-//   WAILS_KEYGEN_BASE_URL  alternative API base (default: https://api.keygen.sh)
-//   WAILS_KEYGEN_PLATFORM  override GOOS used for asset selection
-//   WAILS_KEYGEN_ARCH      override GOARCH used for asset selection
+//	WAILS_KEYGEN_PRODUCT   product slug / id to scope the upgrade lookup
+//	WAILS_KEYGEN_PACKAGE   package slug to narrow further
+//	WAILS_KEYGEN_CHANNEL   release channel (default: "stable")
+//	WAILS_KEYGEN_BASE_URL  alternative API base (default: https://api.keygen.sh)
+//	WAILS_KEYGEN_PLATFORM  override GOOS used for asset selection
+//	WAILS_KEYGEN_ARCH      override GOARCH used for asset selection
 //
 // Run with:
 //
-//   WAILS_KEYGEN_ACCOUNT=... WAILS_KEYGEN_TOKEN=prod-... \
-//   WAILS_KEYGEN_FROM_VERSION=1.0.0 WAILS_KEYGEN_PUBLIC_KEY=... \
-//   go test -count=1 -run TestLive_Keygen ./pkg/updater/providers/keygen/
+//	WAILS_KEYGEN_ACCOUNT=... WAILS_KEYGEN_TOKEN=prod-... \
+//	WAILS_KEYGEN_FROM_VERSION=1.0.0 WAILS_KEYGEN_PUBLIC_KEY=... \
+//	go test -count=1 -run TestLive_Keygen ./pkg/updater/providers/keygen/
 //
 // The test exercises: Check against the live API, signature population,
 // streaming Download with redirect-auth stripping, Ed25519ph digest match,

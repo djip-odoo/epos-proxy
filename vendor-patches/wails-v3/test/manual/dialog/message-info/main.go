@@ -15,8 +15,6 @@ func main() {
 
 	menu := app.NewMenu()
 
-	
-
 	menu.Add("Basic Info").OnClick(func(ctx *application.Context) {
 		app.Dialog.Info().
 			SetTitle("Information").

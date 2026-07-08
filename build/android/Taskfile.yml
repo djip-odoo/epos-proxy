@@ -293,7 +293,7 @@ tasks:
     deps:
       - task: build
         vars:
-          ARCH: arm
+          ARCH: '{{.ARCH | default "arm64"}}' # `arm` for 32bit
     cmds:
       - task: assemble:apk
       - '"{{.ADB}}" uninstall {{.APP_ID}} 2>/dev/null || true'

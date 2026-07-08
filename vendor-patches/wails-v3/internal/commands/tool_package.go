@@ -46,7 +46,7 @@ func ToolPackage(options *flags.ToolPackage) error {
 		// DMG creation temporarily disabled - missing dmg package
 		_ = dmgPath // avoid unused variable warning
 		return fmt.Errorf("DMG creation is temporarily disabled due to missing dmg package")
-		
+
 		// // Create DMG creator
 		// dmgCreator, err := dmg.New(appPath, dmgPath, options.ExecutableName)
 		// if err != nil {

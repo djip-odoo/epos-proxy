@@ -516,16 +516,16 @@ func PopulateBuiltins(tf *ast.Taskfile) {
 	}
 	wd, _ := os.Getwd()
 	builtins := map[string]string{
-		"OS":                 runtime.GOOS,
-		"ARCH":               runtime.GOARCH,
-		"OSFAMILY":           osFamily(runtime.GOOS),
-		"NUMCPU":             fmt.Sprintf("%d", runtime.NumCPU()),
-		"ROOT_DIR":           filepath.Dir(tf.Location),
-		"TASKFILE":           tf.Location,
-		"TASKFILE_DIR":       filepath.Dir(tf.Location),
-		"exeExt":             exeExt(runtime.GOOS),
-		"BUILD_TAGS":         os.Getenv("BUILD_TAGS"),
-		"USER_WORKING_DIR":   wd,
+		"OS":               runtime.GOOS,
+		"ARCH":             runtime.GOARCH,
+		"OSFAMILY":         osFamily(runtime.GOOS),
+		"NUMCPU":           fmt.Sprintf("%d", runtime.NumCPU()),
+		"ROOT_DIR":         filepath.Dir(tf.Location),
+		"TASKFILE":         tf.Location,
+		"TASKFILE_DIR":     filepath.Dir(tf.Location),
+		"exeExt":           exeExt(runtime.GOOS),
+		"BUILD_TAGS":       os.Getenv("BUILD_TAGS"),
+		"USER_WORKING_DIR": wd,
 	}
 	for k, v := range builtins {
 		if _, ok := tf.Vars[k]; !ok {
@@ -551,8 +551,6 @@ func exeExt(goos string) string {
 	}
 	return ""
 }
-
-
 
 func ResolveVars(vars map[string]*ast.Var) error {
 	resolved := make(map[string]bool)

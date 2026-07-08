@@ -19,8 +19,8 @@ import (
 	"github.com/wailsapp/wails/v3/internal/buildinfo"
 
 	"github.com/jaypipes/ghw"
-	"github.com/wailsapp/wails/v3/internal/git"
 	"github.com/pterm/pterm"
+	"github.com/wailsapp/wails/v3/internal/git"
 	"github.com/wailsapp/wails/v3/internal/lo"
 	"github.com/wailsapp/wails/v3/internal/operatingsystem"
 	"github.com/wailsapp/wails/v3/internal/version"

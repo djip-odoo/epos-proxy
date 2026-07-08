@@ -15,8 +15,6 @@ func main() {
 
 	menu := app.NewMenu()
 
-	
-
 	menu.Add("Basic Save").OnClick(func(ctx *application.Context) {
 		result, err := app.Dialog.SaveFile().
 			PromptForSingleSelection()

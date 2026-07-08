@@ -22,9 +22,9 @@ type AppConfig struct {
 	FirewallPromptCompleted bool     `json:"firewall_prompt_completed"`
 	FirewallAccepted        bool     `json:"firewall_accepted"`
 	OldPort                 int      `json:"old_port"`
-	OS               string   `json:"os"`
-	Arch             string   `json:"arch"`
-	SupportMode      bool     `json:"support_mode"`
+	OS                      string   `json:"os"`
+	Arch                    string   `json:"arch"`
+	SupportMode             bool     `json:"support_mode"`
 }
 
 func defaults() AppConfig {
@@ -34,7 +34,7 @@ func defaults() AppConfig {
 		FirewallPromptCompleted: false,
 		FirewallAccepted:        false,
 		OS:                      runtime.GOOS,
-		Arch:                      runtime.GOARCH,
+		Arch:                    runtime.GOARCH,
 		SupportMode:             false,
 	}
 }

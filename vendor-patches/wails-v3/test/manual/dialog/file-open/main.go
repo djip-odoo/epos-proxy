@@ -15,8 +15,6 @@ func main() {
 
 	menu := app.NewMenu()
 
-	
-
 	menu.Add("Basic Open").OnClick(func(ctx *application.Context) {
 		result, err := app.Dialog.OpenFile().
 			CanChooseFiles(true).

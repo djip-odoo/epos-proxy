@@ -79,8 +79,9 @@ func IOSOverlayGen(options *IOSOverlayGenOptions) error { // options currently u
 
 // IOSOverlayGenCmd is a CLI entry compatible with NewSubCommandFunction.
 // Defaults:
-//   config: ./build/config.yml (optional)
-//   out:    ./build/ios/xcode/overlay.json
+//
+//	config: ./build/config.yml (optional)
+//	out:    ./build/ios/xcode/overlay.json
 func IOSOverlayGenCmd() error {
 	// Default paths relative to CWD
 	out := filepath.Join("build", "ios", "xcode", "overlay.json")

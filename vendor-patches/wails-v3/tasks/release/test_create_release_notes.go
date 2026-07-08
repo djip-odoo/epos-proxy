@@ -1,3 +1,4 @@
+//go:build ignore
 // +build ignore
 
 package main
@@ -16,9 +17,9 @@ func main() {
 
 	// Test cases
 	testCases := []struct {
-		name     string
-		content  string
-		expected string
+		name       string
+		content    string
+		expected   string
 		shouldFail bool
 	}{
 		{
@@ -70,7 +71,7 @@ Example content here`,
 <!-- Bug fixes -->
 
 ---`,
-			expected: "",
+			expected:   "",
 			shouldFail: true,
 		},
 		{
@@ -103,7 +104,7 @@ Example content here`,
 
 	// Save current directory
 	originalDir, _ := os.Getwd()
-	
+
 	for i, tc := range testCases {
 		fmt.Printf("\nTest %d: %s\n", i+1, tc.name)
 		fmt.Println("-" + strings.Repeat("-", 40))
@@ -142,7 +143,7 @@ Example content here`,
 				fmt.Printf("Output: %s\n", output)
 			} else {
 				fmt.Printf("✅ Command succeeded\n")
-				
+
 				// Read and verify the output
 				content, err := os.ReadFile(releaseNotesPath)
 				if err != nil {
@@ -150,7 +151,7 @@ Example content here`,
 				} else {
 					actualContent := strings.TrimSpace(string(content))
 					expectedContent := strings.TrimSpace(tc.expected)
-					
+
 					if actualContent == expectedContent {
 						fmt.Printf("✅ Content matches expected\n")
 					} else {

@@ -257,9 +257,9 @@ tasks:
 func TestResolveInNamespacePrefersLocal(t *testing.T) {
 	tf := &ast.Taskfile{
 		Tasks: map[string]*ast.Task{
-			"build":          {Name: "build"},
-			"darwin:build":   {Name: "darwin:build"},
-			"darwin:package": {Name: "darwin:package"},
+			"build":                     {Name: "build"},
+			"darwin:build":              {Name: "darwin:build"},
+			"darwin:package":            {Name: "darwin:package"},
 			"darwin:common:go:mod:tidy": {Name: "darwin:common:go:mod:tidy"},
 		},
 		Includes: map[string]*ast.Include{"common": {}},

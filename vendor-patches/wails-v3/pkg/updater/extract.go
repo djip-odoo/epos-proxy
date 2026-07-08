@@ -17,7 +17,7 @@ import (
 // caps give comfortable headroom while keeping malformed / hostile archives
 // from exhausting disk or file descriptors.
 const (
-	maxArchiveEntries             = 50_000
+	maxArchiveEntries         = 50_000
 	maxArchiveTotalSize int64 = 2 << 30 // 2 GiB total uncompressed
 )
 
@@ -137,7 +137,10 @@ func extractZip(src, dst string) error {
 	rootClean := filepath.Clean(dst)
 
 	// Pass 1 — directories and regular files. Symlinks recorded for pass 2.
-	type pendingLink struct{ src *zip.File; target string }
+	type pendingLink struct {
+		src    *zip.File
+		target string
+	}
 	var symlinks []pendingLink
 	var written int64
 	for _, f := range zr.File {

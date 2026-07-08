@@ -7,7 +7,7 @@ require (
 	github.com/gofiber/fiber/v3 v3.1.0
 	github.com/google/gousb v1.1.3
 	github.com/sirupsen/logrus v1.9.4
-	github.com/wailsapp/wails/v3 v3.0.0-alpha2.109
+	github.com/wailsapp/wails/v3 v3.0.0-alpha2.116
 	github.com/yusufpapurcu/wmi v1.2.4
 	golang.org/x/sys v0.43.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1

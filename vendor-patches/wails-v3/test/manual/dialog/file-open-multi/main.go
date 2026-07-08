@@ -16,8 +16,6 @@ func main() {
 
 	menu := app.NewMenu()
 
-	
-
 	menu.Add("Select Multiple Files").OnClick(func(ctx *application.Context) {
 		results, err := app.Dialog.OpenFile().
 			SetTitle("Select Multiple Files").

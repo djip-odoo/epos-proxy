@@ -512,9 +512,9 @@ func TestCopyFile_NonexistentSource(t *testing.T) {
 // out-ranking the stray tag.
 func TestAlpha2OutranksStrayTuiTag(t *testing.T) {
 	const (
-		strayTag    = "v3.0.0-alpha.98-tui" // the tag stuck as @latest
+		strayTag     = "v3.0.0-alpha.98-tui" // the tag stuck as @latest
 		legacyLatest = "v3.0.0-alpha.102"    // highest legacy numeric alpha
-		nextTag     = "v3.0.0-alpha2.103"   // first tag the new scheme publishes
+		nextTag      = "v3.0.0-alpha2.103"   // first tag the new scheme publishes
 	)
 
 	for _, v := range []string{strayTag, legacyLatest, nextTag} {

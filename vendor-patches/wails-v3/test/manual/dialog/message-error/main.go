@@ -15,8 +15,6 @@ func main() {
 
 	menu := app.NewMenu()
 
-	
-
 	menu.Add("Basic Error").OnClick(func(ctx *application.Context) {
 		app.Dialog.Error().
 			SetTitle("Error").

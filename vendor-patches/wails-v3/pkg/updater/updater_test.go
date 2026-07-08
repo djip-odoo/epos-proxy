@@ -210,8 +210,8 @@ func TestInit_RejectsNilProvider(t *testing.T) {
 func TestInit_CheckInterval_TicksProviderAndStops(t *testing.T) {
 	host := &fakeHost{}
 	rel := &updater.Release{
-		Version:  "2.0.0",
-		Artifact: updater.Artifact{Filename: "app.bin"},
+		Version:      "2.0.0",
+		Artifact:     updater.Artifact{Filename: "app.bin"},
 		Verification: &updater.Verification{DigestAlgo: "sha256", Digest: sha256.New().Sum(nil)},
 	}
 	// Pre-compute matching digest so Check finds + DownloadAndInstall succeeds.
@@ -993,4 +993,4 @@ func slicesEqualIgnoringProgressRepeats(a, b []string) bool {
 }
 
 func osRemoveAll(p string) error { return removeAllOS(p) }
-func parentOf(p string) string  { return filepath.Dir(p) }
+func parentOf(p string) string   { return filepath.Dir(p) }

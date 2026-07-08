@@ -35,14 +35,14 @@ func main() {
 		if err := cfg.CheckPortChange(); err != nil {
 			logger.Errorf("Failed to check port change: %v", err)
 		}
-		
+
 		printerManager := printer.NewManager()
 		_ = server.New(port, printerManager)
-		
+
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 		<-sigChan
-		
+
 		logger.Info("Shutting down ePOS Proxy...")
 		os.Exit(0)
 	}

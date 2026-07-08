@@ -2081,4 +2081,3 @@ func getMacOSSigningIdentities() []string {
 
 	return identities
 }
-

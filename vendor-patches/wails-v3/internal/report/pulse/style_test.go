@@ -14,10 +14,10 @@ func TestVisibleWidth(t *testing.T) {
 	}{
 		{"", 0},
 		{"hello", 5},
-		{"hi\x1b[31m world\x1b[0m", 8},                                   // "hi world" = 8 visible cells
-		{"\x1b]8;;file:///x\x1b\\click\x1b]8;;\x1b\\", 5},                // OSC 8 hyperlink wraps "click"
+		{"hi\x1b[31m world\x1b[0m", 8}, // "hi world" = 8 visible cells
+		{"\x1b]8;;file:///x\x1b\\click\x1b]8;;\x1b\\", 5},               // OSC 8 hyperlink wraps "click"
 		{"\x1b]8;;file:///C:\\path\\to.go\x1b\\click\x1b]8;;\x1b\\", 5}, // URI with `\` characters: regression
-		{"━━━━━╾─", 7},                                                   // block chars
+		{"━━━━━╾─", 7},                                                  // block chars
 		{strings.Repeat("a", 100), 100},
 	}
 	for _, c := range cases {

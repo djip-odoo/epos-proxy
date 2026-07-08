@@ -303,9 +303,9 @@ func TestHandle_AttrColor(t *testing.T) {
 
 func TestLevelInfo_AllBranches(t *testing.T) {
 	cases := []struct {
-		level  slog.Level
-		abbr   string
-		color  string
+		level slog.Level
+		abbr  string
+		color string
 	}{
 		{slog.LevelDebug, "DBG", colorCyan},
 		{slog.LevelInfo, "INF", colorGreen},

@@ -62,10 +62,10 @@ import "C"
 import (
 	"encoding/base64"
 	"encoding/json"
+	"epos-proxy/logger"
 	"errors"
 	"fmt"
 	"unsafe"
-	"epos-proxy/logger"
 )
 
 //export Java_com_wails_app_WailsBridge_nativeInitPrinterBridge

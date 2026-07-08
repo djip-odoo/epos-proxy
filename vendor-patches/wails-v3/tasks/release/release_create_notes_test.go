@@ -247,10 +247,10 @@ that spans lines -->
 // TestCreateReleaseNotes tests the --create-release-notes functionality
 func TestCreateReleaseNotes(t *testing.T) {
 	tests := []struct {
-		name            string
+		name             string
 		changelogContent string
-		expectSuccess   bool
-		expectedNotes   string
+		expectSuccess    bool
+		expectedNotes    string
 	}{
 		{
 			name: "Valid changelog creates release notes",
@@ -295,7 +295,7 @@ func TestCreateReleaseNotes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create temporary directory
 			tmpDir := t.TempDir()
-			
+
 			// Create UNRELEASED_CHANGELOG.md
 			changelogPath := filepath.Join(tmpDir, "UNRELEASED_CHANGELOG.md")
 			err := os.WriteFile(changelogPath, []byte(tt.changelogContent), 0644)
@@ -425,7 +425,7 @@ func TestVersionIncrement(t *testing.T) {
 			expectedNext:   "v3.0.0-alpha.16",
 		},
 		{
-			name:           "Beta version increment", 
+			name:           "Beta version increment",
 			currentVersion: "v3.0.0-beta.5",
 			expectedNext:   "v3.0.0-beta.6",
 		},
@@ -460,7 +460,7 @@ func TestClearUnreleasedChangelog(t *testing.T) {
 	// Create temporary file
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "UNRELEASED_CHANGELOG.md")
-	
+
 	// Write some content
 	err := os.WriteFile(tmpFile, []byte("Some content"), 0644)
 	if err != nil {

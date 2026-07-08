@@ -11,9 +11,9 @@ import (
 
 func TestNewVersion_Valid(t *testing.T) {
 	cases := []struct {
-		input             string
+		input               string
 		major, minor, patch uint64
-		pre, meta         string
+		pre, meta           string
 	}{
 		{"1.2.3", 1, 2, 3, "", ""},
 		{"v1.2.3", 1, 2, 3, "", ""},
@@ -231,8 +231,8 @@ func TestComparePrerelease(t *testing.T) {
 		{"alpha.1", "alpha.1", 0},
 
 		// longer wins when prefix equal
-		{"alpha", "alpha.1", -1},  // shorter < longer
-		{"alpha.1", "alpha", 1},   // longer > shorter
+		{"alpha", "alpha.1", -1}, // shorter < longer
+		{"alpha.1", "alpha", 1},  // longer > shorter
 
 		// numeric longer wins
 		{"1", "1.1", -1},

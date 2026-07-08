@@ -280,4 +280,3 @@ func TestGenerateTemplate_GeneratedTemplateCanBeInstalled(t *testing.T) {
 		t.Errorf("WailsVersion = %d, want 3", tmpl.WailsVersion)
 	}
 }
-

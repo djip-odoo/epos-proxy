@@ -158,4 +158,3 @@ func (v *Version) Equal(other *Version) bool {
 func (v *Version) GreaterThanOrEqual(other *Version) bool {
 	return v.compare(other) >= 0
 }
-

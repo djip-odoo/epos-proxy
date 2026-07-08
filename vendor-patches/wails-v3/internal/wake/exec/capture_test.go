@@ -12,8 +12,10 @@ type recordingReporter struct {
 	outputs []string
 }
 
-func (r *recordingReporter) StepInfo(_ report.StepID, msg string)    { r.infos = append(r.infos, msg) }
-func (r *recordingReporter) StepOutput(_ report.StepID, line string) { r.outputs = append(r.outputs, line) }
+func (r *recordingReporter) StepInfo(_ report.StepID, msg string) { r.infos = append(r.infos, msg) }
+func (r *recordingReporter) StepOutput(_ report.StepID, line string) {
+	r.outputs = append(r.outputs, line)
+}
 
 func TestCaptureWriterStripsWireEventsAndCaptures(t *testing.T) {
 	rep := &recordingReporter{}

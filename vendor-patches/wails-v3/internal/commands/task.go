@@ -128,7 +128,6 @@ func RunTask(options *RunTaskOptions, otherArgs []string) error {
 		return wake.Execute(options.Name, opts)
 	}
 
-
 	if options.Dir != "" && options.EntryPoint != "" {
 		return fmt.Errorf("task: You can't set both --dir and --taskfile")
 	}
