@@ -3,15 +3,9 @@ package main
 import (
 	"C"
 	"embed"
-	"os"
-	"os/signal"
-	"runtime"
-	"syscall"
-
 	"epos-proxy/config"
 	"epos-proxy/logger"
-	"epos-proxy/printer"
-	"epos-proxy/server"
+	"os"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
@@ -25,28 +19,6 @@ func main() {
 	cfg := config.InitConfig()
 	logger.InitLogger(cfg)
 	svc := NewApp(cfg)
-
-	// If running headless on Linux (no X11 / Wayland), bypass Wails GUI and run HTTP server directly
-	if runtime.GOOS == "linux" && os.Getenv("DISPLAY") == "" && os.Getenv("WAYLAND_DISPLAY") == "" {
-		logger.Warn("No display server detected. Running in headless/server-only mode...")
-		port, err := cfg.ResolvePort()
-		if err != nil {
-			logger.Warn("Unable to resolve port, using default")
-		}
-		if err := cfg.CheckPortChange(); err != nil {
-			logger.Errorf("Failed to check port change: %v", err)
-		}
-
-		printerManager := printer.NewManager()
-		_ = server.New(port, printerManager)
-
-		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-		<-sigChan
-
-		logger.Info("Shutting down ePOS Proxy...")
-		os.Exit(0)
-	}
 
 	wailsApp := application.New(application.Options{
 		Name:        "ePOS Proxy",
@@ -82,6 +54,10 @@ func main() {
 	mainWindow.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
 		event.Cancel()
 		mainWindow.Hide()
+	})
+
+	mainWindow.OnWindowEvent(events.Common.WindowRuntimeReady, func(event *application.WindowEvent) {
+		svc.domReady(wailsApp.Context())
 	})
 
 	createMenu(wailsApp, svc)

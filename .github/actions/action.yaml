@@ -132,8 +132,7 @@ runs:
                   shell: bash
                 - name: Install Linux Wails deps
                   if: inputs.build == 'true' && runner.os == 'Linux'
-                  # unbuntu 24 : libwebkit2gtk-4.0-dev to libwebkit2gtk-4.1-dev
-                  run: sudo apt-get update && sudo apt-get install libgtk-3-0 libwebkit2gtk-4.1-dev gcc-aarch64-linux-gnu libusb-1.0-0-dev
+                  run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev gcc-aarch64-linux-gnu libusb-1.0-0-dev
                   shell: bash
                 - name: Install macOS Wails deps
                   if: runner.os == 'macOS'
@@ -167,8 +166,7 @@ runs:
                 - name: Build App
                   if: inputs.build == 'true' &&  runner.os == 'Linux'
                   working-directory: ${{ inputs.app-working-directory }}
-                  # -tags webkit2_41 https://wails.io/docs/gettingstarted/building/
-                  run: wails build --platform ${{inputs.build-platform}} -tags webkit2_41 -webview2 ${{inputs.wails-build-webview2}} -ldflags "-X 'epos-proxy/buildinfo.Version=${VERSION}' -X 'epos-proxy/buildinfo.BuildTime=${BUILD_TIME}' -X 'epos-proxy/buildinfo.Commit=${COMMIT}'" -o ${{inputs.build-name}}
+                  run: wails build --platform ${{inputs.build-platform}} -webview2 ${{inputs.wails-build-webview2}} -ldflags "-X 'epos-proxy/buildinfo.Version=${VERSION}' -X 'epos-proxy/buildinfo.BuildTime=${BUILD_TIME}' -X 'epos-proxy/buildinfo.Commit=${COMMIT}'" -o ${{inputs.build-name}}
                   shell: bash
 
                 - name: Get Go path
