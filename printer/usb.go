@@ -1,10 +1,8 @@
 package printer
 
 import (
-	"fmt"
-
 	"epos-proxy/logger"
-
+	"fmt"
 	"github.com/google/gousb"
 )
 
