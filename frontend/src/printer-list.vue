@@ -9,10 +9,16 @@
           <li v-for="printer in printers" :key="printer.id" class="text-left first:pt-0 py-6 last:pb-0 relative">
 
             <div class="flex items-center gap-2">
-              <span class="w-3 h-3 rounded-full shrink-0" :class="getPrinterStatusClass(printer)"></span>
+              <span class="w-4 h-4 shrink-0" :class="getPrinterStatusClass(printer)" v-html="getPrinterIcon(printer)"></span>
               <span class="min-w-0 font-medium text-gray-900 break-all flex-1">{{ printer.name }}</span>
               <span
-                  v-if="printer.isLAN"
+                  v-if="printer.isBT"
+                  @click="removeBluetoothPrinter(printer)"
+                  class="text-gray-600 hover:text-danger cursor-pointer text-xl font-bold"
+                  title="Remove Bluetooth printer"
+              >×</span>
+              <span
+                  v-else-if="printer.isLAN"
                   @click="removeLanPrinter(printer)"
                   class="text-gray-600 hover:text-danger cursor-pointer text-xl font-bold"
                   title="Remove printer"
@@ -25,7 +31,7 @@
           <li v-for="printer in unavailablePrinters" :key="printer.name"
               class="text-left first:pt-0 py-6 last:pb-0 relative">
             <div class="flex items-center gap-2">
-              <span class="w-3 h-3 rounded-full shrink-0 bg-danger"></span>
+              <span class="w-4 h-4 shrink-0 text-danger" v-html="usbIcon"></span>
               <span class="min-w-0 font-medium text-gray-900">{{ printer.name }}</span>
             </div>
             <div class="text-danger mt-1 text-wrap">Unable to communicate with this printer: {{
@@ -49,7 +55,7 @@
       </div>
       <div v-else-if="!printers.length && !unavailablePrinters.length" class="p-6">
         <div class="font-medium text-lg text-center">No printers found</div>
-        <div class="mt-2 text-gray-600 text-center">Make sure your printer is powered on and connected via USB.</div>
+        <div class="mt-2 text-gray-600 text-center">Make sure your printer is powered on and connected via USB, Network, or Bluetooth.</div>
       </div>
 
       <div v-if="errorMsg">
@@ -60,25 +66,34 @@
 
     </div>
   </div>
-  <div class="mt-6 text-center">
+  <div class="mt-6 text-center flex flex-col gap-2">
     <div
         @click="showAddDialog = true"
         class="border-2 border-dashed border-gray-300 bg-gray-50 rounded-lg px-4 py-3 text-gray-600 hover:border-gray-400 hover:bg-gray-100 cursor-pointer"
     >+ Add Network Printer
     </div>
+    <div
+        @click="showBluetoothDialog = true"
+        class="border-2 border-dashed border-blue-200 bg-blue-50 rounded-lg px-4 py-3 text-blue-600 hover:border-blue-400 hover:bg-blue-100 cursor-pointer flex items-center justify-center gap-2"
+    >
+      <span>🔵</span> Add Bluetooth Printer
+    </div>
   </div>
 
   <NetworkIpDialog :show="showAddDialog" @close="onNetworkDialogClose"/>
+  <BluetoothDialog :show="showBluetoothDialog" @close="onBluetoothDialogClose"/>
 </template>
 
 <script setup>
 import {computed, onMounted, onUnmounted, ref} from 'vue'
-import {CheckLANPrinterStatus, ConfirmRemoveLANPrinter, Status} from '../wailsjs/go/main/App'
+import { getPrinterIcon, usbIcon } from './components/printer-icons.js'
+import {CheckLANPrinterStatus, CheckBluetoothPrinterStatus, ConfirmRemoveLANPrinter, ConfirmRemoveBluetoothPrinter, Status} from '../wailsjs/go/main/App'
 import {brewSteps, linuxSteps, zadigSteps} from "./modal/fix-step";
 import StepModal from "./modal/step-modal.vue";
 import NetworkIpDialog from "./modal/network-ip-dialog.vue";
 import PrinterActions from './components/printer-actions.vue'
 import { useToast } from './hooks/useToast.js'
+import BluetoothDialog from "./modal/bluetooth-dialog.vue";
 
 const printers = ref([])
 const unavailablePrinters = ref([])
@@ -90,6 +105,7 @@ const showFixModal = ref(false)
 const fixPrinterName = ref(null)
 const os = ref(null)
 const showAddDialog = ref(false)
+const showBluetoothDialog = ref(false)
 
 const { notify } = useToast()
 
@@ -112,10 +128,13 @@ async function updatePrinters() {
     os.value = res.os
     loading.value = false
 
-    // Check status for each LAN printer
+    // Check status for each LAN and Bluetooth printer
     for (const printer of res.printers) {
       if (printer.isLAN && printer.lanIp) {
         checkLanPrinterStatus(printer.lanIp)
+      }
+      if (printer.isBT && printer.btMac) {
+        checkBtPrinterStatus(printer.btMac)
       }
     }
 
@@ -141,14 +160,37 @@ function checkLanPrinterStatus(ip) {
   })
 }
 
+const btStatus = ref({})
+
+function checkBtPrinterStatus(mac) {
+  const key = `bt:${mac}`
+  if (pendingChecks.value.has(key)) return
+
+  pendingChecks.value.add(key)
+  if (btStatus.value[mac] === undefined) {
+    btStatus.value[mac] = 'loading'
+  }
+  CheckBluetoothPrinterStatus(mac).then((online) => {
+    btStatus.value[mac] = online ? 'online' : 'offline'
+  }).finally(() => {
+    pendingChecks.value.delete(key)
+  })
+}
+
 function getPrinterStatusClass(printer) {
+  if (printer.isBT) {
+    const status = btStatus.value[printer.btMac]
+    if (status === 'online') return 'text-success'
+    if (status === 'offline') return 'text-danger'
+    return 'text-warning'
+  }
   if (!printer.isLAN) {
-    return printer.online ? 'bg-success' : 'bg-danger'
+    return printer.online ? 'text-success' : 'text-danger'
   }
   const status = lanStatus.value[printer.lanIp]
-  if (status === 'online') return 'bg-success'
-  if (status === 'offline') return 'bg-danger'
-  return 'bg-warning'
+  if (status === 'online') return 'text-success'
+  if (status === 'offline') return 'text-danger'
+  return 'text-warning'
 }
 
 onMounted(() => {
@@ -169,7 +211,7 @@ onUnmounted(() => {
 const startPolling = () => {
   if (intervalId) return
   updatePrinters()
-  intervalId = setInterval(updatePrinters, 5000)
+  intervalId = setInterval(updatePrinters, 7000)
 }
 
 const stopPolling = () => {
@@ -238,8 +280,24 @@ async function removeLanPrinter(printer) {
   }
 }
 
+async function removeBluetoothPrinter(printer) {
+  if (!printer.btMac) return
+
+  try {
+    const removed = await ConfirmRemoveBluetoothPrinter(printer.btMac)
+    if (removed) updatePrinters()
+  } catch (err) {
+    console.error('Failed to remove Bluetooth printer:', err)
+  }
+}
+
 function onNetworkDialogClose(shouldRefresh) {
   showAddDialog.value = false
+  if (shouldRefresh) updatePrinters()
+}
+
+function onBluetoothDialogClose(shouldRefresh) {
+  showBluetoothDialog.value = false
   if (shouldRefresh) updatePrinters()
 }
 </script>
