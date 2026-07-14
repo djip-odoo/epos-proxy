@@ -2,16 +2,16 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"os"
-	"runtime"
-	"time"
-
+	"epos-proxy/bluetooth"
 	"epos-proxy/config"
 	"epos-proxy/logger"
 	"epos-proxy/printer"
 	"epos-proxy/server"
 	"epos-proxy/util"
+	"fmt"
+	"os"
+	"runtime"
+	"time"
 
 	autostart "github.com/emersion/go-autostart"
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -24,7 +24,7 @@ type App struct {
 	config         *config.Manager
 	printerManager *printer.Manager
 	autoStart      *autostart.App
-	BTManager      *printer.BluetoothManager
+	BTManager      *bluetooth.BluetoothManager
 }
 
 func NewApp(cfg *config.Manager) *App {
@@ -46,7 +46,7 @@ func (a *App) startup(ctx context.Context) {
 	logger.Debugf("Application startup")
 	a.ctx = ctx
 	a.printerManager = printer.NewManager()
-	a.BTManager = printer.InitBluetoothManager(a.config)
+	a.BTManager = bluetooth.InitBluetoothManager(a.config)
 
 	port, err := a.config.ResolvePort()
 	if err != nil {
@@ -283,9 +283,9 @@ func (a *App) DisableAutostart() error {
 
 // --- Bluetooth printer methods ---
 
-func (a *App) ScanBluetoothPrinters() ([]printer.BluetoothPrinterInfo, error) {
+func (a *App) ScanBluetoothPrinters() ([]bluetooth.BluetoothPrinterInfo, error) {
 	logger.Debug("Scanning for Bluetooth devices")
-	devices, err := printer.ScanBluetoothPrinters()
+	devices, err := bluetooth.ScanBluetoothPrinters()
 	if err != nil {
 		logger.Errorf("Bluetooth scan failed: %v", err)
 		return nil, err
@@ -338,8 +338,9 @@ func (a *App) ConfirmRemoveBluetoothPrinter(mac string) (bool, error) {
 }
 
 func (a *App) IsBluetoothAdapterActive() bool {
-	return printer.IsBluetoothAdapterActive()
+	return bluetooth.IsBluetoothAdapterActive()
 }
+
 func (a *App) CheckBluetoothPrinterStatus(mac string) bool {
 	logger.Debugf("Checking Bluetooth printer status: %s", mac)
 	if !a.IsBluetoothAdapterActive() {

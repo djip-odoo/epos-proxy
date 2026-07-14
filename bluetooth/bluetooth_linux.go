@@ -1,6 +1,6 @@
 //go:build linux
 
-package printer
+package bluetooth
 
 import (
 	"context"
@@ -34,6 +34,71 @@ func disableRFCOMMBind() {
 	rfcommBindDisabled = true
 	rfcommBindDisabledMu.Unlock()
 }
+
+// ScanBluetoothPrinters lists paired Bluetooth printers via bluetoothctl.
+func ScanBluetoothPrinters() ([]BluetoothPrinterInfo, error) {
+	logger.Debug("BT: scanning for Bluetooth printers on Linux")
+
+	out, err := exec.Command("bluetoothctl", "devices").Output()
+	if err != nil {
+		return nil, fmt.Errorf("bluetoothctl devices failed: %w — is bluez installed?", err)
+	}
+
+	var devices []BluetoothPrinterInfo
+	seen := map[string]bool{}
+
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		line = strings.TrimSpace(line)
+		// Format: "Device AA:BB:CC:DD:EE:FF Device Name"
+		if !strings.HasPrefix(line, "Device ") {
+			continue
+		}
+		parts := strings.SplitN(line, " ", 3)
+		if len(parts) < 2 {
+			continue
+		}
+		mac := util.NormalizeMAC(parts[1])
+		if seen[mac] {
+			continue
+		}
+		name := "Unknown"
+		if len(parts) == 3 {
+			name = strings.TrimSpace(parts[2])
+		}
+
+		infoOut, err := exec.Command("bluetoothctl", "info", mac).Output()
+		if err != nil {
+			logger.Warnf("BT: failed to get info for %s: %v", mac, err)
+			continue
+		}
+		info := strings.ToLower(string(infoOut))
+
+		hasPrinterIcon := strings.Contains(info, "icon: printer")
+		hasSPP := strings.Contains(info, "uuid: serial port")
+		if !hasPrinterIcon || !hasSPP {
+			continue
+		}
+
+		seen[mac] = true
+		devices = append(devices, BluetoothPrinterInfo{MAC: util.NormalizeMAC(mac), Name: name})
+	}
+
+	logger.Infof("BT: found %d Bluetooth printers", len(devices))
+	return devices, nil
+}
+
+func IsBluetoothAdapterActive() bool {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	out, err := exec.CommandContext(ctx, "bluetoothctl", "show").Output()
+	if err != nil {
+		return false
+	}
+	return strings.Contains(string(out), "Powered: yes")
+}
+
+// --------------------- TODO -----------------------
 
 // ---------------------------------------------------------------------------
 // Raw RFCOMM socket (fallback / probe path)
@@ -413,9 +478,7 @@ func releaseRFCOMM(index int) error {
 // If the /dev/rfcommX device cannot be bound or opened, it falls back to a raw RFCOMM socket.
 func tryRFCOMMDevice(mac string, channel int) (net.Conn, error) {
 	if b, ok := BTManager.cache.get(mac); ok && b.Channel != channel {
-		BTManager.cache.mu.Lock()
-		delete(BTManager.cache.entries, mac)
-		BTManager.cache.mu.Unlock()
+		BTManager.cache.delete(mac)
 		_ = releaseRFCOMM(b.Index)
 	}
 
@@ -427,9 +490,7 @@ func tryRFCOMMDevice(mac string, channel int) (net.Conn, error) {
 		}
 		logger.Warnf("BT/RFCOMM: failed to open bound device %s: %v", b.DevPath, err)
 		_ = releaseRFCOMM(b.Index)
-		BTManager.cache.mu.Lock()
-		delete(BTManager.cache.entries, mac)
-		BTManager.cache.mu.Unlock()
+		BTManager.cache.delete(mac)
 	} else {
 		logger.Warnf("BT/RFCOMM: binding device failed: %v", err)
 	}
@@ -457,9 +518,7 @@ func dialRFCOMMPlatform(mac string, cachedChannel int) (net.Conn, error) {
 				return conn, nil
 			}
 			logger.Warnf("BT/RFCOMM: cached raw socket connection failed: %v; clearing cache", err)
-			BTManager.cache.mu.Lock()
-			delete(BTManager.cache.entries, mac)
-			BTManager.cache.mu.Unlock()
+			BTManager.cache.delete(mac)
 		}
 	}
 
@@ -511,9 +570,7 @@ func dialRFCOMMPlatform(mac string, cachedChannel int) (net.Conn, error) {
 			return conn, nil
 		} else {
 			logger.Debugf("BT/RFCOMM: channel %d probe failed for %s: %v", ch, mac, err)
-			BTManager.cache.mu.Lock()
-			delete(BTManager.cache.entries, mac)
-			BTManager.cache.mu.Unlock()
+			BTManager.cache.delete(mac)
 		}
 	}
 
@@ -533,71 +590,4 @@ func dialRFCOMMPlatform(mac string, cachedChannel int) (net.Conn, error) {
 	logger.Infof("BT/RFCOMM: raw socket fallback succeeded for %s on channel %d", mac, fallbackCh)
 	BTManager.cache.set(mac, &rfcommBinding{DevPath: "raw", Channel: fallbackCh, Index: -1})
 	return conn, nil
-}
-
-// ---------------------------------------------------------------------------
-// Bluetooth scanner
-// ---------------------------------------------------------------------------
-
-// ScanBluetoothPrinters lists paired Bluetooth printers via bluetoothctl.
-func ScanBluetoothPrinters() ([]BluetoothPrinterInfo, error) {
-	logger.Debug("BT: scanning for Bluetooth printers on Linux")
-
-	out, err := exec.Command("bluetoothctl", "devices").Output()
-	if err != nil {
-		return nil, fmt.Errorf("bluetoothctl devices failed: %w — is bluez installed?", err)
-	}
-
-	var devices []BluetoothPrinterInfo
-	seen := map[string]bool{}
-
-	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		line = strings.TrimSpace(line)
-		// Format: "Device AA:BB:CC:DD:EE:FF Device Name"
-		if !strings.HasPrefix(line, "Device ") {
-			continue
-		}
-		parts := strings.SplitN(line, " ", 3)
-		if len(parts) < 2 {
-			continue
-		}
-		mac := util.NormalizeMAC(parts[1])
-		if seen[mac] {
-			continue
-		}
-		name := "Unknown"
-		if len(parts) == 3 {
-			name = strings.TrimSpace(parts[2])
-		}
-
-		infoOut, err := exec.Command("bluetoothctl", "info", mac).Output()
-		if err != nil {
-			logger.Warnf("BT: failed to get info for %s: %v", mac, err)
-			continue
-		}
-		info := strings.ToLower(string(infoOut))
-
-		hasPrinterIcon := strings.Contains(info, "icon: printer")
-		hasSPP := strings.Contains(info, "uuid: serial port")
-		if !hasPrinterIcon || !hasSPP {
-			continue
-		}
-
-		seen[mac] = true
-		devices = append(devices, newBluetoothPrinter(mac, name))
-	}
-
-	logger.Infof("BT: found %d Bluetooth printers", len(devices))
-	return devices, nil
-}
-
-func IsBluetoothAdapterActive() bool {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	out, err := exec.CommandContext(ctx, "bluetoothctl", "show").Output()
-	if err != nil {
-		return false
-	}
-	return strings.Contains(string(out), "Powered: yes")
 }

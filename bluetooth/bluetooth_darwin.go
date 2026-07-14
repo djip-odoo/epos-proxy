@@ -1,6 +1,6 @@
 //go:build darwin
 
-package printer
+package bluetooth
 
 import (
 	"context"
@@ -19,6 +19,122 @@ import (
 
 	"golang.org/x/sys/unix"
 )
+
+// ScanBluetoothPrinters queries system_profiler for paired Bluetooth devices and filters for printers.
+func ScanBluetoothPrinters() ([]BluetoothPrinterInfo, error) {
+	logger.Debug("BT: scanning for Bluetooth devices on macOS")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "system_profiler", "-json", "SPBluetoothDataType")
+	out, err := cmd.Output()
+	if ctx.Err() == context.DeadlineExceeded {
+		return nil, fmt.Errorf("system_profiler timed out")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("system_profiler failed: %w", err)
+	}
+
+	type deviceDetail struct {
+		DeviceAddress   string `json:"device_address"`
+		DeviceMajorType string `json:"device_majorType"`
+		DeviceMinorType string `json:"device_minorType"`
+	}
+
+	type btData struct {
+		DeviceConnected    []map[string]deviceDetail `json:"device_connected"`
+		DeviceNotConnected []map[string]deviceDetail `json:"device_not_connected"`
+	}
+
+	var btDataSlice []btData
+
+	// 1. Try parsing as JSON object: {"SPBluetoothDataType": [...]}
+	var rawObj struct {
+		SPBluetoothDataType []btData `json:"SPBluetoothDataType"`
+	}
+	if errObj := json.Unmarshal(out, &rawObj); errObj == nil {
+		btDataSlice = rawObj.SPBluetoothDataType
+	} else {
+		// 2. Try parsing as JSON array: [{"SPBluetoothDataType": [...]}]
+		var rawArr []struct {
+			SPBluetoothDataType []btData `json:"SPBluetoothDataType"`
+		}
+		if errArr := json.Unmarshal(out, &rawArr); errArr == nil {
+			if len(rawArr) > 0 {
+				btDataSlice = rawArr[0].SPBluetoothDataType
+			}
+		} else {
+			return nil, fmt.Errorf("failed to parse system_profiler output: %w (tried object: %v, tried array: %v)", err, errObj, errArr)
+		}
+	}
+
+	var devices []BluetoothPrinterInfo
+	seen := make(map[string]bool)
+
+	addDevice := func(name string, address string, majorType string, minorType string) {
+		mac := util.NormalizeMAC(address)
+		if err := util.ValidateMAC(mac); err != nil {
+			logger.Warnf("BT/darwin: skipping device %q with invalid MAC %q", name, address)
+			return
+		}
+
+		majorLower := strings.ToLower(majorType)
+		minorLower := strings.ToLower(minorType)
+
+		if !strings.Contains(majorLower, "imaging") &&
+			!strings.Contains(minorLower, "printer") {
+			return
+		}
+
+		seen[mac] = true
+		devices = append(devices, BluetoothPrinterInfo{MAC: util.NormalizeMAC(mac), Name: name})
+	}
+
+	for _, btInfo := range btDataSlice {
+		for _, devMap := range btInfo.DeviceConnected {
+			for name, detail := range devMap {
+				addDevice(name, detail.DeviceAddress, detail.DeviceMajorType, detail.DeviceMinorType)
+			}
+		}
+		for _, devMap := range btInfo.DeviceNotConnected {
+			for name, detail := range devMap {
+				addDevice(name, detail.DeviceAddress, detail.DeviceMajorType, detail.DeviceMinorType)
+			}
+		}
+	}
+
+	logger.Debugf("BT/darwin: found %d Bluetooth printer(s)", len(devices))
+	return devices, nil
+}
+
+func IsBluetoothAdapterActive() bool {
+	// Method 1: Check defaults (very fast)
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "defaults", "read", "/Library/Preferences/com.apple.Bluetooth", "ControllerPowerState").Output()
+	if err == nil {
+		val := strings.TrimSpace(string(out))
+		if val == "1" {
+			return true
+		} else if val == "0" {
+			return false
+		}
+	}
+
+	// Method 2: Fallback to system_profiler SPBluetoothDataType
+	ctx2, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel2()
+	out2, err2 := exec.CommandContext(ctx2, "system_profiler", "SPBluetoothDataType").Output()
+	if err2 == nil {
+		outStr := string(out2)
+		return strings.Contains(outStr, "Bluetooth Power: On") || strings.Contains(outStr, "State: On")
+	}
+
+	return true // Default to true so we do not block checks unnecessarily if both command tools fail
+}
+
+// --------------------- TODO -----------------------
 
 // ---------------------------------------------------------------------------
 // macOS RFCOMM via virtual serial port
@@ -245,122 +361,4 @@ func dialRFCOMMPlatform(mac string, cachedChannel int) (net.Conn, error) {
 	mac = util.NormalizeMAC(mac)
 	logger.Infof("BT/darwin: dialling %s (channel %d ignored)", mac, cachedChannel)
 	return dialRFCOMM(mac, cachedChannel)
-}
-
-// ---------------------------------------------------------------------------
-// Scanner (not yet implemented on macOS)
-// ---------------------------------------------------------------------------
-
-// ScanBluetoothPrinters queries system_profiler for paired Bluetooth devices and filters for printers.
-func ScanBluetoothPrinters() ([]BluetoothPrinterInfo, error) {
-	logger.Debug("BT: scanning for Bluetooth devices on macOS")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, "system_profiler", "-json", "SPBluetoothDataType")
-	out, err := cmd.Output()
-	if ctx.Err() == context.DeadlineExceeded {
-		return nil, fmt.Errorf("system_profiler timed out")
-	}
-	if err != nil {
-		return nil, fmt.Errorf("system_profiler failed: %w", err)
-	}
-
-	type deviceDetail struct {
-		DeviceAddress   string `json:"device_address"`
-		DeviceMajorType string `json:"device_majorType"`
-		DeviceMinorType string `json:"device_minorType"`
-	}
-
-	type btData struct {
-		DeviceConnected    []map[string]deviceDetail `json:"device_connected"`
-		DeviceNotConnected []map[string]deviceDetail `json:"device_not_connected"`
-	}
-
-	var btDataSlice []btData
-
-	// 1. Try parsing as JSON object: {"SPBluetoothDataType": [...]}
-	var rawObj struct {
-		SPBluetoothDataType []btData `json:"SPBluetoothDataType"`
-	}
-	if errObj := json.Unmarshal(out, &rawObj); errObj == nil {
-		btDataSlice = rawObj.SPBluetoothDataType
-	} else {
-		// 2. Try parsing as JSON array: [{"SPBluetoothDataType": [...]}]
-		var rawArr []struct {
-			SPBluetoothDataType []btData `json:"SPBluetoothDataType"`
-		}
-		if errArr := json.Unmarshal(out, &rawArr); errArr == nil {
-			if len(rawArr) > 0 {
-				btDataSlice = rawArr[0].SPBluetoothDataType
-			}
-		} else {
-			return nil, fmt.Errorf("failed to parse system_profiler output: %w (tried object: %v, tried array: %v)", err, errObj, errArr)
-		}
-	}
-
-	var devices []BluetoothPrinterInfo
-	seen := make(map[string]bool)
-
-	addDevice := func(name string, address string, majorType string, minorType string) {
-		mac := util.NormalizeMAC(address)
-		if err := util.ValidateMAC(mac); err != nil {
-			logger.Warnf("BT/darwin: skipping device %q with invalid MAC %q", name, address)
-			return
-		}
-
-		majorLower := strings.ToLower(majorType)
-		minorLower := strings.ToLower(minorType)
-
-		if !strings.Contains(majorLower, "imaging") &&
-			!strings.Contains(minorLower, "printer") {
-			return
-		}
-
-		seen[mac] = true
-		devices = append(devices, newBluetoothPrinter(mac, name))
-	}
-
-	for _, btInfo := range btDataSlice {
-		for _, devMap := range btInfo.DeviceConnected {
-			for name, detail := range devMap {
-				addDevice(name, detail.DeviceAddress, detail.DeviceMajorType, detail.DeviceMinorType)
-			}
-		}
-		for _, devMap := range btInfo.DeviceNotConnected {
-			for name, detail := range devMap {
-				addDevice(name, detail.DeviceAddress, detail.DeviceMajorType, detail.DeviceMinorType)
-			}
-		}
-	}
-
-	logger.Debugf("BT/darwin: found %d Bluetooth printer(s)", len(devices))
-	return devices, nil
-}
-
-func IsBluetoothAdapterActive() bool {
-	// Method 1: Check defaults (very fast)
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
-	out, err := exec.CommandContext(ctx, "defaults", "read", "/Library/Preferences/com.apple.Bluetooth", "ControllerPowerState").Output()
-	if err == nil {
-		val := strings.TrimSpace(string(out))
-		if val == "1" {
-			return true
-		} else if val == "0" {
-			return false
-		}
-	}
-
-	// Method 2: Fallback to system_profiler SPBluetoothDataType
-	ctx2, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel2()
-	out2, err2 := exec.CommandContext(ctx2, "system_profiler", "SPBluetoothDataType").Output()
-	if err2 == nil {
-		outStr := string(out2)
-		return strings.Contains(outStr, "Bluetooth Power: On") || strings.Contains(outStr, "State: On")
-	}
-
-	return true // Default to true so we do not block checks unnecessarily if both command tools fail
 }

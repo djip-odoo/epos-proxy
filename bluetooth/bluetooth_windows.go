@@ -1,6 +1,6 @@
 //go:build windows
 
-package printer
+package bluetooth
 
 import (
 	"encoding/binary"
@@ -16,6 +16,98 @@ import (
 
 	"golang.org/x/sys/windows"
 )
+
+// ScanBluetoothPrinters via BluetoothFindFirstDevice
+// ---------------------------------------------------------------------------
+
+func ScanBluetoothPrinters() ([]BluetoothPrinterInfo, error) {
+	logger.Debug("BT: scanning for Bluetooth printers on windows")
+	if err := bluetoothAPIs.Load(); err != nil {
+		return nil, fmt.Errorf("BluetoothAPIs.dll unavailable: %w", err)
+	}
+
+	params := btDeviceSearchParams{
+		fReturnAuthenticated: 1,
+		fReturnRemembered:    1,
+		fReturnConnected:     1,
+	}
+	params.dwSize = uint32(unsafe.Sizeof(params))
+
+	var info btDeviceInfo
+	info.dwSize = uint32(unsafe.Sizeof(info))
+
+	handle, _, e := procBTFindFirst.Call(
+		uintptr(unsafe.Pointer(&params)),
+		uintptr(unsafe.Pointer(&info)),
+	)
+	const invalidHandle = ^uintptr(0)
+	if handle == invalidHandle || handle == 0 {
+		if e == windows.ERROR_NO_MORE_ITEMS {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("BluetoothFindFirstDevice failed: %w", e)
+	}
+	defer procBTFindClose.Call(handle)
+
+	var devices []BluetoothPrinterInfo
+
+	for {
+		mac := btAddrToMAC(info.Address)
+		name := utf16ToString(info.szName[:])
+		if name == "" {
+			name = mac
+		}
+
+		logger.Debugf("BT/Windows: found device %s (%s)", name, mac)
+
+		// We add all paired/remembered devices to the list to be permissive.
+		// We also check for SPP presence just to log it for troubleshooting.
+		hasSPP := false
+		if ch, err := sdpDiscoverChannel(mac); err == nil && ch > 0 {
+			hasSPP = true
+		}
+		devices = append(devices, BluetoothPrinterInfo{MAC: util.NormalizeMAC(mac), Name: name})
+		logger.Infof("BT/Windows: listing paired device %s (%s) (hasSPP=%v)", name, mac, hasSPP)
+
+		// Advance to next device.
+		info = btDeviceInfo{}
+		info.dwSize = uint32(unsafe.Sizeof(info))
+		r, _, _ := procBTFindNext.Call(handle, uintptr(unsafe.Pointer(&info)))
+		if r == 0 {
+			break
+		}
+	}
+
+	logger.Infof("BT/Windows: found %d Bluetooth printer(s)", len(devices))
+	return devices, nil
+}
+
+func IsBluetoothAdapterActive() bool {
+	if err := bluetoothAPIs.Load(); err != nil {
+		return false
+	}
+
+	var params struct {
+		dwSize uint32
+	}
+	params.dwSize = 4 // sizeof(DWORD)
+	var hRadio syscall.Handle
+	hFind, _, _ := procBTFindFirstRadio.Call(
+		uintptr(unsafe.Pointer(&params)),
+		uintptr(unsafe.Pointer(&hRadio)),
+	)
+
+	const invalidHandle = ^uintptr(0)
+	if hFind == 0 || hFind == invalidHandle {
+		return false
+	}
+
+	_ = syscall.CloseHandle(hRadio)
+	_, _, _ = procBTFindRadioClose.Call(hFind)
+	return true
+}
+
+// --------------------- TODO -----------------------
 
 // ---------------------------------------------------------------------------
 // Windows Bluetooth socket constants
@@ -409,95 +501,4 @@ func dialRFCOMMPlatform(mac string, cachedChannel int) (net.Conn, error) {
 	}
 
 	return nil, fmt.Errorf("BT/Windows: no working RFCOMM channel found for %s", mac)
-}
-
-// ---------------------------------------------------------------------------
-// ScanBluetoothPrinters via BluetoothFindFirstDevice
-// ---------------------------------------------------------------------------
-
-func ScanBluetoothPrinters() ([]BluetoothPrinterInfo, error) {
-	logger.Debug("BT: scanning for Bluetooth printers on windows")
-	if err := bluetoothAPIs.Load(); err != nil {
-		return nil, fmt.Errorf("BluetoothAPIs.dll unavailable: %w", err)
-	}
-
-	params := btDeviceSearchParams{
-		fReturnAuthenticated: 1,
-		fReturnRemembered:    1,
-		fReturnConnected:     1,
-	}
-	params.dwSize = uint32(unsafe.Sizeof(params))
-
-	var info btDeviceInfo
-	info.dwSize = uint32(unsafe.Sizeof(info))
-
-	handle, _, e := procBTFindFirst.Call(
-		uintptr(unsafe.Pointer(&params)),
-		uintptr(unsafe.Pointer(&info)),
-	)
-	const invalidHandle = ^uintptr(0)
-	if handle == invalidHandle || handle == 0 {
-		if e == windows.ERROR_NO_MORE_ITEMS {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("BluetoothFindFirstDevice failed: %w", e)
-	}
-	defer procBTFindClose.Call(handle)
-
-	var devices []BluetoothPrinterInfo
-
-	for {
-		mac := btAddrToMAC(info.Address)
-		name := utf16ToString(info.szName[:])
-		if name == "" {
-			name = mac
-		}
-
-		logger.Debugf("BT/Windows: found device %s (%s)", name, mac)
-
-		// We add all paired/remembered devices to the list to be permissive.
-		// We also check for SPP presence just to log it for troubleshooting.
-		hasSPP := false
-		if ch, err := sdpDiscoverChannel(mac); err == nil && ch > 0 {
-			hasSPP = true
-		}
-		devices = append(devices, newBluetoothPrinter(mac, name))
-		logger.Infof("BT/Windows: listing paired device %s (%s) (hasSPP=%v)", name, mac, hasSPP)
-
-		// Advance to next device.
-		info = btDeviceInfo{}
-		info.dwSize = uint32(unsafe.Sizeof(info))
-		r, _, _ := procBTFindNext.Call(handle, uintptr(unsafe.Pointer(&info)))
-		if r == 0 {
-			break
-		}
-	}
-
-	logger.Infof("BT/Windows: found %d Bluetooth printer(s)", len(devices))
-	return devices, nil
-}
-
-func IsBluetoothAdapterActive() bool {
-	if err := bluetoothAPIs.Load(); err != nil {
-		return false
-	}
-
-	var params struct {
-		dwSize uint32
-	}
-	params.dwSize = 4 // sizeof(DWORD)
-	var hRadio syscall.Handle
-	hFind, _, _ := procBTFindFirstRadio.Call(
-		uintptr(unsafe.Pointer(&params)),
-		uintptr(unsafe.Pointer(&hRadio)),
-	)
-
-	const invalidHandle = ^uintptr(0)
-	if hFind == 0 || hFind == invalidHandle {
-		return false
-	}
-
-	_ = syscall.CloseHandle(hRadio)
-	_, _, _ = procBTFindRadioClose.Call(hFind)
-	return true
 }

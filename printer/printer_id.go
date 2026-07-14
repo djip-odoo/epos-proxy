@@ -93,6 +93,7 @@ func DecodeLANPrinterID(id string) (string, bool) {
 
 	return string(decoded[2:]), true
 }
+
 func EncodeBluetoothPrinterID(mac string) string {
 	return base64.RawURLEncoding.EncodeToString([]byte("b:" + mac))
 }

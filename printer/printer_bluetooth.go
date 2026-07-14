@@ -1,17 +1,14 @@
 package printer
 
 import (
+	"epos-proxy/bluetooth"
 	"epos-proxy/logger"
 	"fmt"
 	"time"
 )
 
 func newBlueToothPrinter(mac string) *Printer {
-	channel := BTManager.GetCachedRFCOMMChannel(mac)
-	if channel == 0 {
-		channel = BTManager.cfg.GetBluetoothPrinterChannel(mac)
-	}
-
+	channel := bluetooth.BTManager.GetCachedRFCOMMChannel(mac)
 	p := &Printer{
 		connectionType: PrinterTypeBluetooth,
 		bluetoothMAC:   mac,
@@ -29,21 +26,21 @@ func (p *Printer) ensureOpenBluetoothLocked() error {
 		return nil
 	}
 
-	conn, err := dialRFCOMMPlatform(p.bluetoothMAC, p.btChannel)
+	conn, err := bluetooth.BTManager.Dial(p.bluetoothMAC, p.btChannel)
 	if err != nil {
 		return fmt.Errorf("failed to connect to BT printer %s: %w", p.bluetoothMAC, err)
 	}
 
 	p.btConn = conn
 
-	if b, ok := BTManager.cache.get(p.bluetoothMAC); ok {
-		if p.btChannel != b.Channel {
-			p.btChannel = b.Channel
-			BTManager.cfg.UpdateBluetoothChannel(p.bluetoothMAC, b.Channel)
+	if devPath, channel, ok := bluetooth.BTManager.GetCachedBinding(p.bluetoothMAC); ok {
+		if p.btChannel != channel {
+			p.btChannel = channel
+			bluetooth.BTManager.Cfg.UpdateBluetoothChannel(p.bluetoothMAC, channel)
 		}
-		p.btDevPath = b.DevPath
+		p.btDevPath = devPath
 		logger.Infof("BT printer %s connected via %s (channel %d)",
-			p.bluetoothMAC, b.DevPath, b.Channel)
+			p.bluetoothMAC, devPath, channel)
 	} else {
 		logger.Infof("BT printer %s connected (raw socket)", p.bluetoothMAC)
 	}

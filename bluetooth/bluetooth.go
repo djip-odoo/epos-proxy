@@ -1,6 +1,7 @@
-package printer
+package bluetooth
 
 import (
+	"encoding/base64"
 	"epos-proxy/config"
 	"epos-proxy/logger"
 	"epos-proxy/util"
@@ -24,13 +25,13 @@ type rfcommBinding struct {
 }
 
 type rfcommCache struct {
-	mu      sync.Mutex
+	mu      sync.RWMutex
 	entries map[string]*rfcommBinding
 }
 
 func (c *rfcommCache) get(mac string) (*rfcommBinding, bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	b, ok := c.entries[mac]
 	return b, ok
 }
@@ -41,14 +42,19 @@ func (c *rfcommCache) set(mac string, b *rfcommBinding) {
 	c.entries[mac] = b
 }
 
+func (c *rfcommCache) delete(mac string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	delete(c.entries, mac)
+}
+
 type BluetoothPrinterInfo struct {
 	MAC  string `json:"mac"`
 	Name string `json:"name"`
-	Id   string `json:"id"`
 }
 
 type BluetoothManager struct {
-	cfg   *config.Manager
+	Cfg   *config.Manager
 	cache *rfcommCache
 }
 
@@ -56,7 +62,7 @@ var BTManager *BluetoothManager
 
 func InitBluetoothManager(cfg *config.Manager) *BluetoothManager {
 	BTManager = &BluetoothManager{
-		cfg: cfg,
+		Cfg: cfg,
 		cache: &rfcommCache{
 			entries: make(map[string]*rfcommBinding),
 		},
@@ -80,16 +86,12 @@ func (bm *BluetoothManager) GetCachedRFCOMMChannel(mac string) int {
 	if b, ok := bm.cache.get(mac); ok {
 		return b.Channel
 	}
-	return 0
+	return bm.Cfg.GetBluetoothPrinterChannel(mac)
 }
 
 func (bm *BluetoothManager) CheckBluetoothPrinter(mac string) error {
 	channel := bm.GetCachedRFCOMMChannel(mac)
-	if channel == 0 {
-		channel = bm.cfg.GetBluetoothPrinterChannel(mac)
-	}
-
-	conn, err := dialRFCOMMPlatform(mac, channel)
+	conn, err := bm.Dial(mac, channel)
 	if err != nil {
 		return fmt.Errorf("bluetooth printer %s is unreachable: %w", mac, err)
 	}
@@ -98,21 +100,28 @@ func (bm *BluetoothManager) CheckBluetoothPrinter(mac string) error {
 	ch := bm.GetCachedRFCOMMChannel(mac)
 	if ch > 0 && channel != ch {
 		logger.Infof("BT: updating config channel for %s from %d to %d", mac, channel, ch)
-		bm.cfg.UpdateBluetoothChannel(mac, ch)
+		bm.Cfg.UpdateBluetoothChannel(mac, ch)
 	}
 	return nil
 }
 
-func newBluetoothPrinter(mac, name string) BluetoothPrinterInfo {
-	if name == "" {
-		name = mac
+func (bm *BluetoothManager) GetCachedBinding(mac string) (string, int, bool) {
+	mac = util.NormalizeMAC(mac)
+	if b, ok := bm.cache.get(mac); ok {
+		return b.DevPath, b.Channel, true
 	}
-	return BluetoothPrinterInfo{
-		MAC:  util.NormalizeMAC(mac),
-		Name: name,
-		Id:   EncodeBluetoothPrinterID(mac),
-	}
+	return "", 0, false
 }
+
+func (bm *BluetoothManager) Dial(mac string, channel int) (net.Conn, error) {
+	return dialRFCOMMPlatform(mac, channel)
+}
+
+func EncodeBluetoothPrinterID(mac string) string {
+	return base64.RawURLEncoding.EncodeToString([]byte("b:" + mac))
+}
+
+// --- server ---
 
 type serialConn struct {
 	f    *os.File
