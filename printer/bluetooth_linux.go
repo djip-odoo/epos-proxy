@@ -352,7 +352,7 @@ func ensureRFCOMMDevice(mac string, sdpChannel int) (*rfcommBinding, error) {
 	}
 
 	// 1. Cache hit.
-	if b, ok := globalRFCOMMCache.get(mac); ok {
+	if b, ok := BTManager.cache.get(mac); ok {
 		logger.Debugf("BT/RFCOMM: cache hit for %s → %s (channel %d)", mac, b.DevPath, b.Channel)
 		if b.DevPath == "raw" {
 			return nil, fmt.Errorf("BT/RFCOMM: raw cache hit")
@@ -373,7 +373,7 @@ func ensureRFCOMMDevice(mac string, sdpChannel int) (*rfcommBinding, error) {
 		}
 		logger.Infof("BT/RFCOMM: reusing existing device %s for %s (channel %d)",
 			existing.DevPath, mac, existing.Channel)
-		globalRFCOMMCache.set(mac, existing)
+		BTManager.cache.set(mac, existing)
 		return existing, nil
 	}
 
@@ -391,7 +391,7 @@ func ensureRFCOMMDevice(mac string, sdpChannel int) (*rfcommBinding, error) {
 		return nil, err
 	}
 
-	globalRFCOMMCache.set(mac, b)
+	BTManager.cache.set(mac, b)
 	logger.Infof("BT/RFCOMM: bound %s → %s (channel %d)", mac, b.DevPath, b.Channel)
 	return b, nil
 }
@@ -412,10 +412,10 @@ func releaseRFCOMM(index int) error {
 // tryRFCOMMDevice ensures a device exists for the given channel and opens it.
 // If the /dev/rfcommX device cannot be bound or opened, it falls back to a raw RFCOMM socket.
 func tryRFCOMMDevice(mac string, channel int) (net.Conn, error) {
-	if b, ok := globalRFCOMMCache.get(mac); ok && b.Channel != channel {
-		globalRFCOMMCache.mu.Lock()
-		delete(globalRFCOMMCache.entries, mac)
-		globalRFCOMMCache.mu.Unlock()
+	if b, ok := BTManager.cache.get(mac); ok && b.Channel != channel {
+		BTManager.cache.mu.Lock()
+		delete(BTManager.cache.entries, mac)
+		BTManager.cache.mu.Unlock()
 		_ = releaseRFCOMM(b.Index)
 	}
 
@@ -427,9 +427,9 @@ func tryRFCOMMDevice(mac string, channel int) (net.Conn, error) {
 		}
 		logger.Warnf("BT/RFCOMM: failed to open bound device %s: %v", b.DevPath, err)
 		_ = releaseRFCOMM(b.Index)
-		globalRFCOMMCache.mu.Lock()
-		delete(globalRFCOMMCache.entries, mac)
-		globalRFCOMMCache.mu.Unlock()
+		BTManager.cache.mu.Lock()
+		delete(BTManager.cache.entries, mac)
+		BTManager.cache.mu.Unlock()
 	} else {
 		logger.Warnf("BT/RFCOMM: binding device failed: %v", err)
 	}
@@ -437,7 +437,7 @@ func tryRFCOMMDevice(mac string, channel int) (net.Conn, error) {
 	logger.Infof("BT/RFCOMM: falling back to raw RFCOMM socket for channel %d", channel)
 	conn, err := dialRFCOMM(mac, channel)
 	if err == nil {
-		globalRFCOMMCache.set(mac, &rfcommBinding{DevPath: "raw", Channel: channel, Index: -1})
+		BTManager.cache.set(mac, &rfcommBinding{DevPath: "raw", Channel: channel, Index: -1})
 		return conn, nil
 	}
 	return nil, err
@@ -449,7 +449,7 @@ func dialRFCOMMPlatform(mac string, cachedChannel int) (net.Conn, error) {
 	mac = util.NormalizeMAC(mac)
 
 	// Step 0: Cache hit for raw socket or working device.
-	if b, ok := globalRFCOMMCache.get(mac); ok {
+	if b, ok := BTManager.cache.get(mac); ok {
 		if b.DevPath == "raw" {
 			logger.Infof("BT/RFCOMM: cache hit for raw socket connection to %s on channel %d", mac, b.Channel)
 			conn, err := dialRFCOMM(mac, b.Channel)
@@ -457,9 +457,9 @@ func dialRFCOMMPlatform(mac string, cachedChannel int) (net.Conn, error) {
 				return conn, nil
 			}
 			logger.Warnf("BT/RFCOMM: cached raw socket connection failed: %v; clearing cache", err)
-			globalRFCOMMCache.mu.Lock()
-			delete(globalRFCOMMCache.entries, mac)
-			globalRFCOMMCache.mu.Unlock()
+			BTManager.cache.mu.Lock()
+			delete(BTManager.cache.entries, mac)
+			BTManager.cache.mu.Unlock()
 		}
 	}
 
@@ -511,9 +511,9 @@ func dialRFCOMMPlatform(mac string, cachedChannel int) (net.Conn, error) {
 			return conn, nil
 		} else {
 			logger.Debugf("BT/RFCOMM: channel %d probe failed for %s: %v", ch, mac, err)
-			globalRFCOMMCache.mu.Lock()
-			delete(globalRFCOMMCache.entries, mac)
-			globalRFCOMMCache.mu.Unlock()
+			BTManager.cache.mu.Lock()
+			delete(BTManager.cache.entries, mac)
+			BTManager.cache.mu.Unlock()
 		}
 	}
 
@@ -531,7 +531,7 @@ func dialRFCOMMPlatform(mac string, cachedChannel int) (net.Conn, error) {
 		return nil, fmt.Errorf("BT/RFCOMM: all connection strategies failed for %s: %w", mac, err)
 	}
 	logger.Infof("BT/RFCOMM: raw socket fallback succeeded for %s on channel %d", mac, fallbackCh)
-	globalRFCOMMCache.set(mac, &rfcommBinding{DevPath: "raw", Channel: fallbackCh, Index: -1})
+	BTManager.cache.set(mac, &rfcommBinding{DevPath: "raw", Channel: fallbackCh, Index: -1})
 	return conn, nil
 }
 

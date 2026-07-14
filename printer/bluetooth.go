@@ -28,10 +28,6 @@ type rfcommCache struct {
 	entries map[string]*rfcommBinding
 }
 
-var globalRFCOMMCache = &rfcommCache{
-	entries: make(map[string]*rfcommBinding),
-}
-
 func (c *rfcommCache) get(mac string) (*rfcommBinding, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -59,7 +55,12 @@ type BluetoothManager struct {
 var BTManager *BluetoothManager
 
 func InitBluetoothManager(cfg *config.Manager) *BluetoothManager {
-	BTManager = &BluetoothManager{cfg: cfg, cache: globalRFCOMMCache}
+	BTManager = &BluetoothManager{
+		cfg: cfg,
+		cache: &rfcommCache{
+			entries: make(map[string]*rfcommBinding),
+		},
+	}
 
 	for _, p := range cfg.GetBluetoothPrinters() {
 		if p.Channel > 0 {
@@ -86,8 +87,6 @@ func (bm *BluetoothManager) CheckBluetoothPrinter(mac string) error {
 	channel := bm.GetCachedRFCOMMChannel(mac)
 	if channel == 0 {
 		channel = bm.cfg.GetBluetoothPrinterChannel(mac)
-		logger.Infof("BT: updating config channel for %s from %d to %d", mac, channel, channel)
-		_ = bm.cfg.UpdateBluetoothChannel(mac, channel)
 	}
 
 	conn, err := dialRFCOMMPlatform(mac, channel)
@@ -95,6 +94,12 @@ func (bm *BluetoothManager) CheckBluetoothPrinter(mac string) error {
 		return fmt.Errorf("bluetooth printer %s is unreachable: %w", mac, err)
 	}
 	_ = conn.Close()
+
+	ch := bm.GetCachedRFCOMMChannel(mac)
+	if ch > 0 && channel != ch {
+		logger.Infof("BT: updating config channel for %s from %d to %d", mac, channel, ch)
+		bm.cfg.UpdateBluetoothChannel(mac, ch)
+	}
 	return nil
 }
 
