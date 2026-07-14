@@ -1,15 +1,16 @@
 package printer
 
 import (
-	"epos-proxy/config"
 	"epos-proxy/logger"
 	"fmt"
 	"time"
 )
 
 func newBlueToothPrinter(mac string) *Printer {
-	cfg := config.Get()
-	channel := cfg.GetBluetoothPrinterChannel(mac)
+	channel := BTManager.GetCachedRFCOMMChannel(mac)
+	if channel == 0 {
+		channel = BTManager.cfg.GetBluetoothPrinterChannel(mac)
+	}
 
 	p := &Printer{
 		connectionType: PrinterTypeBluetooth,
@@ -23,7 +24,6 @@ func newBlueToothPrinter(mac string) *Printer {
 }
 
 func (p *Printer) ensureOpenBluetoothLocked() error {
-	cfg := config.Get()
 	if p.btConn != nil {
 		logger.Debugf("BT printer %s already connected", p.idToString())
 		return nil
@@ -36,10 +36,10 @@ func (p *Printer) ensureOpenBluetoothLocked() error {
 
 	p.btConn = conn
 
-	if b, ok := globalRFCOMMCache.get(p.bluetoothMAC); ok {
+	if b, ok := BTManager.cache.get(p.bluetoothMAC); ok {
 		if p.btChannel != b.Channel {
 			p.btChannel = b.Channel
-			cfg.UpdateBluetoothChannel(p.bluetoothMAC, b.Channel)
+			BTManager.cfg.UpdateBluetoothChannel(p.bluetoothMAC, b.Channel)
 		}
 		p.btDevPath = b.DevPath
 		logger.Infof("BT printer %s connected via %s (channel %d)",

@@ -1,6 +1,8 @@
 package printer
 
 import (
+	"epos-proxy/config"
+	"epos-proxy/logger"
 	"epos-proxy/util"
 	"fmt"
 	"net"
@@ -49,8 +51,46 @@ type BluetoothPrinterInfo struct {
 	Id   string `json:"id"`
 }
 
-func CheckBluetoothPrinter(mac string, cachedChannel int) error {
-	conn, err := dialRFCOMMPlatform(mac, cachedChannel)
+type BluetoothManager struct {
+	cfg   *config.Manager
+	cache *rfcommCache
+}
+
+var BTManager *BluetoothManager
+
+func InitBluetoothManager(cfg *config.Manager) *BluetoothManager {
+	BTManager = &BluetoothManager{cfg: cfg, cache: globalRFCOMMCache}
+
+	for _, p := range cfg.GetBluetoothPrinters() {
+		if p.Channel > 0 {
+			mac := util.NormalizeMAC(p.MAC)
+			BTManager.cache.set(mac, &rfcommBinding{
+				DevPath: "",
+				Channel: p.Channel,
+				Index:   -1,
+			})
+		}
+	}
+	return BTManager
+}
+
+func (bm *BluetoothManager) GetCachedRFCOMMChannel(mac string) int {
+	mac = util.NormalizeMAC(mac)
+	if b, ok := bm.cache.get(mac); ok {
+		return b.Channel
+	}
+	return 0
+}
+
+func (bm *BluetoothManager) CheckBluetoothPrinter(mac string) error {
+	channel := bm.GetCachedRFCOMMChannel(mac)
+	if channel == 0 {
+		channel = bm.cfg.GetBluetoothPrinterChannel(mac)
+		logger.Infof("BT: updating config channel for %s from %d to %d", mac, channel, channel)
+		_ = bm.cfg.UpdateBluetoothChannel(mac, channel)
+	}
+
+	conn, err := dialRFCOMMPlatform(mac, channel)
 	if err != nil {
 		return fmt.Errorf("bluetooth printer %s is unreachable: %w", mac, err)
 	}
@@ -67,14 +107,6 @@ func newBluetoothPrinter(mac, name string) BluetoothPrinterInfo {
 		Name: name,
 		Id:   EncodeBluetoothPrinterID(mac),
 	}
-}
-
-func GetCachedRFCOMMChannel(mac string) int {
-	mac = util.NormalizeMAC(mac)
-	if b, ok := globalRFCOMMCache.get(mac); ok {
-		return b.Channel
-	}
-	return 0
 }
 
 type serialConn struct {

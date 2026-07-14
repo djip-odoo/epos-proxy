@@ -24,6 +24,7 @@ type App struct {
 	config         *config.Manager
 	printerManager *printer.Manager
 	autoStart      *autostart.App
+	BTManager      *printer.BluetoothManager
 }
 
 func NewApp(cfg *config.Manager) *App {
@@ -42,12 +43,10 @@ func NewApp(cfg *config.Manager) *App {
 }
 
 func (a *App) startup(ctx context.Context) {
-	a.ctx = ctx
 	logger.Debugf("Application startup")
-
-	logger.Debugf("Config loaded from %s", a.config.Path())
-
+	a.ctx = ctx
 	a.printerManager = printer.NewManager()
+	a.BTManager = printer.InitBluetoothManager(a.config)
 
 	port, err := a.config.ResolvePort()
 	if err != nil {
@@ -341,21 +340,14 @@ func (a *App) ConfirmRemoveBluetoothPrinter(mac string) (bool, error) {
 func (a *App) IsBluetoothAdapterActive() bool {
 	return printer.IsBluetoothAdapterActive()
 }
-
 func (a *App) CheckBluetoothPrinterStatus(mac string) bool {
 	logger.Debugf("Checking Bluetooth printer status: %s", mac)
 	if !a.IsBluetoothAdapterActive() {
 		logger.Debugf("Bluetooth adapter is not active, skipping status check")
 		return false
 	}
-	channel := a.config.GetBluetoothPrinterChannel(mac)
-	if err := printer.CheckBluetoothPrinter(mac, channel); err != nil {
+	if err := a.BTManager.CheckBluetoothPrinter(mac); err != nil {
 		return false
-	}
-	ch := printer.GetCachedRFCOMMChannel(mac)
-	if channel != ch {
-		logger.Infof("BT: updating config channel for %s from %d to %d", mac, channel, ch)
-		_ = a.config.UpdateBluetoothChannel(mac, ch)
 	}
 	return true
 }
