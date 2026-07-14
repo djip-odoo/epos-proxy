@@ -48,8 +48,8 @@ func ScanBluetoothPrinters() ([]BluetoothPrinterInfo, error) {
 	seen := map[string]bool{}
 
 	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		line = strings.TrimSpace(line)
 		// Format: "Device AA:BB:CC:DD:EE:FF Device Name"
+		line = strings.TrimSpace(line)
 		if !strings.HasPrefix(line, "Device ") {
 			continue
 		}
@@ -96,6 +96,39 @@ func IsBluetoothAdapterActive() bool {
 		return false
 	}
 	return strings.Contains(string(out), "Powered: yes")
+}
+
+func CheckDependencies() []DependencyStatus {
+	deps := []DependencyStatus{}
+
+	// Check bluetoothctl
+	_, err := exec.LookPath("bluetoothctl")
+	deps = append(deps, DependencyStatus{
+		Name:        "bluetoothctl",
+		Installed:   err == nil,
+		InstallCmd:  "sudo apt-get install bluez",
+		Description: "Required to scan for devices and check adapter status",
+	})
+
+	// Check rfcomm
+	_, err = exec.LookPath("rfcomm")
+	deps = append(deps, DependencyStatus{
+		Name:        "rfcomm",
+		Installed:   err == nil,
+		InstallCmd:  "sudo apt-get install bluez-deprecated",
+		Description: "Required to bind Bluetooth devices as serial nodes (/dev/rfcommX)",
+	})
+
+	// Check sdptool
+	_, err = exec.LookPath("sdptool")
+	deps = append(deps, DependencyStatus{
+		Name:        "sdptool",
+		Installed:   err == nil,
+		InstallCmd:  "sudo apt-get install bluez-deprecated",
+		Description: "Required to auto-discover RFCOMM channels on printers",
+	})
+
+	return deps
 }
 
 // dialRFCOMMPlatform is the Linux Bluetooth dial entry point.

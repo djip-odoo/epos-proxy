@@ -293,6 +293,10 @@ func (a *App) ScanBluetoothPrinters() ([]bluetooth.BluetoothPrinterInfo, error) 
 	return devices, nil
 }
 
+func (a *App) CheckBluetoothDependencies() []bluetooth.DependencyStatus {
+	return bluetooth.CheckDependencies()
+}
+
 func (a *App) AddBluetoothPrinter(mac, name string) error {
 	logger.Debugf("Adding Bluetooth printer: %s (%s)", mac, name)
 	mac = util.NormalizeMAC(mac)

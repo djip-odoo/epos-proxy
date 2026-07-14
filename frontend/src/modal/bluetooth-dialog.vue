@@ -20,6 +20,23 @@
             <CloseButton @click="close"/>
           </div>
 
+          <!-- Dependencies Warning -->
+          <div v-if="dependencies.some(d => !d.installed)" class="mb-4 bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
+            <div class="font-semibold flex items-center gap-1.5 mb-1.5 text-amber-950">
+              <span>⚠️</span> Missing Bluetooth Dependencies
+            </div>
+            <div class="space-y-2">
+              <div v-for="dep in dependencies.filter(d => !d.installed)" :key="dep.name" class="border-t border-amber-200/50 pt-1.5 first:border-0 first:pt-0">
+                <div class="font-semibold text-amber-950">{{ dep.name }}</div>
+                <div class="text-amber-700 mb-1.5">{{ dep.description }}</div>
+                <div class="bg-amber-950/5 text-amber-900 px-2 py-1 rounded font-mono select-all flex justify-between items-center gap-1">
+                  <span class="truncate">{{ dep.installCmd }}</span>
+                  <span class="text-[10px] uppercase text-amber-600 font-sans tracking-wider font-semibold cursor-pointer hover:text-amber-800 shrink-0" @click="copyCmd(dep.installCmd)">Copy</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Scan Button -->
           <button
               @click="scan"
@@ -99,7 +116,7 @@
 <script setup>
 import {ref, watch, nextTick} from 'vue'
 import CloseButton from './close-button.vue'
-import {AddBluetoothPrinter, ScanBluetoothPrinters} from '../../wailsjs/go/main/App'
+import {AddBluetoothPrinter, ScanBluetoothPrinters, CheckBluetoothDependencies} from '../../wailsjs/go/main/App'
 
 const props = defineProps({
   show: {type: Boolean, default: false},
@@ -115,6 +132,20 @@ const scanError = ref(null)
 const devices = ref([])
 const selectedMac = ref('')
 const inputRef = ref(null)
+const dependencies = ref([])
+
+async function checkDeps() {
+  try {
+    const res = await CheckBluetoothDependencies()
+    dependencies.value = res || []
+  } catch (err) {
+    console.error('Failed to check dependencies:', err)
+  }
+}
+
+function copyCmd(cmd) {
+  navigator.clipboard.writeText(cmd)
+}
 
 watch(() => props.show, (val) => {
   if (val) {
@@ -124,6 +155,8 @@ watch(() => props.show, (val) => {
     scanError.value = null
     devices.value = []
     selectedMac.value = ''
+    dependencies.value = []
+    checkDeps()
     nextTick(() => inputRef.value?.focus())
   }
 })

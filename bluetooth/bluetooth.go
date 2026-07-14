@@ -67,6 +67,13 @@ type BluetoothPrinterInfo struct {
 	Name string `json:"name"`
 }
 
+type DependencyStatus struct {
+	Name        string `json:"name"`
+	Installed   bool   `json:"installed"`
+	InstallCmd  string `json:"installCmd"`
+	Description string `json:"description"`
+}
+
 type BluetoothManager struct {
 	Cfg   *config.Manager
 	cache *rfcommCache

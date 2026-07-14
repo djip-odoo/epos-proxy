@@ -107,6 +107,10 @@ func IsBluetoothAdapterActive() bool {
 	return true
 }
 
+func CheckDependencies() []DependencyStatus {
+	return []DependencyStatus{}
+}
+
 // --------------------- TODO -----------------------
 
 // ---------------------------------------------------------------------------
