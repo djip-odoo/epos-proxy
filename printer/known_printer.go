@@ -16,7 +16,6 @@ var knownPrinterVIDPID = map[string]struct{}{
 	"04b8:0203": {}, // Epson thermal
 	"2d84:c7c8": {}, // Zhuhai Poskey
 	"4b43:3830": {}, // Caysn
-	"0483:5720": {}, // STMicroelectronics
 }
 
 func isKnownPrinter(desc *gousb.DeviceDesc) bool {

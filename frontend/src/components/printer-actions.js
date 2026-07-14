@@ -11,7 +11,7 @@ async function sendEposPrint(printerIp, name, openCashDrawer = false) {
         <feed line="1" />
         <text font="font_e" em="true"/>
         <text align="center">This is a test receipt ${name}</text>
-        <feed line="10" />
+        <feed line="3" />
         <cut type="feed" />
       `
 
