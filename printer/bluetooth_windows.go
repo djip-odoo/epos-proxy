@@ -18,17 +18,6 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// RFCOMM cache — no-op on Windows (no rfcomm bind)
-// ---------------------------------------------------------------------------
-
-type rfcommCache struct{}
-
-var globalRFCOMMCache = &rfcommCache{}
-
-func (c *rfcommCache) get(_ string) (*rfcommBinding, bool) { return nil, false }
-func (c *rfcommCache) set(_ string, _ *rfcommBinding)      {}
-
-// ---------------------------------------------------------------------------
 // Windows Bluetooth socket constants
 // ---------------------------------------------------------------------------
 
@@ -485,8 +474,4 @@ func ScanBluetoothPrinters() ([]BluetoothPrinterInfo, error) {
 
 	logger.Infof("BT/Windows: found %d Bluetooth printer(s)", len(devices))
 	return devices, nil
-}
-
-func GetCachedRFCOMMChannel(mac string) (int, bool) {
-	return 0, false
 }

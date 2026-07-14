@@ -302,22 +302,12 @@ func (a *App) AddBluetoothPrinter(mac, name string) error {
 		return err
 	}
 
-	if err := printer.CheckBluetoothPrinter(mac, 0); err != nil {
-		logger.Errorf("Bluetooth printer unreachable: %v", err)
-		return fmt.Errorf("Bluetooth printer unreachable: %w", err)
-	}
-
-	channel := 0
-	if ch, ok := printer.GetCachedRFCOMMChannel(mac); ok {
-		channel = ch
-	}
-
-	if err := a.config.AddBluetoothPrinter(mac, name, channel); err != nil {
+	if err := a.config.AddBluetoothPrinter(mac, name, 0); err != nil {
 		logger.Errorf("Failed to save Bluetooth printer: %v", err)
 		return fmt.Errorf("failed to save Bluetooth printer: %w", err)
 	}
 
-	logger.Debugf("Bluetooth printer added: %s (%s) on channel %d", mac, name, channel)
+	logger.Debugf("Bluetooth printer added: %s (%s)", mac, name)
 	return nil
 }
 
@@ -354,11 +344,10 @@ func (a *App) CheckBluetoothPrinterStatus(mac string) bool {
 	if err := printer.CheckBluetoothPrinter(mac, channel); err != nil {
 		return false
 	}
-	if ch, ok := printer.GetCachedRFCOMMChannel(mac); ok {
-		if channel != ch {
-			logger.Infof("BT: updating config channel for %s from %d to %d", mac, channel, ch)
-			_ = a.config.UpdateBluetoothChannel(mac, ch)
-		}
+	ch := printer.GetCachedRFCOMMChannel(mac)
+	if channel != ch {
+		logger.Infof("BT: updating config channel for %s from %d to %d", mac, channel, ch)
+		_ = a.config.UpdateBluetoothChannel(mac, ch)
 	}
 	return true
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -18,6 +19,28 @@ type rfcommBinding struct {
 	DevPath string // e.g. "/dev/rfcomm0"
 	Channel int    // RFCOMM channel number
 	Index   int    // numeric index (0 = rfcomm0, 1 = rfcomm1, …)
+}
+
+type rfcommCache struct {
+	mu      sync.Mutex
+	entries map[string]*rfcommBinding
+}
+
+var globalRFCOMMCache = &rfcommCache{
+	entries: make(map[string]*rfcommBinding),
+}
+
+func (c *rfcommCache) get(mac string) (*rfcommBinding, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	b, ok := c.entries[mac]
+	return b, ok
+}
+
+func (c *rfcommCache) set(mac string, b *rfcommBinding) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.entries[mac] = b
 }
 
 type BluetoothPrinterInfo struct {
@@ -44,6 +67,14 @@ func newBluetoothPrinter(mac, name string) BluetoothPrinterInfo {
 		Name: name,
 		Id:   EncodeBluetoothPrinterID(mac),
 	}
+}
+
+func GetCachedRFCOMMChannel(mac string) int {
+	mac = util.NormalizeMAC(mac)
+	if b, ok := globalRFCOMMCache.get(mac); ok {
+		return b.Channel
+	}
+	return 0
 }
 
 type serialConn struct {

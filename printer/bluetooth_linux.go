@@ -20,19 +20,6 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// ---------------------------------------------------------------------------
-// RFCOMM cache — process-level binding cache
-// ---------------------------------------------------------------------------
-// rfcommCache maps normalised MAC → binding to avoid repeated rfcomm bind calls.
-type rfcommCache struct {
-	mu      sync.Mutex
-	entries map[string]*rfcommBinding
-}
-
-var globalRFCOMMCache = &rfcommCache{
-	entries: make(map[string]*rfcommBinding),
-}
-
 var rfcommBindDisabled = false
 var rfcommBindDisabledMu sync.RWMutex
 
@@ -46,19 +33,6 @@ func disableRFCOMMBind() {
 	rfcommBindDisabledMu.Lock()
 	rfcommBindDisabled = true
 	rfcommBindDisabledMu.Unlock()
-}
-
-func (c *rfcommCache) get(mac string) (*rfcommBinding, bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	b, ok := c.entries[mac]
-	return b, ok
-}
-
-func (c *rfcommCache) set(mac string, b *rfcommBinding) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.entries[mac] = b
 }
 
 // ---------------------------------------------------------------------------
@@ -615,12 +589,4 @@ func ScanBluetoothPrinters() ([]BluetoothPrinterInfo, error) {
 
 	logger.Infof("BT: found %d Bluetooth printers", len(devices))
 	return devices, nil
-}
-
-func GetCachedRFCOMMChannel(mac string) (int, bool) {
-	mac = util.NormalizeMAC(mac)
-	if b, ok := globalRFCOMMCache.get(mac); ok {
-		return b.Channel, true
-	}
-	return 0, false
 }

@@ -21,18 +21,6 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// rfcommCache stub — macOS does not use rfcomm bind; provide a no-op cache so
-// that platform-agnostic code in printer_bluetooth.go can compile on Darwin.
-// ---------------------------------------------------------------------------
-
-type rfcommCache struct{}
-
-var globalRFCOMMCache = &rfcommCache{}
-
-func (c *rfcommCache) get(_ string) (*rfcommBinding, bool) { return nil, false }
-func (c *rfcommCache) set(_ string, _ *rfcommBinding)      {}
-
-// ---------------------------------------------------------------------------
 // macOS RFCOMM via virtual serial port
 // ---------------------------------------------------------------------------
 //
@@ -349,8 +337,4 @@ func ScanBluetoothPrinters() ([]BluetoothPrinterInfo, error) {
 
 	logger.Debugf("BT/darwin: found %d Bluetooth printer(s)", len(devices))
 	return devices, nil
-}
-
-func GetCachedRFCOMMChannel(mac string) (int, bool) {
-	return 0, false
 }
