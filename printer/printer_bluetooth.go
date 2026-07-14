@@ -26,7 +26,7 @@ func (p *Printer) ensureOpenBluetoothLocked() error {
 		return nil
 	}
 
-	conn, err := bluetooth.BTManager.Dial(p.bluetoothMAC, p.btChannel)
+	conn, err := bluetooth.BTManager.Dial(p.bluetoothMAC)
 	if err != nil {
 		return fmt.Errorf("failed to connect to BT printer %s: %w", p.bluetoothMAC, err)
 	}
