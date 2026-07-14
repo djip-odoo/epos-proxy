@@ -10,7 +10,7 @@ import (
 )
 
 // btConnectTimeout is the maximum time allowed for a single RFCOMM connect attempt.
-const btConnectTimeout = 5 * time.Second
+const btConnectTimeout = 3 * time.Second
 
 // rfcommBinding records the state of a bound (or candidate) RFCOMM device.
 // On Linux the DevPath refers to an actual /dev/rfcommX node;

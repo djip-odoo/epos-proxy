@@ -338,3 +338,29 @@ func ScanBluetoothPrinters() ([]BluetoothPrinterInfo, error) {
 	logger.Debugf("BT/darwin: found %d Bluetooth printer(s)", len(devices))
 	return devices, nil
 }
+
+func IsBluetoothAdapterActive() bool {
+	// Method 1: Check defaults (very fast)
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "defaults", "read", "/Library/Preferences/com.apple.Bluetooth", "ControllerPowerState").Output()
+	if err == nil {
+		val := strings.TrimSpace(string(out))
+		if val == "1" {
+			return true
+		} else if val == "0" {
+			return false
+		}
+	}
+
+	// Method 2: Fallback to system_profiler SPBluetoothDataType
+	ctx2, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel2()
+	out2, err2 := exec.CommandContext(ctx2, "system_profiler", "SPBluetoothDataType").Output()
+	if err2 == nil {
+		outStr := string(out2)
+		return strings.Contains(outStr, "Bluetooth Power: On") || strings.Contains(outStr, "State: On")
+	}
+
+	return true // Default to true so we do not block checks unnecessarily if both command tools fail
+}

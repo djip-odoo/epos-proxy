@@ -590,3 +590,14 @@ func ScanBluetoothPrinters() ([]BluetoothPrinterInfo, error) {
 	logger.Infof("BT: found %d Bluetooth printers", len(devices))
 	return devices, nil
 }
+
+func IsBluetoothAdapterActive() bool {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	out, err := exec.CommandContext(ctx, "bluetoothctl", "show").Output()
+	if err != nil {
+		return false
+	}
+	return strings.Contains(string(out), "Powered: yes")
+}

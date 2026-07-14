@@ -45,14 +45,15 @@ var (
 	procCloseSocket = ws2_32.NewProc("closesocket")
 	procSetsockopt  = ws2_32.NewProc("setsockopt")
 
-	bluetoothAPIs      = windows.NewLazySystemDLL("BluetoothAPIs.dll")
-	procBTFindFirst    = bluetoothAPIs.NewProc("BluetoothFindFirstDevice")
-	procBTFindNext     = bluetoothAPIs.NewProc("BluetoothFindNextDevice")
-	procBTFindClose    = bluetoothAPIs.NewProc("BluetoothFindDeviceClose")
-	procBTEnumServices = bluetoothAPIs.NewProc("BluetoothEnumerateInstalledServices")
+	bluetoothAPIs        = windows.NewLazySystemDLL("BluetoothAPIs.dll")
+	procBTFindFirst      = bluetoothAPIs.NewProc("BluetoothFindFirstDevice")
+	procBTFindNext       = bluetoothAPIs.NewProc("BluetoothFindNextDevice")
+	procBTFindClose      = bluetoothAPIs.NewProc("BluetoothFindDeviceClose")
+	procBTEnumServices   = bluetoothAPIs.NewProc("BluetoothEnumerateInstalledServices")
+	procBTFindFirstRadio = bluetoothAPIs.NewProc("BluetoothFindFirstRadio")
+	procBTFindRadioClose = bluetoothAPIs.NewProc("BluetoothFindRadioClose")
 )
 
-// ---------------------------------------------------------------------------
 // Windows Bluetooth API structures
 // ---------------------------------------------------------------------------
 
@@ -474,4 +475,29 @@ func ScanBluetoothPrinters() ([]BluetoothPrinterInfo, error) {
 
 	logger.Infof("BT/Windows: found %d Bluetooth printer(s)", len(devices))
 	return devices, nil
+}
+
+func IsBluetoothAdapterActive() bool {
+	if err := bluetoothAPIs.Load(); err != nil {
+		return false
+	}
+
+	var params struct {
+		dwSize uint32
+	}
+	params.dwSize = 4 // sizeof(DWORD)
+	var hRadio syscall.Handle
+	hFind, _, _ := procBTFindFirstRadio.Call(
+		uintptr(unsafe.Pointer(&params)),
+		uintptr(unsafe.Pointer(&hRadio)),
+	)
+
+	const invalidHandle = ^uintptr(0)
+	if hFind == 0 || hFind == invalidHandle {
+		return false
+	}
+
+	_ = syscall.CloseHandle(hRadio)
+	_, _, _ = procBTFindRadioClose.Call(hFind)
+	return true
 }
