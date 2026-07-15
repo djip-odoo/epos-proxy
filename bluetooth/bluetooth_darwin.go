@@ -6,23 +6,27 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"epos-proxy/logger"
 	"epos-proxy/util"
 
 	"golang.org/x/sys/unix"
+	"tinygo.org/x/bluetooth"
 )
 
-// ScanBluetoothPrinters queries system_profiler for paired Bluetooth devices and filters for printers.
-func ScanBluetoothPrinters() ([]BluetoothPrinterInfo, error) {
-	logger.Debug("BT: scanning for Bluetooth devices on macOS")
+// scanPairedPrinters queries system_profiler for paired Bluetooth devices and filters for printers.
+func scanPairedPrinters() ([]BluetoothPrinterInfo, error) {
+	logger.Debug("BT: scanning for paired Bluetooth devices on macOS")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -104,8 +108,142 @@ func ScanBluetoothPrinters() ([]BluetoothPrinterInfo, error) {
 		}
 	}
 
-	logger.Debugf("BT/darwin: found %d Bluetooth printer(s)", len(devices))
+	logger.Debugf("BT/darwin: found %d paired Bluetooth printer(s)", len(devices))
 	return devices, nil
+}
+
+var adapter = bluetooth.DefaultAdapter
+
+// adapterOnce ensures adapter.Enable() is called at most once, preventing
+// concurrent or re-entrant calls that can deadlock the CoreBluetooth dispatch queue.
+var adapterOnce sync.Once
+var adapterEnableErr error
+
+// enableAdapter enables the Bluetooth adapter exactly once. It is safe to call
+// from multiple goroutines concurrently.
+func enableAdapter() error {
+	adapterOnce.Do(func() {
+		adapterEnableErr = adapter.Enable()
+		if adapterEnableErr != nil {
+			logger.Errorf("BT/darwin/ble: failed to enable bluetooth adapter: %v", adapterEnableErr)
+		} else {
+			logger.Infof("BT/darwin/ble: bluetooth adapter enabled successfully")
+		}
+	})
+	return adapterEnableErr
+}
+
+func init() {
+	// Warm up the BT adapter in the background so it is ready when first needed.
+	go func() {
+		time.Sleep(1 * time.Second)
+		enableAdapter()
+	}()
+}
+
+func scanLiveBLEPrinters(timeout time.Duration) []BluetoothPrinterInfo {
+	logger.Debugf("BT/darwin/ble: starting live BLE scan for %v", timeout)
+
+	// FIX #4: use sync.Once-guarded enableAdapter() instead of calling
+	// adapter.Enable() directly, to avoid concurrent/re-entrant calls that
+	// can deadlock the CoreBluetooth dispatch queue.
+	if err := enableAdapter(); err != nil {
+		logger.Errorf("BT/darwin/ble: adapter not available for scan: %v", err)
+		return nil
+	}
+
+	var mu sync.Mutex
+	var devices []BluetoothPrinterInfo
+	seen := make(map[string]bool)
+
+	// FIX #2: run adapter.Scan (which blocks synchronously) inside a goroutine
+	// so we can enforce the timeout with a select. Previously, if StopScan()
+	// fired before Scan() started (e.g. Enable() was slow), StopScan() was a
+	// no-op and Scan() would never return.
+	scanDone := make(chan error, 1)
+	go func() {
+		err := adapter.Scan(func(a *bluetooth.Adapter, result bluetooth.ScanResult) {
+			name := result.LocalName()
+			if name == "" {
+				return
+			}
+			uuidStr := result.Address.String()
+
+			mu.Lock()
+			defer mu.Unlock()
+			if seen[uuidStr] {
+				return
+			}
+			seen[uuidStr] = true
+
+			nameLower := strings.ToLower(name)
+			if strings.Contains(nameLower, "print") ||
+				strings.Contains(nameLower, "pos") ||
+				strings.Contains(nameLower, "mpt") ||
+				strings.Contains(nameLower, "epson") ||
+				strings.Contains(nameLower, "star") ||
+				strings.Contains(nameLower, "thermal") ||
+				strings.Contains(nameLower, "58") ||
+				strings.Contains(nameLower, "80") ||
+				strings.Contains(nameLower, "ble") ||
+				strings.Contains(nameLower, "spp") {
+				devices = append(devices, BluetoothPrinterInfo{
+					MAC:  uuidStr,
+					Name: name,
+				})
+			}
+		})
+		scanDone <- err
+	}()
+
+	// Wait for the scan timeout, then signal it to stop.
+	<-time.After(timeout)
+	_ = adapter.StopScan()
+
+	// Wait for the scan goroutine to exit, with a backstop so we don't hang
+	// indefinitely if StopScan() fails to unblock the BLE stack.
+	select {
+	case err := <-scanDone:
+		if err != nil {
+			logger.Errorf("BT/darwin/ble: scan failed: %v", err)
+		}
+	case <-time.After(3 * time.Second):
+		logger.Warnf("BT/darwin/ble: scan goroutine did not exit within backstop after StopScan(); continuing")
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	logger.Debugf("BT/darwin/ble: found %d BLE printer(s)", len(devices))
+	return devices
+}
+
+// ScanBluetoothPrinters queries system_profiler for paired Bluetooth devices and
+// performs a live BLE scan, returning a merged list of all discovered printers.
+func ScanBluetoothPrinters() ([]BluetoothPrinterInfo, error) {
+	var allDevices []BluetoothPrinterInfo
+
+	paired, err := scanPairedPrinters()
+	if err != nil {
+		logger.Warnf("BT/darwin: failed to scan paired printers: %v", err)
+	} else {
+		allDevices = append(allDevices, paired...)
+	}
+
+	bleDevices := scanLiveBLEPrinters(3 * time.Second)
+	allDevices = append(allDevices, bleDevices...)
+
+	seen := make(map[string]bool)
+	var uniqueDevices []BluetoothPrinterInfo
+	for _, d := range allDevices {
+		normalized := util.NormalizeMAC(d.MAC)
+		if !seen[normalized] {
+			seen[normalized] = true
+			d.MAC = normalized
+			uniqueDevices = append(uniqueDevices, d)
+		}
+	}
+
+	return uniqueDevices, nil
 }
 
 func IsBluetoothAdapterActive() bool {
@@ -168,7 +306,10 @@ func dialRFCOMM(mac string, _ int) (net.Conn, error) {
 // device.  SDP and channel probing are not applicable on Darwin.
 func dialRFCOMMPlatform(mac string, cachedChannel int) (net.Conn, error) {
 	mac = util.NormalizeMAC(mac)
-	logger.Infof("BT/darwin: dialling %s (channel %d ignored)", mac, cachedChannel)
+	if matched, _ := regexp.MatchString(`^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$`, mac); matched {
+		return dialBLE(mac)
+	}
+	logger.Infof("BT/darwin: dialling serial RFCOMM for %s (channel %d ignored)", mac, cachedChannel)
 	return dialRFCOMM(mac, cachedChannel)
 }
 
@@ -257,7 +398,16 @@ type spBluetoothDevice struct {
 // been inconsistent across macOS versions, so failures here are non-fatal
 // and callers should fall back to keyword matching.
 func lookupBluetoothName(mac string) string {
-	out, err := exec.Command("system_profiler", "SPBluetoothDataType", "-json").Output()
+	// FIX #3: system_profiler is known to hang 30–120+ seconds when the BT stack
+	// is initialising. Use a context with a hard timeout so dialRFCOMM cannot
+	// block indefinitely waiting for name resolution.
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "system_profiler", "SPBluetoothDataType", "-json").Output()
+	if ctx.Err() == context.DeadlineExceeded {
+		logger.Warnf("BT/darwin: system_profiler timed out resolving BT name for %s", mac)
+		return ""
+	}
 	if err != nil {
 		logger.Warnf("BT/darwin: system_profiler failed, cannot resolve BT name for %s: %v", mac, err)
 		return ""
@@ -507,8 +657,13 @@ func (c *btSerialConn) Write(b []byte) (int, error) {
 		}
 		return r.n, r.err
 	case <-time.After(c.writeTimeout):
-		logger.Warnf("BT/darwin: Write timed out after %v for %s. Closing file descriptor", c.writeTimeout, c.path)
-		_ = c.f.Close() // unblock the Tcdrain/Write goroutine
+		// FIX #5: closing the fd should unblock the write/TIOCDRAIN syscall in the
+		// goroutine above. If the kernel keeps the syscall stuck (possible on some
+		// macOS versions with TTY character devices), the goroutine will leak until
+		// the syscall eventually completes and sends on the buffered channel.
+		logger.Warnf("BT/darwin: write timed out after %v for %s; closing fd to unblock write goroutine "+
+			"(goroutine may leak temporarily if kernel write/TIOCDRAIN syscall is stuck)", c.writeTimeout, c.path)
+		_ = c.f.Close()
 		return 0, fmt.Errorf("BT/darwin: write timeout after %v on %s", c.writeTimeout, c.path)
 	}
 }
@@ -600,4 +755,204 @@ func OpenDarwinBTSerial(mac string, writeTimeout time.Duration, allowFallback bo
 		writeTimeout: writeTimeout,
 	}
 	return conn, nil
+}
+
+// ---------------------------------------------------------------------------
+// BLE Printer Connection and Conn Implementation
+// ---------------------------------------------------------------------------
+
+type bleConn struct {
+	device       bluetooth.Device
+	char         *bluetooth.DeviceCharacteristic
+	uuid         string
+	writeTimeout time.Duration
+	readDeadline time.Time
+	connected    bool
+}
+
+func (c *bleConn) Read(b []byte) (int, error) {
+	// FIX #1: BLE printing is write-only. Returning 0, nil in a loop would cause
+	// any caller that loops on Read (io.Copy, net/http, etc.) to spin forever.
+	// Return io.EOF immediately to signal that no data will ever arrive.
+	return 0, io.EOF
+}
+
+func (c *bleConn) Write(b []byte) (int, error) {
+	if c.char == nil {
+		return 0, fmt.Errorf("BT/darwin/ble: connection closed")
+	}
+
+	logger.Debugf("BT/darwin/ble: writing %d bytes to %s", len(b), c.uuid)
+
+	// Split write into chunks because BLE has MTU limit.
+	// Safe MTU chunk size is 180 bytes.
+	chunkSize := 180
+	totalWritten := 0
+
+	for totalWritten < len(b) {
+		end := totalWritten + chunkSize
+		if end > len(b) {
+			end = len(b)
+		}
+		chunk := b[totalWritten:end]
+
+		// Try writing with response, fallback to without response if supported or fails
+		n, err := c.char.Write(chunk)
+		if err != nil {
+			n, err = c.char.WriteWithoutResponse(chunk)
+			if err != nil {
+				return totalWritten, fmt.Errorf("BT/darwin/ble: write failed: %w", err)
+			}
+			time.Sleep(15 * time.Millisecond)
+		}
+		totalWritten += n
+	}
+
+	return totalWritten, nil
+}
+
+func (c *bleConn) Close() error {
+	if c.connected {
+		err := c.device.Disconnect()
+		c.connected = false
+		c.char = nil
+		return err
+	}
+	return nil
+}
+
+func (c *bleConn) LocalAddr() net.Addr {
+	return bleAddr{addr: "local-ble"}
+}
+
+func (c *bleConn) RemoteAddr() net.Addr {
+	return bleAddr{addr: c.uuid}
+}
+
+func (c *bleConn) SetDeadline(t time.Time) error {
+	return nil
+}
+
+func (c *bleConn) SetReadDeadline(t time.Time) error {
+	c.readDeadline = t
+	return nil
+}
+
+func (c *bleConn) SetWriteDeadline(t time.Time) error {
+	if t.IsZero() {
+		c.writeTimeout = 0
+	} else {
+		c.writeTimeout = time.Until(t)
+	}
+	return nil
+}
+
+type bleAddr struct {
+	addr string
+}
+
+func (a bleAddr) Network() string { return "ble" }
+func (a bleAddr) String() string  { return a.addr }
+
+// dialBLE connects to a BLE device and returns a net.Conn.
+// FIX #6: adapter.Connect and device.DiscoverServices have no built-in timeout
+// on macOS/CoreBluetooth and can hang indefinitely if the device is out of
+// range or the BLE stack is initialising. We wrap the entire operation in a
+// goroutine and enforce a 15-second hard deadline.
+func dialBLE(uuid string) (net.Conn, error) {
+	type result struct {
+		conn net.Conn
+		err  error
+	}
+	ch := make(chan result, 1)
+	go func() {
+		conn, err := dialBLEInternal(uuid)
+		ch <- result{conn, err}
+	}()
+	select {
+	case r := <-ch:
+		return r.conn, r.err
+	case <-time.After(15 * time.Second):
+		return nil, fmt.Errorf("BT/darwin/ble: connect to %s timed out after 15s (device out of range or BLE stack not ready)", uuid)
+	}
+}
+
+// dialBLEInternal performs the actual BLE connection; called from dialBLE's goroutine.
+func dialBLEInternal(uuid string) (net.Conn, error) {
+	logger.Infof("BT/darwin/ble: attempting to connect to BLE device %s", uuid)
+
+	// FIX #4: use sync.Once-guarded enableAdapter().
+	if err := enableAdapter(); err != nil {
+		return nil, fmt.Errorf("BT/darwin/ble: adapter not available: %w", err)
+	}
+
+	var addr bluetooth.Address
+	addr.Set(uuid)
+
+	device, err := adapter.Connect(addr, bluetooth.ConnectionParams{})
+	if err != nil {
+		return nil, fmt.Errorf("BT/darwin/ble: failed to connect to %s: %w", uuid, err)
+	}
+
+	services, err := device.DiscoverServices(nil)
+	if err != nil {
+		_ = device.Disconnect()
+		return nil, fmt.Errorf("BT/darwin/ble: failed to discover services for %s: %w", uuid, err)
+	}
+
+	var fallbackChar *bluetooth.DeviceCharacteristic
+	var targetChar *bluetooth.DeviceCharacteristic
+
+	for _, srv := range services {
+		srvUUID := srv.UUID().String()
+		if strings.Contains(srvUUID, "1800") || strings.Contains(srvUUID, "1801") || strings.Contains(srvUUID, "180a") {
+			continue
+		}
+
+		chars, err := srv.DiscoverCharacteristics(nil)
+		if err != nil {
+			continue
+		}
+
+		for _, char := range chars {
+			charUUIDStr := strings.ToLower(char.UUID().String())
+			isKnown := false
+			for _, kw := range []string{"3802", "8841", "2af1", "1e4d", "bef15c90"} {
+				if strings.Contains(charUUIDStr, kw) {
+					isKnown = true
+					break
+				}
+			}
+
+			if isKnown {
+				targetChar = &char
+				break
+			}
+
+			if fallbackChar == nil {
+				fallbackChar = &char
+			}
+		}
+		if targetChar != nil {
+			break
+		}
+	}
+
+	if targetChar == nil {
+		targetChar = fallbackChar
+	}
+
+	if targetChar == nil {
+		_ = device.Disconnect()
+		return nil, fmt.Errorf("BT/darwin/ble: no writeable characteristic found on device %s", uuid)
+	}
+
+	logger.Infof("BT/darwin/ble: connected successfully to %s, using characteristic %s", uuid, targetChar.UUID().String())
+	return &bleConn{
+		device:       device,
+		char:         targetChar,
+		uuid:         uuid,
+		writeTimeout: 10 * time.Second,
+		connected:    true,
+	}, nil
 }
