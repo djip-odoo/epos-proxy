@@ -193,7 +193,7 @@ async function submit() {
   try {
     await AddBluetoothPrinter(mac, nameInput.value.trim())
     close(true)
-    notify("success", "Bluetooth printer added successfully")
+    notify("Bluetooth printer added successfully", "success")
   } catch (err) {
     error.value = err?.toString() || 'Failed to add Bluetooth printer'
   } finally {

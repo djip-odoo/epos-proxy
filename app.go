@@ -171,6 +171,7 @@ func (a *App) Status() Status {
 			Ip:    a.GetPrinterIp(id),
 			IsBT:  true,
 			BTMac: btCfg.MAC,
+			Type:  string(printer.PrinterTypeReceipt),
 		})
 	}
 

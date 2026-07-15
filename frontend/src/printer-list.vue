@@ -66,7 +66,7 @@
 
     </div>
   </div>
-  <div class="mt-6 text-center flex flex-row gap-2">
+  <div class="mt-6 text-center flex flex-row gap-2 w-100">
     <div
         @click="showAddDialog = true"
         class="border-2 border-dashed border-gray-300 bg-gray-50 rounded-lg px-4 py-3 text-gray-600 hover:border-gray-400 hover:bg-gray-100 cursor-pointer flex items-center justify-center gap-2 transition-colors"
