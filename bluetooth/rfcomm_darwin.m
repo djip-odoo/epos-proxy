@@ -47,7 +47,12 @@
 // Internal helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-NS_FORMAT_FUNCTION(3, 4)
+// Forward declaration with the GCC/Clang printf-format attribute.
+// NS_FORMAT_FUNCTION is for NSString format args and would cause a compile
+// error here because fmt is a plain C string, not an NSString.
+static void set_err(char *buf, int cap, const char *fmt, ...)
+    __attribute__((format(printf, 3, 4)));
+
 static void set_err(char *buf, int cap, const char *fmt, ...) {
     if (!buf || cap <= 0) return;
     va_list ap;
@@ -289,13 +294,16 @@ BTRFCOMMHandle bt_rfcomm_connect(const char *mac, uint8_t rfchannel,
     // queued via CFRunLoopPerformBlock from executing concurrently.)
     __block BOOL started = NO;
 
+    // Capture macStr (an NSString object pointer) rather than `norm` (a C
+    // array).  Clang blocks cannot capture C array types by value; capturing
+    // an NSString pointer is safe and carries identical information.
     bt_sync(^{
         IOBluetoothDevice *device = [IOBluetoothDevice deviceWithAddressString:macStr];
         if (!device) {
             set_err(err_buf, err_cap,
                     "IOBluetoothDevice not found for %s — "
                     "pair the device first in System Preferences → Bluetooth",
-                    norm);
+                    macStr.UTF8String);
             // Signal the sema so the caller is not left waiting.
             dispatch_semaphore_signal(session.openSema);
             return;
@@ -308,7 +316,7 @@ BTRFCOMMHandle bt_rfcomm_connect(const char *mac, uint8_t rfchannel,
         if (ret != kIOReturnSuccess || ch == nil) {
             set_err(err_buf, err_cap,
                     "openRFCOMMChannelAsync failed for %s ch %u: IOReturn=0x%08x",
-                    norm, (unsigned)rfchannel, (unsigned)ret);
+                    macStr.UTF8String, (unsigned)rfchannel, (unsigned)ret);
             dispatch_semaphore_signal(session.openSema);
             return;
         }
@@ -347,7 +355,7 @@ BTRFCOMMHandle bt_rfcomm_connect(const char *mac, uint8_t rfchannel,
         set_err(err_buf, err_cap,
                 "RFCOMM open timed out after %d ms for %s ch %u "
                 "(device may be out of range or busy)",
-                timeout_ms, norm, (unsigned)rfchannel);
+                timeout_ms, macStr.UTF8String, (unsigned)rfchannel);
         return NULL; // session ARC-released when this scope returns
     }
 
@@ -362,7 +370,7 @@ BTRFCOMMHandle bt_rfcomm_connect(const char *mac, uint8_t rfchannel,
         });
         set_err(err_buf, err_cap,
                 "RFCOMM open failed for %s ch %u: IOReturn=0x%08x",
-                norm, (unsigned)rfchannel, (unsigned)session.openStatus);
+                macStr.UTF8String, (unsigned)rfchannel, (unsigned)session.openStatus);
         return NULL;
     }
 
