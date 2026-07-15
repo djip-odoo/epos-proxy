@@ -63,7 +63,7 @@ func (a *App) startup(ctx context.Context) {
 		logger.Warn("Unable to resolve port, using default")
 	}
 
-	a.webserver = server.New(port, a.printerManager)
+	a.webserver = server.New(port, a.printerManager, a.config)
 }
 
 func (a *App) shutdown(ctx context.Context) {
@@ -364,4 +364,12 @@ func (a *App) CheckBluetoothPrinterStatus(mac string) bool {
 		return false
 	}
 	return true
+}
+
+func (a *App) SetPrinterSetting(id string, width int, bottomPadding int, protocol string) error {
+	return config.SetPrinterSetting(id, width, bottomPadding, protocol)
+}
+
+func (a *App) GetPrinterSetting(id string) config.PrinterSettingConfig {
+	return config.GetPrinterSetting(id)
 }

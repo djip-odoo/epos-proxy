@@ -88,10 +88,27 @@ type Printers struct {
 
 type DeviceID map[string]string
 
+type PrinterProtocol int
+
+const (
+	ProtocolESCPOS_COMPAT PrinterProtocol = iota
+	ProtocolESCPOS
+)
+
 type LibUsbPrinter struct {
 	Serial   string
 	Path     string
 	Name     string
 	VidPid   string
 	DeviceId DeviceID
+	Protocol PrinterProtocol
+}
+
+func (p PrinterProtocol) String() string {
+	switch p {
+	case ProtocolESCPOS:
+		return "ESCPOS"
+	default:
+		return "ESCPOS_COMPAT"
+	}
 }
