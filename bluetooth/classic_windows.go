@@ -3,6 +3,7 @@
 package bluetooth
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"net"
@@ -17,10 +18,6 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// ---------------------------------------------------------------------------
-// Windows Bluetooth socket constants
-// ---------------------------------------------------------------------------
-
 const (
 	afBTH          = 32 // AF_BTH
 	bthProtoRFCOMM = 3  // BTHPROTO_RFCOMM
@@ -28,11 +25,6 @@ const (
 	soSndtimeo = 0x1005 // SO_SNDTIMEO
 	soRcvtimeo = 0x1006 // SO_RCVTIMEO
 
-	// SOCKADDR_BTH is #pragma pack(1) in ws2bth.h — 30 bytes total:
-	//   [0:2]  addressFamily (uint16)
-	//   [2:10] btAddr        (uint64)
-	//   [10:26] serviceClassId (GUID, 16 bytes)
-	//   [26:30] port         (uint32)
 	sockaddrBTHSize = 30
 )
 
@@ -53,11 +45,6 @@ var (
 	procBTFindRadioClose = bluetoothAPIs.NewProc("BluetoothFindRadioClose")
 )
 
-// ---------------------------------------------------------------------------
-// Windows Bluetooth API structures
-// ---------------------------------------------------------------------------
-
-// BLUETOOTH_DEVICE_SEARCH_PARAMS — parameter block for BluetoothFindFirstDevice.
 type btDeviceSearchParams struct {
 	dwSize               uint32
 	fReturnAuthenticated uint32
@@ -70,38 +57,65 @@ type btDeviceSearchParams struct {
 	hRadio               uintptr
 }
 
-// SYSTEMTIME used inside BLUETOOTH_DEVICE_INFO.
 type winSYSTEMTIME struct {
 	Year, Month, DayOfWeek, Day uint16
 	Hour, Minute, Second, Ms    uint16
 }
 
-// BLUETOOTH_DEVICE_INFO — 560 bytes, matches Windows SDK layout.
 type btDeviceInfo struct {
 	dwSize          uint32
-	_               [4]byte // padding so Address aligns to 8
-	Address         uint64  // BTH_ADDR
+	_               [4]byte
+	Address         uint64
 	ulClassOfDevice uint32
 	fConnected      uint32
 	fRemembered     uint32
 	fAuthenticated  uint32
 	stLastSeen      winSYSTEMTIME
 	stLastUsed      winSYSTEMTIME
-	szName          [248]uint16 // BLUETOOTH_MAX_NAME_SIZE
+	szName          [248]uint16
 }
 
-func ScanBluetoothPrinters() ([]BluetoothPrinterInfo, error) {
+func preferredTransports() []Transport {
+	return []Transport{
+		&ClassicTransport{},
+		&BLETransport{},
+	}
+}
+
+func resolveMACToBLEUUID(mac string) (string, bool) {
+	return "", false
+}
+
+type ClassicTransport struct{}
+
+func (t *ClassicTransport) Name() string {
+	return "Classic"
+}
+
+func (t *ClassicTransport) IsAvailable() bool {
+	return isBluetoothAdapterActive()
+}
+
+func (t *ClassicTransport) Dial(ctx context.Context, address string) (net.Conn, error) {
+	channel := BTManager.GetCachedRFCOMMChannel(address)
+	return dialRFCOMMPlatform(address, channel)
+}
+
+func (t *ClassicTransport) Scan(ctx context.Context) ([]BluetoothPrinterInfo, error) {
+	return scanPairedPrinters()
+}
+
+func scanPairedPrinters() ([]BluetoothPrinterInfo, error) {
 	logger.Debug("BT: scanning for Bluetooth printers on windows")
 	if err := bluetoothAPIs.Load(); err != nil {
 		return nil, fmt.Errorf("BluetoothAPIs.dll unavailable: %w", err)
 	}
 
-	params := btDeviceSearchParams{
-		fReturnAuthenticated: 1,
-		fReturnRemembered:    1,
-		fReturnConnected:     1,
-	}
+	params := btDeviceSearchParams{}
 	params.dwSize = uint32(unsafe.Sizeof(params))
+	params.fReturnAuthenticated = 1
+	params.fReturnRemembered = 1
+	params.fReturnConnected = 1
 
 	var info btDeviceInfo
 	info.dwSize = uint32(unsafe.Sizeof(info))
@@ -131,7 +145,6 @@ func ScanBluetoothPrinters() ([]BluetoothPrinterInfo, error) {
 		logger.Debugf("BT/Windows: found device %s (%s)", name, mac)
 
 		devices = append(devices, BluetoothPrinterInfo{MAC: util.NormalizeMAC(mac), Name: name})
-		logger.Debugf("BT/Windows: listing paired device %s (%s)", name, mac)
 
 		info = btDeviceInfo{}
 		info.dwSize = uint32(unsafe.Sizeof(info))
@@ -141,11 +154,10 @@ func ScanBluetoothPrinters() ([]BluetoothPrinterInfo, error) {
 		}
 	}
 
-	logger.Debugf("BT/Windows: found %d Bluetooth printer(s)", len(devices))
 	return devices, nil
 }
 
-func IsBluetoothAdapterActive() bool {
+func isBluetoothAdapterActive() bool {
 	if err := bluetoothAPIs.Load(); err != nil {
 		return false
 	}
@@ -174,11 +186,6 @@ func CheckDependencies() []DependencyStatus {
 	return []DependencyStatus{}
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-// Converts "AA:BB:CC:DD:EE:FF" to the uint64 BTH_ADDR expected by Windows (big-endian in a 64-bit integer).
 func macToWindowsBTHAddr(mac string) (uint64, error) {
 	parts := strings.Split(strings.ToUpper(mac), ":")
 	if len(parts) != 6 {
@@ -213,17 +220,14 @@ func parseHexByte(s string) (byte, error) {
 	return byte(v), nil
 }
 
-// Builds the packed SOCKADDR_BTH byte array (30 bytes).
 func makeSockaddrBTH(btAddr uint64, channel uint32) [sockaddrBTHSize]byte {
 	var sa [sockaddrBTHSize]byte
 	binary.LittleEndian.PutUint16(sa[0:2], afBTH)
 	binary.LittleEndian.PutUint64(sa[2:10], btAddr)
-	// sa[10:26] = GUID (zeros → RFCOMM any service)
 	binary.LittleEndian.PutUint32(sa[26:30], channel)
 	return sa
 }
 
-// Converts a Windows BTH_ADDR uint64 back to "AA:BB:CC:DD:EE:FF".
 func btAddrToMAC(addr uint64) string {
 	b := make([]byte, 6)
 	for i := 5; i >= 0; i-- {
@@ -233,7 +237,6 @@ func btAddrToMAC(addr uint64) string {
 	return fmt.Sprintf("%02X:%02X:%02X:%02X:%02X:%02X", b[0], b[1], b[2], b[3], b[4], b[5])
 }
 
-// Converts a null-terminated UTF-16 slice to a Go string.
 func utf16ToString(s []uint16) string {
 	for i, v := range s {
 		if v == 0 {
@@ -243,26 +246,14 @@ func utf16ToString(s []uint16) string {
 	return windows.UTF16ToString(s)
 }
 
-// ---------------------------------------------------------------------------
-// windowsBTConn — net.Conn over a raw Winsock RFCOMM socket handle
-// ---------------------------------------------------------------------------
-
-type btAddr struct {
-	mac string
-	ch  int
-}
-
-func (a btAddr) Network() string { return "rfcomm" }
-func (a btAddr) String() string  { return fmt.Sprintf("%s/%d", a.mac, a.ch) }
-
 type windowsBTConn struct {
 	sock syscall.Handle
 	mac  string
 	ch   int
 }
 
-func (c *windowsBTConn) LocalAddr() net.Addr  { return btAddr{c.mac, c.ch} }
-func (c *windowsBTConn) RemoteAddr() net.Addr { return btAddr{c.mac, c.ch} }
+func (c *windowsBTConn) LocalAddr() net.Addr  { return netAddrPlaceholder{net: "rfcomm", addr: fmt.Sprintf("%s/%d", c.mac, c.ch)} }
+func (c *windowsBTConn) RemoteAddr() net.Addr { return netAddrPlaceholder{net: "rfcomm", addr: fmt.Sprintf("%s/%d", c.mac, c.ch)} }
 
 func (c *windowsBTConn) Read(b []byte) (int, error) {
 	r, _, err := procRecv.Call(
@@ -304,7 +295,6 @@ func (c *windowsBTConn) Close() error {
 	return nil
 }
 
-// setTimeoutMS sets SO_SNDTIMEO or SO_RCVTIMEO on the socket.
 func (c *windowsBTConn) setTimeoutMS(optname int32, ms int32) error {
 	r, _, err := procSetsockopt.Call(
 		uintptr(c.sock),
@@ -340,10 +330,6 @@ func (c *windowsBTConn) SetWriteDeadline(t time.Time) error {
 	return c.setTimeoutMS(soSndtimeo, ms)
 }
 
-// ---------------------------------------------------------------------------
-// dialRFCOMM — Winsock AF_BTH connection
-// ---------------------------------------------------------------------------
-
 func dialRFCOMM(mac string, channel int) (net.Conn, error) {
 	mac = util.NormalizeMAC(mac)
 
@@ -363,7 +349,6 @@ func dialRFCOMM(mac string, channel int) (net.Conn, error) {
 
 	sa := makeSockaddrBTH(btAddr, uint32(channel))
 
-	// Blocking connect — btConnectTimeout enforced via SO_SNDTIMEO.
 	timeoutMS := int32(btConnectTimeout.Milliseconds())
 	procSetsockopt.Call(
 		uintptr(sock),
@@ -383,27 +368,19 @@ func dialRFCOMM(mac string, channel int) (net.Conn, error) {
 		return nil, fmt.Errorf("RFCOMM connect to %s channel %d failed: %w", mac, channel, e)
 	}
 
-	logger.Debugf("BT/Windows: connected to %s on channel %d", mac, channel)
 	return &windowsBTConn{sock: sock, mac: mac, ch: channel}, nil
 }
 
-// ---------------------------------------------------------------------------
-// Platform entry point
-// ---------------------------------------------------------------------------
-
-// dialRFCOMMPlatform tries channels in order: cached → probe 1-8.
 func dialRFCOMMPlatform(mac string, cachedChannel int) (net.Conn, error) {
 	mac = util.NormalizeMAC(mac)
 	logger.Debugf("BT/Windows: dialling %s (cached channel %d)", mac, cachedChannel)
 
-	// Use the cached channel first.
 	if cachedChannel > 0 {
 		if conn, err := dialRFCOMM(mac, cachedChannel); err == nil {
 			return conn, nil
 		}
 	}
 
-	// Probe common printer channels.
 	for _, ch := range []int{1, 2, 3, 4, 5, 6, 7, 8} {
 		if ch == cachedChannel {
 			continue

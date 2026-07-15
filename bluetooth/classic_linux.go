@@ -35,8 +35,38 @@ func disableRFCOMMBind() {
 	rfcommBindDisabledMu.Unlock()
 }
 
-// ScanBluetoothPrinters lists paired Bluetooth printers via bluetoothctl.
-func ScanBluetoothPrinters() ([]BluetoothPrinterInfo, error) {
+func preferredTransports() []Transport {
+	return []Transport{
+		&ClassicTransport{},
+		&BLETransport{},
+	}
+}
+
+func resolveMACToBLEUUID(mac string) (string, bool) {
+	return "", false
+}
+
+type ClassicTransport struct{}
+
+func (t *ClassicTransport) Name() string {
+	return "Classic"
+}
+
+func (t *ClassicTransport) IsAvailable() bool {
+	return isBluetoothAdapterActive()
+}
+
+func (t *ClassicTransport) Dial(ctx context.Context, address string) (net.Conn, error) {
+	channel := BTManager.GetCachedRFCOMMChannel(address)
+	return dialRFCOMMPlatform(address, channel)
+}
+
+func (t *ClassicTransport) Scan(ctx context.Context) ([]BluetoothPrinterInfo, error) {
+	return scanPairedPrinters()
+}
+
+// scanPairedPrinters lists paired Bluetooth printers via bluetoothctl.
+func scanPairedPrinters() ([]BluetoothPrinterInfo, error) {
 	logger.Debug("BT: scanning for Bluetooth printers on Linux")
 	out, err := exec.Command("bluetoothctl", "devices").Output()
 	if err != nil {
@@ -88,7 +118,7 @@ func ScanBluetoothPrinters() ([]BluetoothPrinterInfo, error) {
 	return devices, nil
 }
 
-func IsBluetoothAdapterActive() bool {
+func isBluetoothAdapterActive() bool {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
@@ -114,7 +144,6 @@ func CheckDependencies() []DependencyStatus {
 	return deps
 }
 
-// The Linux Bluetooth dial entry point.
 // Strategy: Try cached channel → SDP → probe channels 1–8 → raw socket fallback.
 func dialRFCOMMPlatform(mac string, cachedChannel int) (net.Conn, error) {
 	mac = util.NormalizeMAC(mac)
@@ -162,12 +191,6 @@ func dialRFCOMMPlatform(mac string, cachedChannel int) (net.Conn, error) {
 	return conn, nil
 }
 
-// ---------------------------------------------------------------------------
-// Raw RFCOMM socket (fallback / probe path)
-// ---------------------------------------------------------------------------
-
-// opens a Bluetooth RFCOMM socket to the given MAC on the given channel.
-// Returns a net.Conn-compatible value on success.
 func dialRFCOMM(mac string, channel int) (net.Conn, error) {
 	mac = util.NormalizeMAC(mac)
 
@@ -232,8 +255,6 @@ func dialRFCOMM(mac string, channel int) (net.Conn, error) {
 	return &serialConn{f: file, path: fmt.Sprintf("rfcomm-%s-%d", mac, channel)}, nil
 }
 
-// Ensures a device exists for the given channel and opens it.
-// If the /dev/rfcommX device cannot be bound or opened, it falls back to a raw RFCOMM socket.
 func tryRFCOMMDevice(mac string, channel int) (net.Conn, error) {
 	if b, ok := BTManager.cache.get(mac); ok {
 		if b.Channel != channel {
@@ -286,7 +307,6 @@ func releaseRFCOMM(index int) error {
 	return nil
 }
 
-// Finds or creates a /dev/rfcommX device for mac.
 func ensureRFCOMMDevice(mac string, channel int) (*rfcommBinding, error) {
 	mac = util.NormalizeMAC(mac)
 
@@ -294,7 +314,6 @@ func ensureRFCOMMDevice(mac string, channel int) (*rfcommBinding, error) {
 		return nil, fmt.Errorf("BT/RFCOMM: rfcomm bind is disabled on this system")
 	}
 
-	// 1. Cache hit.
 	if b, ok := BTManager.cache.get(mac); ok {
 		logger.Debugf("BT/RFCOMM: cache hit for %s → %s (channel %d)", mac, b.DevPath, b.Channel)
 		if b.DevPath == "raw" {
@@ -306,7 +325,6 @@ func ensureRFCOMMDevice(mac string, channel int) (*rfcommBinding, error) {
 		logger.Warnf("BT/RFCOMM: cached device %s no longer exists; re-binding", b.DevPath)
 	}
 
-	// 2. Reuse existing kernel binding.
 	if existing, ok := findExistingRFCOMMDevice(mac); ok {
 		if channel > 0 {
 			existing.Channel = channel
@@ -319,7 +337,6 @@ func ensureRFCOMMDevice(mac string, channel int) (*rfcommBinding, error) {
 		return existing, nil
 	}
 
-	// 3. Bind a new device.
 	if channel <= 0 {
 		channel = 1
 	}
@@ -334,8 +351,6 @@ func ensureRFCOMMDevice(mac string, channel int) (*rfcommBinding, error) {
 	return b, nil
 }
 
-// Opens /dev/rfcommX for read/write.
-// Does not require elevated privileges when the device node already exists.
 func openRFCOMMDevice(b *rfcommBinding) (net.Conn, error) {
 	f, err := os.OpenFile(b.DevPath, os.O_RDWR, 0)
 	if err != nil {
@@ -348,7 +363,6 @@ func openRFCOMMDevice(b *rfcommBinding) (net.Conn, error) {
 	return &serialConn{f: f, path: b.DevPath}, nil
 }
 
-// Searches current bindings for one that matches mac.
 func findExistingRFCOMMDevice(mac string) (*rfcommBinding, bool) {
 	bindings, err := listRFCOMMBindings()
 	if err != nil {
@@ -373,11 +387,6 @@ func findExistingRFCOMMDevice(mac string) (*rfcommBinding, bool) {
 	return nil, false
 }
 
-// ---------------------------------------------------------------------------
-// RFCOMM binding management
-// ---------------------------------------------------------------------------
-
-// Runs `rfcomm -a` and returns index → normalised-MAC for all currently bound RFCOMM devices.
 func listRFCOMMBindings() (map[int]string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -391,7 +400,6 @@ func listRFCOMMBindings() (map[int]string, error) {
 	}
 
 	bindings := make(map[int]string)
-	// Example: "rfcomm0: AA:BB:CC:DD:EE:FF channel 1 clean"
 	for _, line := range strings.Split(string(out), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
@@ -420,7 +428,6 @@ func listRFCOMMBindings() (map[int]string, error) {
 	return bindings, nil
 }
 
-// executes `rfcomm bind <index> <MAC> <channel>` and waits up to 2sec for the /dev/rfcommX device node to appear.  Requires CAP_NET_ADMIN.
 func bindRFCOMM(mac string, channel int) (*rfcommBinding, error) {
 	mac = util.NormalizeMAC(mac)
 
@@ -429,7 +436,6 @@ func bindRFCOMM(mac string, channel int) (*rfcommBinding, error) {
 		return nil, fmt.Errorf("BT/RFCOMM: cannot list bindings (is rfcomm installed?): %w", err)
 	}
 
-	// Race-check: MAC may have been bound since findExistingRFCOMMDevice ran.
 	for idx, boundMAC := range existing {
 		if boundMAC == mac {
 			devPath := fmt.Sprintf("/dev/rfcomm%d", idx)
@@ -482,8 +488,6 @@ func bindRFCOMM(mac string, channel int) (*rfcommBinding, error) {
 	return nil, fmt.Errorf("BT/RFCOMM: %s did not appear after rfcomm bind", devPath)
 }
 
-// returns the lowest RFCOMM index (0..31) not in existing.
-// Returns -1 if all are occupied.
 func findFreeRFCOMMIndex(existing map[int]string) int {
 	for i := 0; i <= 31; i++ {
 		if _, used := existing[i]; !used {
