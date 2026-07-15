@@ -296,9 +296,9 @@ func (a *App) DisableAutostart() error {
 
 // --- Bluetooth printer methods ---
 
-func (a *App) ScanBluetoothPrinters() ([]bluetooth.BluetoothPrinterInfo, error) {
-	logger.Debug("Scanning for Bluetooth devices")
-	devices, err := bluetooth.ScanBluetoothPrinters()
+func (a *App) ScanBluetoothPrinters(connType string) ([]bluetooth.BluetoothPrinterInfo, error) {
+	logger.Debugf("Scanning for Bluetooth devices of type: %s", connType)
+	devices, err := bluetooth.ScanBluetoothPrinters(connType)
 	if err != nil {
 		logger.Errorf("Bluetooth scan failed: %v", err)
 		return nil, err
@@ -310,20 +310,20 @@ func (a *App) CheckBluetoothDependencies() []bluetooth.DependencyStatus {
 	return bluetooth.CheckDependencies()
 }
 
-func (a *App) AddBluetoothPrinter(mac, name string) error {
-	logger.Debugf("Adding Bluetooth printer: %s (%s)", mac, name)
+func (a *App) AddBluetoothPrinter(mac, name, connType string) error {
+	logger.Debugf("Adding Bluetooth printer: %s (%s, type: %s)", mac, name, connType)
 	mac = util.NormalizeMAC(mac)
 	if err := util.ValidateMAC(mac); err != nil {
 		logger.Errorf("Invalid MAC address: %v", err)
 		return err
 	}
 
-	if err := a.config.AddBluetoothPrinter(mac, name); err != nil {
+	if err := a.config.AddBluetoothPrinter(mac, name, connType); err != nil {
 		logger.Errorf("Failed to save Bluetooth printer: %v", err)
 		return fmt.Errorf("failed to save Bluetooth printer: %w", err)
 	}
 
-	logger.Debugf("Bluetooth printer added: %s (%s)", mac, name)
+	logger.Debugf("Bluetooth printer added: %s (%s, type: %s)", mac, name, connType)
 	return nil
 }
 

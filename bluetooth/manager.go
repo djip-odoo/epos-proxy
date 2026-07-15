@@ -8,7 +8,7 @@ import (
 	"epos-proxy/util"
 	"fmt"
 	"net"
-	"sync"
+	"strings"
 	"time"
 )
 
@@ -66,79 +66,63 @@ func (bm *BluetoothManager) GetCachedBinding(mac string) (string, int, bool) {
 	return "", 0, false
 }
 
-// Dial attempts to connect to the Bluetooth device at mac using the platform's
-// preferred transports in order, automatically falling back if a connection fails.
+// Dial attempts to connect to the Bluetooth device at mac using the transport
+// that matches the printer's configured type (defaulting to Classic).
+// It does NOT fall back to other transports.
 func (bm *BluetoothManager) Dial(mac string) (net.Conn, error) {
-	var lastErr error
+	mac = util.NormalizeMAC(mac)
+
+	// Fetch printer type from config
+	connType := "classic"
+	if bm.Cfg != nil {
+		for _, p := range bm.Cfg.GetBluetoothPrinters() {
+			if util.NormalizeMAC(p.MAC) == mac {
+				if p.Type != "" {
+					connType = strings.ToLower(p.Type)
+				}
+				break
+			}
+		}
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	transports := preferredTransports()
-	logger.Debugf("BT/manager: preferred transport order: %v", getTransportNames(transports))
-
-	for _, t := range transports {
-		if !t.IsAvailable() {
-			logger.Debugf("BT/manager: transport %s is not available, skipping", t.Name())
-			continue
+	for _, t := range preferredTransports() {
+		if strings.ToLower(t.Name()) == connType {
+			if !t.IsAvailable() {
+				return nil, fmt.Errorf("bluetooth/manager: transport %s is not active/available", t.Name())
+			}
+			logger.Infof("BT/manager: dialing via %s to %s", t.Name(), mac)
+			return t.Dial(ctx, mac)
 		}
-		logger.Infof("BT/manager: attempting connection via %s to %s", t.Name(), mac)
-		conn, err := t.Dial(ctx, mac)
-		if err == nil {
-			logger.Infof("BT/manager: connected via %s to %s", t.Name(), mac)
-			return conn, nil
-		}
-		logger.Warnf("BT/manager: connection via %s to %s failed: %v", t.Name(), mac, err)
-		lastErr = err
 	}
 
-	if lastErr == nil {
-		return nil, fmt.Errorf("bluetooth/manager: no available Bluetooth transports")
-	}
-	return nil, fmt.Errorf("bluetooth/manager: all connection strategies failed: %w", lastErr)
+	return nil, fmt.Errorf("bluetooth/manager: no transport found for connection type %q", connType)
 }
 
-// ScanBluetoothPrinters queries all available transports for devices and merges the results.
-func ScanBluetoothPrinters() ([]BluetoothPrinterInfo, error) {
-	logger.Debug("BT/manager: starting Bluetooth printer scan across all available transports")
+// ScanBluetoothPrinters queries the transport corresponding to the chosen connection type.
+func ScanBluetoothPrinters(connType string) ([]BluetoothPrinterInfo, error) {
+	connType = strings.ToLower(strings.TrimSpace(connType))
+	if connType == "" {
+		connType = "classic"
+	}
 
-	var allDevices []BluetoothPrinterInfo
-	seen := make(map[string]bool)
-	var mu sync.Mutex
+	logger.Debugf("BT/manager: starting Bluetooth printer scan for connection type: %s", connType)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	var wg sync.WaitGroup
-	transports := preferredTransports()
-
-	for _, t := range transports {
-		if !t.IsAvailable() {
-			continue
+	for _, t := range preferredTransports() {
+		if strings.ToLower(t.Name()) == connType {
+			if !t.IsAvailable() {
+				return nil, fmt.Errorf("bluetooth/manager: transport %s is not active/available", t.Name())
+			}
+			return t.Scan(ctx)
 		}
-		wg.Add(1)
-		go func(trans Transport) {
-			defer wg.Done()
-			devices, err := trans.Scan(ctx)
-			if err != nil {
-				logger.Warnf("BT/manager: transport %s scan failed: %v", trans.Name(), err)
-				return
-			}
-			mu.Lock()
-			defer mu.Unlock()
-			for _, d := range devices {
-				norm := util.NormalizeMAC(d.MAC)
-				if !seen[norm] {
-					seen[norm] = true
-					d.MAC = norm
-					allDevices = append(allDevices, d)
-				}
-			}
-		}(t)
 	}
 
-	wg.Wait()
-	logger.Debugf("BT/manager: scan complete, found %d unique printer(s)", len(allDevices))
-	return allDevices, nil
+	return nil, fmt.Errorf("bluetooth/manager: unknown connection type %q", connType)
 }
 
 func IsBluetoothAdapterActive() bool {

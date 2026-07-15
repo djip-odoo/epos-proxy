@@ -41,6 +41,21 @@
             </div>
           </div>
 
+          <!-- Connection Type Selection -->
+          <div class="mb-4 text-left">
+            <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Connection Type</label>
+            <div class="space-y-2">
+              <label class="flex items-center gap-2.5 text-sm text-gray-700 cursor-pointer">
+                <input type="radio" v-model="connectionType" value="classic" class="accent-blue-600 w-4 h-4" />
+                <span class="font-medium text-gray-800">Classic Bluetooth <span class="text-xs text-gray-400 font-normal">(Recommended)</span></span>
+              </label>
+              <label class="flex items-center gap-2.5 text-sm text-gray-700 cursor-pointer">
+                <input type="radio" v-model="connectionType" value="ble" class="accent-blue-600 w-4 h-4" />
+                <span class="font-medium text-gray-800">Bluetooth Low Energy (BLE)</span>
+              </label>
+            </div>
+          </div>
+
           <!-- Scan Button -->
           <button @click="scan" :disabled="scanning"
             class="w-full border rounded-lg px-4 py-2 mb-4 text-sm cursor-pointer flex items-center justify-center gap-2 border-stone-300 text-stone-700 hover:bg-stone-50 disabled:opacity-50 disabled:cursor-not-allowed">
@@ -55,15 +70,15 @@
 
           <!-- Device list from scan -->
           <div v-if="devices.length" class="mb-4 border border-gray-200 rounded-lg overflow-hidden">
-            <div class="text-xs text-gray-500 px-3 pt-2 pb-1 font-medium uppercase tracking-wide bg-gray-50">
-              Paired
+            <div class="text-xs text-gray-500 px-3 pt-2 pb-1 font-medium uppercase tracking-wide bg-gray-50 text-left">
+              Discovered
             </div>
             <ul class="divide-y divide-gray-100 max-h-44 overflow-y-auto">
               <li v-for="device in devices" :key="device.mac" @click="selectDevice(device)"
                 class="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-blue-50 transition-colors"
                 :class="selectedMac === device.mac ? 'bg-blue-50 ring-1 ring-inset ring-blue-400' : ''">
                 <span class="w-4 h-4 shrink-0" v-html="printerIcon"></span>
-                <div class="flex-1 min-w-0">
+                <div class="flex-1 min-w-0 text-left">
                   <div class="text-sm font-medium text-gray-800 truncate">{{ device.name }}</div>
                   <div class="text-xs text-gray-400 font-mono">{{ device.mac }}</div>
                 </div>
@@ -81,7 +96,7 @@
           </div>
 
           <!-- Manual MAC input -->
-          <input v-model="macInput" type="text" placeholder="MAC address (e.g. AA:BB:CC:DD:EE:FF)"
+          <input v-model="macInput" type="text" placeholder="Address (MAC or UUID)"
             class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-transparent mb-2"
             @keyup.enter="submit" @input="selectedMac = ''" ref="inputRef" />
           <input v-model="nameInput" type="text" placeholder="Printer name (optional)"
@@ -111,6 +126,7 @@ const emit = defineEmits(['refresh'])
 const { notify } = useToast()
 
 const showBluetoothDialog = ref(false)
+const connectionType = ref('classic')
 const macInput = ref('')
 const nameInput = ref('')
 const error = ref(null)
@@ -137,6 +153,7 @@ function copyCmd(cmd) {
 
 watch(showBluetoothDialog, (val) => {
   if (val) {
+    connectionType.value = 'classic'
     macInput.value = ''
     nameInput.value = ''
     error.value = null
@@ -160,7 +177,7 @@ async function scan() {
   scanError.value = null
   devices.value = []
   try {
-    const found = await ScanBluetoothPrinters()
+    const found = await ScanBluetoothPrinters(connectionType.value)
     devices.value = found || []
     if (!devices.value.length) {
       scanError.value = 'No paired Bluetooth devices found. Pair your printer first via system Bluetooth settings.'
@@ -191,7 +208,7 @@ async function submit() {
   error.value = null
 
   try {
-    await AddBluetoothPrinter(mac, nameInput.value.trim())
+    await AddBluetoothPrinter(mac, nameInput.value.trim(), connectionType.value)
     close(true)
     notify("Bluetooth printer added successfully", "success")
   } catch (err) {
