@@ -27,6 +27,10 @@ func ParseMACToBytes(mac string) ([6]byte, error) {
 
 func NormalizeMAC(mac string) string {
 	mac = strings.ToUpper(strings.TrimSpace(mac))
+	// If it is a UUID, preserve it as-is
+	if matched, _ := regexp.MatchString(`^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$`, mac); matched {
+		return mac
+	}
 	mac = strings.ReplaceAll(mac, "-", ":")
 	return mac
 }
@@ -35,7 +39,11 @@ func ValidateMAC(mac string) error {
 	mac = strings.TrimSpace(mac)
 	matched, _ := regexp.MatchString(`^([0-9A-Fa-f]{2}[:\-]){5}[0-9A-Fa-f]{2}$`, mac)
 	if !matched {
-		return fmt.Errorf("invalid MAC address format: %s (expected format: AA:BB:CC:DD:EE:FF)", mac)
+		uuidMatched, _ := regexp.MatchString(`^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$`, mac)
+		if uuidMatched {
+			return nil
+		}
+		return fmt.Errorf("invalid MAC address format: %s (expected format: AA:BB:CC:DD:EE:FF or UUID)", mac)
 	}
 	return nil
 }
