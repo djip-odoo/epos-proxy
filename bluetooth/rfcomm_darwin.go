@@ -1,4 +1,4 @@
-//go:build darwin
+//go:build darwin && cgo
 
 // Package bluetooth provides Bluetooth Classic (RFCOMM/SPP) connectivity for
 // paired thermal printers on macOS.
@@ -68,8 +68,11 @@ import "C"
 
 import (
 	"fmt"
+	"io"
+	"net"
 	"runtime"
 	"sync"
+	"time"
 	"unsafe"
 
 	"epos-proxy/logger"
@@ -96,7 +99,14 @@ type Connection struct {
 	handle C.BTRFCOMMHandle // retained ObjC BTRFCOMMSession*; nil after Close
 	mu     sync.Mutex       // serialises Write calls and protects closed
 	closed bool
+	mac    string           // for RemoteAddr()
 }
+
+// rfcommAddr is a minimal net.Addr for RFCOMM connections.
+type rfcommAddr struct{ addr string }
+
+func (a rfcommAddr) Network() string { return "rfcomm" }
+func (a rfcommAddr) String() string  { return a.addr }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Connect
@@ -139,7 +149,7 @@ func Connect(mac string, rfchannel uint8) (*Connection, error) {
 		return nil, fmt.Errorf("bluetooth/rfcomm: %s", C.GoString(errBuf))
 	}
 
-	conn := &Connection{handle: handle}
+	conn := &Connection{handle: handle, mac: mac}
 
 	// Finalizer as a safety net only: callers must call Close() explicitly.
 	runtime.SetFinalizer(conn, func(c *Connection) {
@@ -157,6 +167,13 @@ func Connect(mac string, rfchannel uint8) (*Connection, error) {
 // Write
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Read implements net.Conn. RFCOMM printers are write-only from the host side;
+// Read immediately returns io.EOF so that callers using net.Conn abstractions
+// (e.g. io.Copy) terminate cleanly without spinning.
+func (c *Connection) Read(_ []byte) (int, error) {
+	return 0, io.EOF
+}
+
 // Write sends data to the printer over the RFCOMM channel.
 //
 // Write is safe to call from multiple goroutines: concurrent calls are
@@ -167,21 +184,21 @@ func Connect(mac string, rfchannel uint8) (*Connection, error) {
 // Data is automatically fragmented at the channel's negotiated MTU (typically
 // 672 bytes for Bluetooth 2.0+ EDR), so callers may pass arbitrarily large
 // payloads such as full ESC/POS print jobs in one call.
-func (c *Connection) Write(data []byte) error {
+func (c *Connection) Write(data []byte) (int, error) {
 	if len(data) == 0 {
-		return nil
+		return 0, nil
 	}
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	if c.closed {
-		return fmt.Errorf("bluetooth/rfcomm: write on closed connection")
+		return 0, fmt.Errorf("bluetooth/rfcomm: write on closed connection")
 	}
 
 	errBuf := (*C.char)(C.malloc(rfcommErrBufSize))
 	if errBuf == nil {
-		return fmt.Errorf("bluetooth/rfcomm: malloc failed for error buffer")
+		return 0, fmt.Errorf("bluetooth/rfcomm: malloc failed for error buffer")
 	}
 	defer C.free(unsafe.Pointer(errBuf))
 	*errBuf = 0
@@ -198,10 +215,26 @@ func (c *Connection) Write(data []byte) error {
 		errBuf, rfcommErrBufSize,
 	)
 	if ret < 0 {
-		return fmt.Errorf("bluetooth/rfcomm: %s", C.GoString(errBuf))
+		return 0, fmt.Errorf("bluetooth/rfcomm: %s", C.GoString(errBuf))
 	}
-	return nil
+	return int(ret), nil
 }
+
+// LocalAddr implements net.Conn.
+func (c *Connection) LocalAddr() net.Addr { return rfcommAddr{"local"} }
+
+// RemoteAddr implements net.Conn.
+func (c *Connection) RemoteAddr() net.Addr { return rfcommAddr{c.mac} }
+
+// SetDeadline implements net.Conn. IOBluetooth write timeouts are configured
+// per-operation (defaulting to 5 s); this no-op satisfies the interface.
+func (c *Connection) SetDeadline(_ time.Time) error { return nil }
+
+// SetReadDeadline implements net.Conn.
+func (c *Connection) SetReadDeadline(_ time.Time) error { return nil }
+
+// SetWriteDeadline implements net.Conn.
+func (c *Connection) SetWriteDeadline(_ time.Time) error { return nil }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Close

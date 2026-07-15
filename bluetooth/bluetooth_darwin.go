@@ -266,50 +266,32 @@ func CheckDependencies() []DependencyStatus {
 	return []DependencyStatus{}
 }
 
-// Opens a connection to a Bluetooth RFCOMM printer on macOS.
-func dialRFCOMM(mac string, _ int) (net.Conn, error) {
+// dialRFCOMM opens a Bluetooth Classic RFCOMM channel to mac using
+// IOBluetooth.framework (no /dev/cu.* dependency).
+//
+// channel selects the RFCOMM channel number (1–30).  Most SPP thermal printers
+// advertise channel 1; the caller should pass the SDP-discovered channel when
+// available, or 0 to accept the default of 1.
+func dialRFCOMM(mac string, channel int) (net.Conn, error) {
 	mac = util.NormalizeMAC(mac)
 
-	tty, err := findDarwinTTY(mac, true)
-	if err != nil {
-		return nil, fmt.Errorf(
-			"no Bluetooth serial port found in /dev/cu.* for %s — "+
-				"pair the printer in System Preferences → Bluetooth and ensure "+
-				"the Serial Port Profile (SPP) is enabled", mac)
+	ch := uint8(1) // SPP default
+	if channel > 0 && channel <= 30 {
+		ch = uint8(channel)
 	}
 
-	logger.Infof("BT/darwin: opening %s for %s", tty, mac)
-
-	f, err := os.OpenFile(tty, os.O_RDWR|unix.O_NONBLOCK, 0)
-	if err != nil {
-		if os.IsPermission(err) {
-			return nil, fmt.Errorf(
-				"BT/darwin: cannot open %s — permission denied (try: sudo chmod a+rw %s): %w",
-				tty, tty, err)
-		}
-		return nil, fmt.Errorf("BT/darwin: cannot open %s: %w", tty, err)
-	}
-
-	if err := unix.SetNonblock(int(f.Fd()), false); err != nil {
-		_ = f.Close()
-		return nil, fmt.Errorf("BT/darwin: failed to clear non-blocking mode: %w", err)
-	}
-
-	if err := setRaw(f.Fd()); err != nil {
-		logger.Warnf("BT/darwin: failed to set raw mode on %s (might corrupt ESC/POS data): %v", tty, err)
-	}
-
-	return &btSerialConn{f: f, path: tty, writeTimeout: btConnectTimeout}, nil
+	logger.Infof("BT/darwin/rfcomm: dialling IOBluetooth RFCOMM for %s ch %d", mac, ch)
+	return Connect(mac, ch)
 }
 
-// on macOS opens the paired Bluetooth serial (/dev/cu.*)
-// device.  SDP and channel probing are not applicable on Darwin.
+// dialRFCOMMPlatform is the macOS entry point for Bluetooth Classic printing.
+// BLE UUIDs are routed to dialBLE; classic MAC addresses go through the
+// IOBluetooth RFCOMM path in dialRFCOMM.
 func dialRFCOMMPlatform(mac string, cachedChannel int) (net.Conn, error) {
 	mac = util.NormalizeMAC(mac)
 	if matched, _ := regexp.MatchString(`^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$`, mac); matched {
 		return dialBLE(mac)
 	}
-	logger.Infof("BT/darwin: dialling serial RFCOMM for %s (channel %d ignored)", mac, cachedChannel)
 	return dialRFCOMM(mac, cachedChannel)
 }
 
