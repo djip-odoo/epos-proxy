@@ -1,0 +1,163 @@
+package bluetooth
+
+import (
+	"context"
+	"encoding/base64"
+	"epos-proxy/config"
+	"epos-proxy/logger"
+	"epos-proxy/util"
+	"fmt"
+	"net"
+	"sync"
+	"time"
+)
+
+type BluetoothPrinterInfo struct {
+	MAC  string `json:"mac"`
+	Name string `json:"name"`
+}
+
+type DependencyStatus struct {
+	Name        string `json:"name"`
+	Installed   bool   `json:"installed"`
+	InstallCmd  string `json:"installCmd"`
+	Description string `json:"description"`
+}
+
+type BluetoothManager struct {
+	Cfg   *config.Manager
+	cache *rfcommCache
+}
+
+var BTManager *BluetoothManager
+
+func InitBluetoothManager(cfg *config.Manager) *BluetoothManager {
+	BTManager = &BluetoothManager{
+		Cfg: cfg,
+		cache: &rfcommCache{
+			entries: make(map[string]*rfcommBinding),
+		},
+	}
+	return BTManager
+}
+
+func (bm *BluetoothManager) GetCachedRFCOMMChannel(mac string) int {
+	mac = util.NormalizeMAC(mac)
+	if b, ok := bm.cache.get(mac); ok {
+		return b.Channel
+	}
+	return 0
+}
+
+func (bm *BluetoothManager) CheckBluetoothPrinter(mac string) error {
+	conn, err := bm.Dial(mac)
+	if err != nil {
+		return fmt.Errorf("bluetooth printer %s is unreachable: %w", mac, err)
+	}
+	_ = conn.Close()
+	return nil
+}
+
+func (bm *BluetoothManager) GetCachedBinding(mac string) (string, int, bool) {
+	mac = util.NormalizeMAC(mac)
+	if b, ok := bm.cache.get(mac); ok {
+		return b.DevPath, b.Channel, true
+	}
+	return "", 0, false
+}
+
+// Dial attempts to connect to the Bluetooth device at mac using the platform's
+// preferred transports in order, automatically falling back if a connection fails.
+func (bm *BluetoothManager) Dial(mac string) (net.Conn, error) {
+	var lastErr error
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	transports := preferredTransports()
+	logger.Debugf("BT/manager: preferred transport order: %v", getTransportNames(transports))
+
+	for _, t := range transports {
+		if !t.IsAvailable() {
+			logger.Debugf("BT/manager: transport %s is not available, skipping", t.Name())
+			continue
+		}
+		logger.Infof("BT/manager: attempting connection via %s to %s", t.Name(), mac)
+		conn, err := t.Dial(ctx, mac)
+		if err == nil {
+			logger.Infof("BT/manager: connected via %s to %s", t.Name(), mac)
+			return conn, nil
+		}
+		logger.Warnf("BT/manager: connection via %s to %s failed: %v", t.Name(), mac, err)
+		lastErr = err
+	}
+
+	if lastErr == nil {
+		return nil, fmt.Errorf("bluetooth/manager: no available Bluetooth transports")
+	}
+	return nil, fmt.Errorf("bluetooth/manager: all connection strategies failed: %w", lastErr)
+}
+
+// ScanBluetoothPrinters queries all available transports for devices and merges the results.
+func ScanBluetoothPrinters() ([]BluetoothPrinterInfo, error) {
+	logger.Debug("BT/manager: starting Bluetooth printer scan across all available transports")
+
+	var allDevices []BluetoothPrinterInfo
+	seen := make(map[string]bool)
+	var mu sync.Mutex
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	var wg sync.WaitGroup
+	transports := preferredTransports()
+
+	for _, t := range transports {
+		if !t.IsAvailable() {
+			continue
+		}
+		wg.Add(1)
+		go func(trans Transport) {
+			defer wg.Done()
+			devices, err := trans.Scan(ctx)
+			if err != nil {
+				logger.Warnf("BT/manager: transport %s scan failed: %v", trans.Name(), err)
+				return
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			for _, d := range devices {
+				norm := util.NormalizeMAC(d.MAC)
+				if !seen[norm] {
+					seen[norm] = true
+					d.MAC = norm
+					allDevices = append(allDevices, d)
+				}
+			}
+		}(t)
+	}
+
+	wg.Wait()
+	logger.Debugf("BT/manager: scan complete, found %d unique printer(s)", len(allDevices))
+	return allDevices, nil
+}
+
+func IsBluetoothAdapterActive() bool {
+	for _, t := range preferredTransports() {
+		if t.IsAvailable() {
+			return true
+		}
+	}
+	return false
+}
+
+func EncodeBluetoothPrinterID(mac string) string {
+	return base64.RawURLEncoding.EncodeToString([]byte("b:" + mac))
+}
+
+func getTransportNames(transports []Transport) []string {
+	names := make([]string, len(transports))
+	for i, t := range transports {
+		names[i] = t.Name()
+	}
+	return names
+}
