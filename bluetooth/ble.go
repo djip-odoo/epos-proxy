@@ -302,48 +302,6 @@ func dialBLEInternal(address string) (conn net.Conn, err error) {
 	}, nil
 }
 
-func discoverPrinterCharacteristic(service bluetooth.DeviceService) (*bluetooth.DeviceCharacteristic, error) {
-	chars, err := service.DiscoverCharacteristics(nil)
-	if err != nil {
-		return nil, err
-	}
-
-	var fallback *bluetooth.DeviceCharacteristic
-
-	for _, c := range chars {
-		logger.Debugf("BT/ble: characteristic %s", c.UUID())
-
-		if fallback == nil {
-			fallback = &c
-		}
-
-		if isKnownPrinterCharacteristic(c.UUID().String()) {
-			return &c, nil
-		}
-	}
-
-	return fallback, nil
-}
-
-func isKnownPrinterCharacteristic(uuid string) bool {
-	uuid = strings.ToLower(uuid)
-
-	switch {
-	case strings.Contains(uuid, "3802"):
-		return true
-	case strings.Contains(uuid, "8841"):
-		return true
-	case strings.Contains(uuid, "2af1"):
-		return true
-	case strings.Contains(uuid, "1e4d"):
-		return true
-	case strings.Contains(uuid, "bef15c90"):
-		return true
-	default:
-		return false
-	}
-}
-
 // Resolves a Classic MAC address to a BLE UUID on macOS by
 // querying system_profiler for the device's Bluetooth name, then scanning for a
 // BLE device with a matching or similar name.
