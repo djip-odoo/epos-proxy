@@ -4,11 +4,9 @@ package bluetooth
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net"
-	"os/exec"
 	"regexp"
 	"runtime"
 	"strings"
@@ -32,7 +30,7 @@ func enableAdapter() error {
 		if adapterEnableErr != nil {
 			logger.Errorf("BT/ble: failed to enable bluetooth adapter: %v", adapterEnableErr)
 		} else {
-			logger.Infof("BT/ble: bluetooth adapter enabled successfully")
+			logger.Debugf("BT/ble: bluetooth adapter enabled successfully")
 		}
 	})
 	return adapterEnableErr
@@ -56,19 +54,13 @@ func (t *BLETransport) Dial(ctx context.Context, address string) (net.Conn, erro
 	// discovery rather than directly dialing an address.
 
 	dialAddress := address
-	if !uuidRegexp.MatchString(address) {
-		// Attempt to resolve MAC to BLE UUID if on macOS
+	if !uuidRegexp.MatchString(address) && runtime.GOOS == "darwin" {
 		resolved, ok := resolveMACToBLEUUID(address)
 		if ok {
 			logger.Infof("BT/ble: resolved MAC %s to BLE UUID %s", address, resolved)
 			dialAddress = resolved
 		} else {
-			// If not a UUID and we can't resolve it, check if we should even try BLE.
-			// On Linux/Windows, a MAC address is perfectly valid for BLE, so we proceed.
-			// On macOS, CoreBluetooth cannot dial a standard MAC address, so we fail early.
-			if runtime.GOOS == "darwin" {
-				return nil, fmt.Errorf("BT/ble: cannot dial MAC address %s directly on macOS without UUID resolution", address)
-			}
+			return nil, fmt.Errorf("BT/ble: cannot dial MAC address %s directly on macOS without UUID resolution", address)
 		}
 	}
 
@@ -79,7 +71,7 @@ func (t *BLETransport) Scan(ctx context.Context) ([]BluetoothPrinterInfo, error)
 	return scanLiveBLEPrinters(ctx, 3*time.Second)
 }
 
-// scanLiveBLEPrinters scans for BLE devices and returns a list of discovered printers.
+// Scans for BLE devices and returns a list of discovered printers.
 func scanLiveBLEPrinters(ctx context.Context, timeout time.Duration) ([]BluetoothPrinterInfo, error) {
 	logger.Debugf("BT/ble: starting live BLE scan for %v", timeout)
 
@@ -106,23 +98,15 @@ func scanLiveBLEPrinters(ctx context.Context, timeout time.Duration) ([]Bluetoot
 				return
 			}
 			seen[addrStr] = true
-
-			nameLower := strings.ToLower(name)
-			if strings.Contains(nameLower, "print") ||
-				strings.Contains(nameLower, "pos") ||
-				strings.Contains(nameLower, "mpt") ||
-				strings.Contains(nameLower, "epson") ||
-				strings.Contains(nameLower, "star") ||
-				strings.Contains(nameLower, "thermal") ||
-				strings.Contains(nameLower, "58") ||
-				strings.Contains(nameLower, "80") ||
-				strings.Contains(nameLower, "ble") ||
-				strings.Contains(nameLower, "spp") {
-				devices = append(devices, BluetoothPrinterInfo{
-					MAC:  addrStr,
-					Name: name,
-				})
+			if name == "" {
+				return
 			}
+
+			devices = append(devices, BluetoothPrinterInfo{
+				MAC:    addrStr,
+				Name:   name,
+				Device: getDeviceType(name),
+			})
 		})
 		scanDone <- err
 	}()
@@ -253,7 +237,6 @@ func dialBLE(ctx context.Context, address string) (net.Conn, error) {
 
 func dialBLEInternal(address string) (conn net.Conn, err error) {
 	logger.Infof("BT/ble: connecting to %s", address)
-
 	if err = enableAdapter(); err != nil {
 		return nil, fmt.Errorf("BT/ble: adapter not available: %w", err)
 	}
@@ -279,7 +262,6 @@ func dialBLEInternal(address string) (conn net.Conn, err error) {
 	}
 
 	var char *bluetooth.DeviceCharacteristic
-
 	for _, service := range services {
 		char, err = discoverPrinterCharacteristic(service)
 		if err != nil {
@@ -295,11 +277,7 @@ func dialBLEInternal(address string) (conn net.Conn, err error) {
 		return nil, fmt.Errorf("BT/ble: no writable characteristic found")
 	}
 
-	logger.Infof(
-		"BT/ble: connected to %s using characteristic %s",
-		address,
-		char.UUID(),
-	)
+	logger.Infof("BT/ble: connected to %s using characteristic %s", address, char.UUID())
 
 	success = true
 
@@ -312,150 +290,16 @@ func dialBLEInternal(address string) (conn net.Conn, err error) {
 	}, nil
 }
 
-func discoverPrinterCharacteristic(service bluetooth.DeviceService) (*bluetooth.DeviceCharacteristic, error) {
-	chars, err := service.DiscoverCharacteristics(nil)
-	if err != nil {
-		return nil, err
-	}
+var printerKeywords = []string{"print", "printer", "pos", "epson", "star", "thermal", "58", "80"}
 
-	var fallback *bluetooth.DeviceCharacteristic
+func getDeviceType(name string) string {
+	name = strings.ToLower(name)
 
-	for _, c := range chars {
-		logger.Debugf("BT/ble: characteristic %s", c.UUID())
-
-		if fallback == nil {
-			fallback = &c
-		}
-
-		if isKnownPrinterCharacteristic(c.UUID().String()) {
-			return &c, nil
+	for _, keyword := range printerKeywords {
+		if strings.Contains(name, keyword) {
+			return "printer"
 		}
 	}
 
-	return fallback, nil
-}
-
-func isKnownPrinterCharacteristic(uuid string) bool {
-	uuid = strings.ToLower(uuid)
-
-	switch {
-	case strings.Contains(uuid, "3802"):
-		return true
-	case strings.Contains(uuid, "8841"):
-		return true
-	case strings.Contains(uuid, "2af1"):
-		return true
-	case strings.Contains(uuid, "1e4d"):
-		return true
-	case strings.Contains(uuid, "bef15c90"):
-		return true
-	default:
-		return false
-	}
-}
-
-// Resolves a Classic MAC address to a BLE UUID on macOS by
-// querying system_profiler for the device's Bluetooth name, then scanning for a
-// BLE device with a matching or similar name.
-func resolveMACToBLEUUID(mac string) (string, bool) {
-	if runtime.GOOS != "darwin" {
-		return "", false
-	}
-
-	btName := lookupBluetoothName(mac)
-	if btName == "" {
-		return "", false
-	}
-	sanitizedTarget := sanitizeForCUName(btName)
-	if sanitizedTarget == "" {
-		return "", false
-	}
-
-	logger.Infof("BT/darwin/classic: attempting to resolve MAC %s (%q) via BLE scan name-matching", mac, btName)
-
-	ble := &BLETransport{}
-	if !ble.IsAvailable() {
-		return "", false
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	devices, err := ble.Scan(ctx)
-	if err != nil {
-		return "", false
-	}
-
-	for _, dev := range devices {
-		if strings.Contains(strings.ToLower(sanitizeForCUName(dev.Name)), sanitizedTarget) {
-			logger.Infof("BT/darwin/classic: matched BLE device %s (%q) for classic printer %s", dev.MAC, dev.Name, mac)
-			return dev.MAC, true
-		}
-	}
-
-	return "", false
-}
-
-func lookupBluetoothName(mac string) string {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	out, err := exec.CommandContext(ctx, "system_profiler", "SPBluetoothDataType", "-json").Output()
-	if ctx.Err() == context.DeadlineExceeded {
-		logger.Warnf("BT/darwin: system_profiler timed out resolving BT name for %s", mac)
-		return ""
-	}
-	if err != nil {
-		logger.Warnf("BT/darwin: system_profiler failed, cannot resolve BT name for %s: %v", mac, err)
-		return ""
-	}
-
-	var generic map[string]any
-	if err := json.Unmarshal(out, &generic); err != nil {
-		logger.Warnf("BT/darwin: failed to parse system_profiler JSON: %v", err)
-		return ""
-	}
-
-	target := strings.ToLower(mac)
-	var found string
-	var walk func(v any)
-	walk = func(v any) {
-		if found != "" {
-			return
-		}
-		switch t := v.(type) {
-		case map[string]any:
-			if addr, ok := t["device_address"].(string); ok && strings.ToLower(addr) == target {
-				if name, ok := t["_name"].(string); ok {
-					found = name
-					return
-				}
-			}
-			for _, val := range t {
-				walk(val)
-			}
-		case []any:
-			for _, item := range t {
-				walk(item)
-			}
-		}
-	}
-	walk(generic)
-
-	if found == "" {
-		logger.Debugf("BT/darwin: no system_profiler entry matched MAC %s", mac)
-	} else {
-		logger.Infof("BT/darwin: resolved MAC %s -> Bluetooth name %q", mac, found)
-	}
-	return found
-}
-
-func sanitizeForCUName(name string) string {
-	var b strings.Builder
-	for _, r := range name {
-		switch {
-		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
-			b.WriteRune(r)
-		}
-	}
-	return strings.ToLower(b.String())
+	return "other"
 }

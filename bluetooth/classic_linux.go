@@ -35,12 +35,6 @@ func disableRFCOMMBind() {
 	rfcommBindDisabledMu.Unlock()
 }
 
-func preferredTransports() []Transport {
-	return []Transport{
-		&ClassicTransport{},
-	}
-}
-
 type ClassicTransport struct{}
 
 func (t *ClassicTransport) Name() string {
@@ -106,7 +100,7 @@ func scanPairedPrinters() ([]BluetoothPrinterInfo, error) {
 		}
 
 		seen[mac] = true
-		devices = append(devices, BluetoothPrinterInfo{MAC: util.NormalizeMAC(mac), Name: name})
+		devices = append(devices, BluetoothPrinterInfo{MAC: util.NormalizeMAC(mac), Name: name, Device: "printer"})
 	}
 
 	logger.Debugf("BT: found %d Bluetooth printers", len(devices))

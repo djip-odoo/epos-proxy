@@ -62,7 +62,7 @@
               <li v-for="device in devices" :key="device.mac" @click="selectDevice(device)"
                 class="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-blue-50 transition-colors"
                 :class="selectedMac === device.mac ? 'bg-blue-50 ring-1 ring-inset ring-blue-400' : ''">
-                <span class="w-4 h-4 shrink-0" v-html="printerIcon"></span>
+                <span class="w-4 h-4 shrink-0" v-html="device.device === 'printer' ? printerIcon : bluetoothIcon"></span>
                 <div class="flex-1 min-w-0">
                   <div class="text-sm font-medium text-gray-800 truncate">{{ device.name }}</div>
                   <div class="text-xs text-gray-400 font-mono">{{ device.mac }}</div>

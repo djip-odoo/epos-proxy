@@ -8,13 +8,15 @@ import (
 	"epos-proxy/util"
 	"fmt"
 	"net"
+	"runtime"
 	"sync"
 	"time"
 )
 
 type BluetoothPrinterInfo struct {
-	MAC  string `json:"mac"`
-	Name string `json:"name"`
+	MAC    string `json:"mac"`
+	Name   string `json:"name"`
+	Device string `json:"device"`
 }
 
 type DependencyStatus struct {
@@ -66,6 +68,19 @@ func (bm *BluetoothManager) GetCachedBinding(mac string) (string, int, bool) {
 	return "", 0, false
 }
 
+func supportedTransportsByOS() []Transport {
+	switch runtime.GOOS {
+	case "darwin":
+		return []Transport{
+			&BLETransport{},
+		}
+	default:
+		return []Transport{
+			&ClassicTransport{},
+		}
+	}
+}
+
 // Dial attempts to connect to the Bluetooth device at mac using the platform's
 // preferred transports in order, automatically falling back if a connection fails.
 func (bm *BluetoothManager) Dial(mac string) (net.Conn, error) {
@@ -73,7 +88,7 @@ func (bm *BluetoothManager) Dial(mac string) (net.Conn, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	transports := preferredTransports()
+	transports := supportedTransportsByOS()
 	logger.Debugf("BT/manager: preferred transport order: %v", getTransportNames(transports))
 
 	for _, t := range transports {
@@ -109,7 +124,7 @@ func ScanBluetoothPrinters() ([]BluetoothPrinterInfo, error) {
 	defer cancel()
 
 	var wg sync.WaitGroup
-	transports := preferredTransports()
+	transports := supportedTransportsByOS()
 
 	for _, t := range transports {
 		if !t.IsAvailable() {
@@ -142,7 +157,7 @@ func ScanBluetoothPrinters() ([]BluetoothPrinterInfo, error) {
 }
 
 func IsBluetoothAdapterActive() bool {
-	for _, t := range preferredTransports() {
+	for _, t := range supportedTransportsByOS() {
 		if t.IsAvailable() {
 			return true
 		}

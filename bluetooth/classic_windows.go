@@ -75,12 +75,6 @@ type btDeviceInfo struct {
 	szName          [248]uint16
 }
 
-func preferredTransports() []Transport {
-	return []Transport{
-		&ClassicTransport{},
-	}
-}
-
 type ClassicTransport struct{}
 
 func (t *ClassicTransport) Name() string {
@@ -139,7 +133,7 @@ func scanPairedPrinters() ([]BluetoothPrinterInfo, error) {
 
 		logger.Debugf("BT/Windows: found device %s (%s)", name, mac)
 
-		devices = append(devices, BluetoothPrinterInfo{MAC: util.NormalizeMAC(mac), Name: name})
+		devices = append(devices, BluetoothPrinterInfo{MAC: util.NormalizeMAC(mac), Name: name, Device: "printer"})
 
 		info = btDeviceInfo{}
 		info.dwSize = uint32(unsafe.Sizeof(info))
