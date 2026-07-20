@@ -109,8 +109,9 @@ func scanLiveBLEPrinters(ctx context.Context, timeout time.Duration) ([]Bluetoot
 			}
 
 			devices = append(devices, BluetoothPrinterInfo{
-				MAC:  addrStr,
-				Name: name,
+				MAC:    addrStr,
+				Name:   name,
+				Device: getDeviceType(name),
 			})
 		})
 		scanDone <- err
@@ -443,4 +444,18 @@ func sanitizeForCUName(name string) string {
 		}
 	}
 	return strings.ToLower(b.String())
+}
+
+func getDeviceType(name string) string {
+	nameLower := strings.ToLower(name)
+	if strings.Contains(nameLower, "print") ||
+		strings.Contains(nameLower, "pos") ||
+		strings.Contains(nameLower, "epson") ||
+		strings.Contains(nameLower, "star") ||
+		strings.Contains(nameLower, "thermal") ||
+		strings.Contains(nameLower, "58") ||
+		strings.Contains(nameLower, "80") {
+		return "printer"
+	}
+	return "other"
 }

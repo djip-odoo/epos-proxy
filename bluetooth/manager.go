@@ -14,8 +14,9 @@ import (
 )
 
 type BluetoothPrinterInfo struct {
-	MAC  string `json:"mac"`
-	Name string `json:"name"`
+	MAC    string `json:"mac"`
+	Name   string `json:"name"`
+	Device string `json:"device"`
 }
 
 type DependencyStatus struct {
