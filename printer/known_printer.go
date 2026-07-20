@@ -18,7 +18,6 @@ var printerRegistry = map[string]PrinterType{
 	"04b8:0203": PrinterTypeReceipt, // Epson thermal
 	"2d84:c7c8": PrinterTypeReceipt, // Zhuhai Poskey
 	"4b43:3830": PrinterTypeReceipt, // Caysn
-	"0483:5720": PrinterTypeReceipt, // STMicroelectronics
 
 	// Label printers
 	"0a5f:0187": PrinterTypeLabel, // Zebra ZD421

@@ -55,8 +55,8 @@
                   <button
                       class="absolute top-2.5 right-2 px-2 py-1 text-xs rounded-md bg-slate-700 text-slate-300 hover:bg-slate-600 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                       @click="copyCode(index,code)"
+                      v-html="codeCopied[index] ? checkIcon + ' Copied' : 'Copy'"
                   >
-                    {{ codeCopied[index] ? '✓ Copied' : 'Copy' }}
                   </button>
                 </div>
               </div>
@@ -77,7 +77,7 @@
             <button
                 v-else
                 class="flex-1 py-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 cursor-pointer transition-colors"
-                @click="close">All done ✓
+                @click="close"><span v-html="checkIcon"></span> All done
             </button>
           </div>
 
@@ -92,6 +92,7 @@ import {nextTick, onUnmounted, ref, watch} from 'vue'
 import {useStepModal} from './use-step-modal'
 import {BrowserOpenURL} from "../../wailsjs/runtime"
 import CloseButton from './close-button.vue'
+import { checkIcon } from '../components/printer-icons.js'
 
 const props = defineProps({
   modelValue: {type: Boolean, default: false},

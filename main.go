@@ -23,8 +23,6 @@ var assets embed.FS
 
 func main() {
 	logger.InitLogger()
-	logger.Debugf("Starting ePOS Proxy")
-
 	app := NewApp()
 
 	windowStartState := options.Normal
