@@ -14,6 +14,8 @@ usage() {
   exit 1
 }
 
+./scripts/setup-tinygo-bluetooth.sh
+
 # ── Config ────────────────────────────────────────────────────────────────────
 APP_NAME="ePOS proxy"
 BINARY_NAME="epos-proxy"

@@ -3,14 +3,19 @@
 package bluetooth
 
 import (
+	"context"
+	"encoding/json"
 	"epos-proxy/logger"
 	"fmt"
+	"os/exec"
+	"strings"
+	"time"
 
 	cbgo "github.com/tinygo-org/cbgo"
 	tinygoBT "tinygo.org/x/bluetooth"
 )
 
-// On Darwin+CGO, discoverPrinterCharacteristic uses the Properties() method
+// On Darwin+CGO,it uses the Properties() method
 // exposed by our local fork of tinygo.org/x/bluetooth to pick the first
 // characteristic that supports Write or WriteWithoutResponse.
 func discoverPrinterCharacteristic(service tinygoBT.DeviceService) (*tinygoBT.DeviceCharacteristic, error) {
@@ -41,7 +46,6 @@ func discoverPrinterCharacteristic(service tinygoBT.DeviceService) (*tinygoBT.De
 	logger.Debugf("BT/ble: no writable characteristic found, using fallback %s", fallback.UUID())
 	return fallback, nil
 }
-
 
 // Resolves a Classic MAC address to a BLE UUID on macOS by
 // querying system_profiler for the device's Bluetooth name, then scanning for a
