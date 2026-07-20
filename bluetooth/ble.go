@@ -32,7 +32,7 @@ func enableAdapter() error {
 		if adapterEnableErr != nil {
 			logger.Errorf("BT/ble: failed to enable bluetooth adapter: %v", adapterEnableErr)
 		} else {
-			logger.Infof("BT/ble: bluetooth adapter enabled successfully")
+			logger.Debugf("BT/ble: bluetooth adapter enabled successfully")
 		}
 	})
 	return adapterEnableErr
@@ -56,7 +56,7 @@ func (t *BLETransport) Dial(ctx context.Context, address string) (net.Conn, erro
 	// discovery rather than directly dialing an address.
 
 	dialAddress := address
-	if !uuidRegexp.MatchString(address) {
+	if !uuidRegexp.MatchString(address) && runtime.GOOS == "darwin" {
 		// Attempt to resolve MAC to BLE UUID if on macOS
 		resolved, ok := resolveMACToBLEUUID(address)
 		if ok {
@@ -66,9 +66,7 @@ func (t *BLETransport) Dial(ctx context.Context, address string) (net.Conn, erro
 			// If not a UUID and we can't resolve it, check if we should even try BLE.
 			// On Linux/Windows, a MAC address is perfectly valid for BLE, so we proceed.
 			// On macOS, CoreBluetooth cannot dial a standard MAC address, so we fail early.
-			if runtime.GOOS == "darwin" {
-				return nil, fmt.Errorf("BT/ble: cannot dial MAC address %s directly on macOS without UUID resolution", address)
-			}
+			return nil, fmt.Errorf("BT/ble: cannot dial MAC address %s directly on macOS without UUID resolution", address)
 		}
 	}
 
@@ -79,7 +77,7 @@ func (t *BLETransport) Scan(ctx context.Context) ([]BluetoothPrinterInfo, error)
 	return scanLiveBLEPrinters(ctx, 3*time.Second)
 }
 
-// scanLiveBLEPrinters scans for BLE devices and returns a list of discovered printers.
+// Scans for BLE devices and returns a list of discovered printers.
 func scanLiveBLEPrinters(ctx context.Context, timeout time.Duration) ([]BluetoothPrinterInfo, error) {
 	logger.Debugf("BT/ble: starting live BLE scan for %v", timeout)
 
@@ -106,23 +104,14 @@ func scanLiveBLEPrinters(ctx context.Context, timeout time.Duration) ([]Bluetoot
 				return
 			}
 			seen[addrStr] = true
-
-			nameLower := strings.ToLower(name)
-			if strings.Contains(nameLower, "print") ||
-				strings.Contains(nameLower, "pos") ||
-				strings.Contains(nameLower, "mpt") ||
-				strings.Contains(nameLower, "epson") ||
-				strings.Contains(nameLower, "star") ||
-				strings.Contains(nameLower, "thermal") ||
-				strings.Contains(nameLower, "58") ||
-				strings.Contains(nameLower, "80") ||
-				strings.Contains(nameLower, "ble") ||
-				strings.Contains(nameLower, "spp") {
-				devices = append(devices, BluetoothPrinterInfo{
-					MAC:  addrStr,
-					Name: name,
-				})
+			if name == "" {
+				return
 			}
+
+			devices = append(devices, BluetoothPrinterInfo{
+				MAC:  addrStr,
+				Name: name,
+			})
 		})
 		scanDone <- err
 	}()
@@ -358,10 +347,6 @@ func isKnownPrinterCharacteristic(uuid string) bool {
 // querying system_profiler for the device's Bluetooth name, then scanning for a
 // BLE device with a matching or similar name.
 func resolveMACToBLEUUID(mac string) (string, bool) {
-	if runtime.GOOS != "darwin" {
-		return "", false
-	}
-
 	btName := lookupBluetoothName(mac)
 	if btName == "" {
 		return "", false

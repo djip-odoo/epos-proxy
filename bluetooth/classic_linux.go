@@ -35,12 +35,6 @@ func disableRFCOMMBind() {
 	rfcommBindDisabledMu.Unlock()
 }
 
-func preferredTransports() []Transport {
-	return []Transport{
-		&ClassicTransport{},
-	}
-}
-
 type ClassicTransport struct{}
 
 func (t *ClassicTransport) Name() string {

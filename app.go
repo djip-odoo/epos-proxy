@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"runtime"
@@ -298,6 +299,11 @@ func (a *App) DisableAutostart() error {
 // --- Bluetooth printer methods ---
 func (a *App) ScanBluetoothPrinters() ([]bluetooth.BluetoothPrinterInfo, error) {
 	logger.Debug("Scanning for Bluetooth devices")
+	if !a.IsBluetoothAdapterActive() {
+		logger.Debugf("Bluetooth adapter is not active, skipping status check")
+		return nil, errors.New("Bluetooth adapter is not active")
+	}
+
 	devices, err := bluetooth.ScanBluetoothPrinters()
 	if err != nil {
 		logger.Errorf("Bluetooth scan failed: %v", err)

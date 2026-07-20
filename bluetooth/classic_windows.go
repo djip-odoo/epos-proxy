@@ -75,12 +75,6 @@ type btDeviceInfo struct {
 	szName          [248]uint16
 }
 
-func preferredTransports() []Transport {
-	return []Transport{
-		&ClassicTransport{},
-	}
-}
-
 type ClassicTransport struct{}
 
 func (t *ClassicTransport) Name() string {
