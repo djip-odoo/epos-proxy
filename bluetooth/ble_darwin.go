@@ -2,37 +2,17 @@
 
 package bluetooth
 
-/*
-#include <stdint.h>
-#include <objc/runtime.h>
-#include <objc/message.h>
-
-// Query CBCharacteristic.properties via the ObjC runtime.
-// CBCharacteristicProperties is NSUInteger (= uint64_t on arm64/amd64).
-static uint64_t cbchr_properties(void* p) {
-	typedef uint64_t (*msgFn)(id, SEL);
-	return ((msgFn)objc_msgSend)((id)p, sel_registerName("properties"));
-}
-*/
-import "C"
 import (
 	"epos-proxy/logger"
 	"fmt"
-	"unsafe"
 
+	cbgo "github.com/tinygo-org/cbgo"
 	tinygoBT "tinygo.org/x/bluetooth"
 )
 
-// CBCharacteristicProperties write-capable bits (stable Apple API values).
-const (
-	cbPropWriteWithoutResponse uint64 = 0x04
-	cbPropWrite                uint64 = 0x08
-)
-
-// Overrides the cross-platform fallback in
-// ble_charprop_other.go. On Darwin+CGO we can read CBCharacteristicProperties
-// via the ObjC runtime and prefer a characteristic that has Write or
-// WriteWithoutResponse.
+// On Darwin+CGO, discoverPrinterCharacteristic uses the Properties() method
+// exposed by our local fork of tinygo.org/x/bluetooth to pick the first
+// characteristic that supports Write or WriteWithoutResponse.
 func discoverPrinterCharacteristic(service tinygoBT.DeviceService) (*tinygoBT.DeviceCharacteristic, error) {
 	chars, err := service.DiscoverCharacteristics(nil)
 	if err != nil {
@@ -42,12 +22,14 @@ func discoverPrinterCharacteristic(service tinygoBT.DeviceService) (*tinygoBT.De
 		return nil, fmt.Errorf("BT/ble: service %s exposes no characteristics", service.UUID())
 	}
 
+	writeProps := cbgo.CharacteristicPropertyWrite | cbgo.CharacteristicPropertyWriteWithoutResponse
+
 	var fallback *tinygoBT.DeviceCharacteristic
 	for i := range chars {
 		c := &chars[i]
-		props := cbCharProperties(c)
-		logger.Debugf("BT/ble: characteristic %s props=0x%x", c.UUID(), props)
-		if props&(cbPropWrite|cbPropWriteWithoutResponse) != 0 {
+		props := c.Properties()
+		logger.Debugf("BT/ble: characteristic %s props=0x%x", c.UUID(), int(props))
+		if props&writeProps != 0 {
 			logger.Debugf("BT/ble: selected writable characteristic %s", c.UUID())
 			return c, nil
 		}
@@ -60,27 +42,6 @@ func discoverPrinterCharacteristic(service tinygoBT.DeviceService) (*tinygoBT.De
 	return fallback, nil
 }
 
-// Extracts CBCharacteristicProperties from a DeviceCharacteristic
-// using unsafe arithmetic on the tinygo.org/x/bluetooth v0.15.0 struct layout:
-//
-//	DeviceCharacteristic { *deviceCharacteristic }        — one pointer (8 B)
-//	deviceCharacteristic {
-//	    uuidWrapper      [16]byte   offset  0
-//	    service          DeviceService (= {*deviceService}) offset 16
-//	    characteristic   cbgo.Characteristic{ptr unsafe.Pointer} offset 24  ← target
-//	    ...
-//	}
-//
-// cbgo.Characteristic.ptr holds the raw ObjC CBCharacteristic* object.
-func cbCharProperties(c *tinygoBT.DeviceCharacteristic) uint64 {
-	// Step 1: read the embedded *deviceCharacteristic pointer.
-	dcPtr := *(*unsafe.Pointer)(unsafe.Pointer(c))
-	// Step 2: at offset 24 sits cbgo.Characteristic{ptr unsafe.Pointer};
-	//         the ptr field is at offset 0 within that struct.
-	chrPtr := *(*unsafe.Pointer)(unsafe.Pointer(uintptr(dcPtr) + 24))
-	// Step 3: query the ObjC object for its properties bitmask.
-	return uint64(C.cbchr_properties(chrPtr))
-}
 
 // Resolves a Classic MAC address to a BLE UUID on macOS by
 // querying system_profiler for the device's Bluetooth name, then scanning for a

@@ -7,6 +7,7 @@ require (
 	github.com/gofiber/fiber/v3 v3.1.0
 	github.com/google/gousb v1.1.3
 	github.com/sirupsen/logrus v1.9.4
+	github.com/tinygo-org/cbgo v0.0.4
 	github.com/wailsapp/wails/v2 v2.12.0
 	github.com/yusufpapurcu/wmi v1.2.4
 	golang.org/x/sys v0.41.0
@@ -43,7 +44,6 @@ require (
 	github.com/soypat/cyw43439 v0.1.0 // indirect
 	github.com/soypat/lneto v0.1.0 // indirect
 	github.com/soypat/seqs v0.0.0-20250124201400-0d65bc7c1710 // indirect
-	github.com/tinygo-org/cbgo v0.0.4 // indirect
 	github.com/tinygo-org/pio v0.3.0 // indirect
 	github.com/tinylib/msgp v1.6.3 // indirect
 	github.com/tkrajina/go-reflector v0.5.8 // indirect
@@ -59,3 +59,5 @@ require (
 )
 
 // replace github.com/wailsapp/wails/v2 v2.11.0 => /Users/steph/go/pkg/mod
+
+replace tinygo.org/x/bluetooth v0.15.0 => ./tinygo-bluetooth
