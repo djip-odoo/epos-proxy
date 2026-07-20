@@ -59,12 +59,23 @@ fi
 echo "▶ Applying ${#PATCH_FILES[@]} patch(es)..."
 for patch_file in "${PATCH_FILES[@]}"; do
   echo "  ✎ $(basename "${patch_file}")"
-  patch \
-    --directory="${TARGET_DIR}" \
-    --strip=1 \
-    --forward \
-    --reject-file=- \
-    < "${patch_file}"
+
+  if patch \
+      --directory="${TARGET_DIR}" \
+      --strip=1 \
+      --forward \
+      --dry-run \
+      < "${patch_file}" >/dev/null 2>&1; then
+
+    patch \
+      --directory="${TARGET_DIR}" \
+      --strip=1 \
+      --forward \
+      < "${patch_file}"
+
+  else
+    echo "    ✓ Already applied (or cannot be applied), skipping"
+  fi
 done
 
 echo "✅ tinygo-bluetooth is ready (${UPSTREAM_TAG} + patches)"
