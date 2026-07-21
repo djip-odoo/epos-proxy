@@ -4,10 +4,8 @@ package bluetooth
 
 import (
 	"context"
-	"encoding/json"
 	"epos-proxy/logger"
 	"fmt"
-	"os/exec"
 	"strings"
 	"time"
 

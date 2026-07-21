@@ -8,17 +8,13 @@ import (
 	"epos-proxy/logger"
 	"epos-proxy/util"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 	"time"
-
-	"tinygo.org/x/bluetooth"
 
 	"golang.org/x/sys/unix"
 )
@@ -34,7 +30,7 @@ func (t *ClassicTransport) IsAvailable() bool {
 }
 
 func (t *ClassicTransport) Dial(ctx context.Context, address string) (net.Conn, error) {
-	return dialRFCOMMPlatform(address, 0)
+	return dialRFCOMMPlatform(ctx, address, 0)
 }
 
 func (t *ClassicTransport) Scan(ctx context.Context) ([]BluetoothPrinterInfo, error) {
@@ -169,10 +165,10 @@ func dialRFCOMM(mac string, channel int) (net.Conn, error) {
 // dialRFCOMMPlatform is the macOS entry point for Bluetooth Classic printing.
 // BLE UUIDs are routed to dialBLE; classic MAC addresses go through the
 // IOBluetooth RFCOMM path in dialRFCOMM.
-func dialRFCOMMPlatform(mac string, cachedChannel int) (net.Conn, error) {
+func dialRFCOMMPlatform(ctx context.Context, mac string, cachedChannel int) (net.Conn, error) {
 	mac = util.NormalizeAddress(mac)
-	if matched, _ := regexp.MatchString(`^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$`, mac); matched {
-		return dialBLE(mac)
+	if util.UuidRegexp.MatchString(mac) {
+		return dialBLE(ctx, mac)
 	}
 	return dialRFCOMM(mac, cachedChannel)
 }
@@ -539,204 +535,4 @@ func OpenDarwinBTSerial(mac string, writeTimeout time.Duration, allowFallback bo
 		writeTimeout: writeTimeout,
 	}
 	return conn, nil
-}
-
-// ---------------------------------------------------------------------------
-// BLE Printer Connection and Conn Implementation
-// ---------------------------------------------------------------------------
-
-type bleConn struct {
-	device       bluetooth.Device
-	char         *bluetooth.DeviceCharacteristic
-	uuid         string
-	writeTimeout time.Duration
-	readDeadline time.Time
-	connected    bool
-}
-
-func (c *bleConn) Read(b []byte) (int, error) {
-	// FIX #1: BLE printing is write-only. Returning 0, nil in a loop would cause
-	// any caller that loops on Read (io.Copy, net/http, etc.) to spin forever.
-	// Return io.EOF immediately to signal that no data will ever arrive.
-	return 0, io.EOF
-}
-
-func (c *bleConn) Write(b []byte) (int, error) {
-	if c.char == nil {
-		return 0, fmt.Errorf("BT/darwin/ble: connection closed")
-	}
-
-	logger.Debugf("BT/darwin/ble: writing %d bytes to %s", len(b), c.uuid)
-
-	// Split write into chunks because BLE has MTU limit.
-	// Safe MTU chunk size is 180 bytes.
-	chunkSize := 180
-	totalWritten := 0
-
-	for totalWritten < len(b) {
-		end := totalWritten + chunkSize
-		if end > len(b) {
-			end = len(b)
-		}
-		chunk := b[totalWritten:end]
-
-		// Try writing with response, fallback to without response if supported or fails
-		n, err := c.char.Write(chunk)
-		if err != nil {
-			n, err = c.char.WriteWithoutResponse(chunk)
-			if err != nil {
-				return totalWritten, fmt.Errorf("BT/darwin/ble: write failed: %w", err)
-			}
-			time.Sleep(15 * time.Millisecond)
-		}
-		totalWritten += n
-	}
-
-	return totalWritten, nil
-}
-
-func (c *bleConn) Close() error {
-	if c.connected {
-		err := c.device.Disconnect()
-		c.connected = false
-		c.char = nil
-		return err
-	}
-	return nil
-}
-
-func (c *bleConn) LocalAddr() net.Addr {
-	return bleAddr{addr: "local-ble"}
-}
-
-func (c *bleConn) RemoteAddr() net.Addr {
-	return bleAddr{addr: c.uuid}
-}
-
-func (c *bleConn) SetDeadline(t time.Time) error {
-	return nil
-}
-
-func (c *bleConn) SetReadDeadline(t time.Time) error {
-	c.readDeadline = t
-	return nil
-}
-
-func (c *bleConn) SetWriteDeadline(t time.Time) error {
-	if t.IsZero() {
-		c.writeTimeout = 0
-	} else {
-		c.writeTimeout = time.Until(t)
-	}
-	return nil
-}
-
-type bleAddr struct {
-	addr string
-}
-
-func (a bleAddr) Network() string { return "ble" }
-func (a bleAddr) String() string  { return a.addr }
-
-// dialBLE connects to a BLE device and returns a net.Conn.
-// FIX #6: adapter.Connect and device.DiscoverServices have no built-in timeout
-// on macOS/CoreBluetooth and can hang indefinitely if the device is out of
-// range or the BLE stack is initialising. We wrap the entire operation in a
-// goroutine and enforce a 15-second hard deadline.
-func dialBLE(uuid string) (net.Conn, error) {
-	type result struct {
-		conn net.Conn
-		err  error
-	}
-	ch := make(chan result, 1)
-	go func() {
-		conn, err := dialBLEInternal(uuid)
-		ch <- result{conn, err}
-	}()
-	select {
-	case r := <-ch:
-		return r.conn, r.err
-	case <-time.After(15 * time.Second):
-		return nil, fmt.Errorf("BT/darwin/ble: connect to %s timed out after 15s (device out of range or BLE stack not ready)", uuid)
-	}
-}
-
-// dialBLEInternal performs the actual BLE connection; called from dialBLE's goroutine.
-func dialBLEInternal(uuid string) (net.Conn, error) {
-	logger.Infof("BT/darwin/ble: attempting to connect to BLE device %s", uuid)
-
-	// FIX #4: use sync.Once-guarded enableAdapter().
-	if err := enableAdapter(); err != nil {
-		return nil, fmt.Errorf("BT/darwin/ble: adapter not available: %w", err)
-	}
-
-	var addr bluetooth.Address
-	addr.Set(uuid)
-
-	device, err := adapter.Connect(addr, bluetooth.ConnectionParams{})
-	if err != nil {
-		return nil, fmt.Errorf("BT/darwin/ble: failed to connect to %s: %w", uuid, err)
-	}
-
-	services, err := device.DiscoverServices(nil)
-	if err != nil {
-		_ = device.Disconnect()
-		return nil, fmt.Errorf("BT/darwin/ble: failed to discover services for %s: %w", uuid, err)
-	}
-
-	var fallbackChar *bluetooth.DeviceCharacteristic
-	var targetChar *bluetooth.DeviceCharacteristic
-
-	for _, srv := range services {
-		srvUUID := srv.UUID().String()
-		if strings.Contains(srvUUID, "1800") || strings.Contains(srvUUID, "1801") || strings.Contains(srvUUID, "180a") {
-			continue
-		}
-
-		chars, err := srv.DiscoverCharacteristics(nil)
-		if err != nil {
-			continue
-		}
-
-		for _, char := range chars {
-			charUUIDStr := strings.ToLower(char.UUID().String())
-			isKnown := false
-			for _, kw := range []string{"3802", "8841", "2af1", "1e4d", "bef15c90"} {
-				if strings.Contains(charUUIDStr, kw) {
-					isKnown = true
-					break
-				}
-			}
-
-			if isKnown {
-				targetChar = &char
-				break
-			}
-
-			if fallbackChar == nil {
-				fallbackChar = &char
-			}
-		}
-		if targetChar != nil {
-			break
-		}
-	}
-
-	if targetChar == nil {
-		targetChar = fallbackChar
-	}
-
-	if targetChar == nil {
-		_ = device.Disconnect()
-		return nil, fmt.Errorf("BT/darwin/ble: no writeable characteristic found on device %s", uuid)
-	}
-
-	logger.Infof("BT/darwin/ble: connected successfully to %s, using characteristic %s", uuid, targetChar.UUID().String())
-	return &bleConn{
-		device:       device,
-		char:         targetChar,
-		uuid:         uuid,
-		writeTimeout: 10 * time.Second,
-		connected:    true,
-	}, nil
 }

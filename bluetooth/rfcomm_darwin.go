@@ -127,8 +127,8 @@ func (a rfcommAddr) String() string  { return a.addr }
 // Connect blocks until the channel is fully open or the 10-second default
 // timeout expires.
 func Connect(mac string, rfchannel uint8) (*Connection, error) {
-	mac = util.NormalizeMAC(mac)
-	if err := util.ValidateMAC(mac); err != nil {
+	mac = util.NormalizeAddress(mac)
+	if err := util.ValidateAddress(mac); err != nil {
 		return nil, fmt.Errorf("bluetooth/rfcomm: invalid MAC address %q: %w", mac, err)
 	}
 

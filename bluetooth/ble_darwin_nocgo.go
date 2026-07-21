@@ -25,3 +25,7 @@ func (t *BLETransport) Dial(ctx context.Context, address string) (net.Conn, erro
 func (t *BLETransport) Scan(ctx context.Context) ([]BluetoothPrinterInfo, error) {
 	return nil, errors.New("BLE on macOS requires CGO_ENABLED=1")
 }
+
+func dialBLE(ctx context.Context, address string) (net.Conn, error) {
+	return nil, errors.New("BLE on macOS requires CGO_ENABLED=1")
+}
