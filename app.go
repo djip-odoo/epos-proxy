@@ -296,14 +296,14 @@ func (a *App) DisableAutostart() error {
 }
 
 // --- Bluetooth printer methods ---
-func (a *App) ScanBluetoothPrinters() ([]bluetooth.BluetoothPrinterInfo, error) {
-	logger.Debug("Scanning for Bluetooth devices")
+func (a *App) ScanBluetoothPrinters(connType string) ([]bluetooth.BluetoothPrinterInfo, error) {
+	logger.Debugf("Scanning for Bluetooth devices of type: %s", connType)
 	if !a.IsBluetoothAdapterActive() {
 		logger.Debugf("Bluetooth adapter is not active, skipping status check")
 		return nil, fmt.Errorf("Bluetooth adapter is not active")
 	}
 
-	devices, err := bluetooth.ScanBluetoothPrinters()
+	devices, err := bluetooth.ScanBluetoothPrinters(connType)
 	if err != nil {
 		logger.Errorf("Bluetooth scan failed: %v", err)
 		return nil, err
@@ -311,24 +311,24 @@ func (a *App) ScanBluetoothPrinters() ([]bluetooth.BluetoothPrinterInfo, error) 
 	return devices, nil
 }
 
-func (a *App) CheckBluetoothDependenciesAndOs() map[string]any {
-	return map[string]any{"deps": bluetooth.CheckDependencies(), "os": runtime.GOOS}
+func (a *App) CheckBluetoothDependenciesAndOs() []bluetooth.DependencyStatus {
+	return bluetooth.CheckDependencies()
 }
 
-func (a *App) AddBluetoothPrinter(address, name string) error {
-	logger.Debugf("Adding Bluetooth printer: %s (%s)", address, name)
+func (a *App) AddBluetoothPrinter(address, name, connType string) error {
+	logger.Debugf("Adding Bluetooth printer: %s (%s, type: %s)", address, name, connType)
 	address = util.NormalizeAddress(address)
 	if err := util.ValidateAddress(address); err != nil {
 		logger.Errorf("Invalid MAC address: %v", err)
 		return err
 	}
 
-	if err := a.config.AddBluetoothPrinter(address, name); err != nil {
+	if err := a.config.AddBluetoothPrinter(address, name, connType); err != nil {
 		logger.Errorf("Failed to save Bluetooth printer: %v", err)
 		return fmt.Errorf("failed to save Bluetooth printer: %w", err)
 	}
 
-	logger.Debugf("Bluetooth printer added: %s (%s)", address, name)
+	logger.Debugf("Bluetooth printer added: %s (%s, type: %s)", address, name, connType)
 	return nil
 }
 

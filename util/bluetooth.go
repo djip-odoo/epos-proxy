@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+var UuidRegexp = regexp.MustCompile(`^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$`)
+
 // parseMACToBytes converts "AA:BB:CC:DD:EE:FF" → [6]byte in reversed order
 // (little-endian as required by the BlueZ sockaddr_rc).
 func ParseMACToBytes(macAddress string) ([6]byte, error) {
@@ -28,7 +30,7 @@ func ParseMACToBytes(macAddress string) ([6]byte, error) {
 func NormalizeAddress(address string) string {
 	address = strings.ToUpper(strings.TrimSpace(address))
 	// If it is a UUID, preserve it as-is
-	if matched, _ := regexp.MatchString(`^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$`, address); matched {
+	if UuidRegexp.MatchString(address) {
 		return address
 	}
 	address = strings.ReplaceAll(address, "-", ":")

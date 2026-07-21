@@ -20,6 +20,7 @@ const (
 type BluetoothPrinterConfig struct {
 	Address string `json:"address"`
 	Name    string `json:"name"`
+	Type    string `json:"type"` // "classic" or "ble"
 }
 
 type AppConfig struct {

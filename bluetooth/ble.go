@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -18,25 +17,6 @@ import (
 
 	"tinygo.org/x/bluetooth"
 )
-
-var adapter = bluetooth.DefaultAdapter
-var adapterOnce sync.Once
-var adapterEnableErr error
-var uuidRegexp = regexp.MustCompile(`^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$`)
-
-const defaultBLEWriteChunk = 180
-
-func enableAdapter() error {
-	adapterOnce.Do(func() {
-		adapterEnableErr = adapter.Enable()
-		if adapterEnableErr != nil {
-			logger.Errorf("BT/ble: failed to enable bluetooth adapter: %v", adapterEnableErr)
-		} else {
-			logger.Debugf("BT/ble: bluetooth adapter enabled successfully")
-		}
-	})
-	return adapterEnableErr
-}
 
 type BLETransport struct{}
 
@@ -56,7 +36,7 @@ func (t *BLETransport) Dial(ctx context.Context, address string) (net.Conn, erro
 	// discovery rather than directly dialing an address.
 
 	dialAddress := address
-	if !uuidRegexp.MatchString(address) && runtime.GOOS == "darwin" {
+	if !util.UuidRegexp.MatchString(address) && runtime.GOOS == "darwin" {
 		resolved, ok := resolveMACToBLEUUID(address)
 		if ok {
 			logger.Infof("BT/ble: resolved MAC %s to BLE UUID %s", address, resolved)
