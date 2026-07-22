@@ -23,7 +23,9 @@ type AppConfig struct {
 }
 
 func defaults() AppConfig {
-	return AppConfig{Port: 0}
+	return AppConfig{
+		Port: 0,
+	}
 }
 
 type Manager struct {
@@ -33,20 +35,36 @@ type Manager struct {
 }
 
 func NewManager() (*Manager, error) {
-	base, err := os.UserConfigDir()
+	path, err := ConfigDirectory("config.json")
 	if err != nil {
-		return nil, fmt.Errorf("cannot locate user config dir: %w", err)
-	}
-
-	dir := filepath.Join(base, AppName)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return nil, fmt.Errorf("cannot create config dir: %w", err)
+		return nil, err
 	}
 
 	return &Manager{
-		path: filepath.Join(dir, "config.json"),
+		path: path,
 		Data: defaults(),
 	}, nil
+}
+
+func ConfigDirectory(subPaths ...string) (string, error) {
+	base, err := os.UserConfigDir()
+	if err != nil {
+		return "", fmt.Errorf("cannot locate user config dir: %w", err)
+	}
+
+	elements := append([]string{base, AppName}, subPaths...)
+	fullPath := filepath.Join(elements...)
+
+	dir := fullPath
+	if len(subPaths) > 0 {
+		dir = filepath.Dir(fullPath)
+	}
+
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return "", fmt.Errorf("cannot create config dir: %w", err)
+	}
+
+	return fullPath, nil
 }
 
 func (cm *Manager) Load() error {

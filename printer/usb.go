@@ -58,13 +58,10 @@ func ListUSBPrinters() (*Printers, error) {
 				logger.Errorf("failed to encode printer ID: %v", err)
 				continue
 			}
-			if err := config.AddPrinterIfNotExist(id, info.Protocol.String(), info.VidPid, info.DeviceId); err != nil {
-				logger.Errorf("Failed to update printer config: %v", err)
-			}
 			result.Available = append(result.Available, Info{
 				Id:   id,
 				Name: info.Name,
-				Type: getPrinterType(info.VidPid),
+				Type: PrinterType(config.GetPrinterType(info.VidPid)),
 			})
 		}
 	}
@@ -152,7 +149,7 @@ func findPrinterEndpoint(desc *gousb.DeviceDesc) (EndpointInfo, bool) {
 	for cfgNum, cfg := range desc.Configs {
 		for _, iFace := range cfg.Interfaces {
 			for _, alt := range iFace.AltSettings {
-				if alt.Class != gousb.ClassPrinter && !isKnownPrinter(desc) {
+				if alt.Class != gousb.ClassPrinter && !config.IsKnownPrinter(desc) {
 					continue
 				}
 				if epNum, ok := matchBulkOutEndpoint(alt); ok {

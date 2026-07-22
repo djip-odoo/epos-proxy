@@ -17,7 +17,7 @@ import (
 	"golang.org/x/image/math/fixed"
 )
 
-func ParseXMLToRasterImage(body []byte, setting config.PrinterSettingConfig) ([]byte, error) {
+func ParseXMLToRasterImage(body []byte, setting config.KnownPrinterInfo) ([]byte, error) {
 	s := string(body)
 
 	start := strings.Index(s, "<epos-print")

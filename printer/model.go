@@ -94,8 +94,9 @@ type DeviceID map[string]string
 type PrinterProtocol int
 
 const (
-	ProtocolESCPOS_COMPAT PrinterProtocol = iota
-	ProtocolESCPOS
+	ProtocolESCPOS PrinterProtocol = iota
+	ProtocolZPL
+	ProtocolESCPOS_COMPAT
 )
 
 type LibUsbPrinter struct {

@@ -1,6 +1,7 @@
 package printer
 
 import (
+	"epos-proxy/config"
 	"epos-proxy/logger"
 	"regexp"
 	"strings"
@@ -33,7 +34,7 @@ func getPrinterDeviceID(dev *gousb.Device) DeviceID {
 	for _, cfg := range dev.Desc.Configs {
 		for _, iFace := range cfg.Interfaces {
 			for _, alt := range iFace.AltSettings {
-				if alt.Class != gousb.ClassPrinter && !isKnownPrinter(dev.Desc) {
+				if alt.Class != gousb.ClassPrinter && !config.IsKnownPrinter(dev.Desc) {
 					continue
 				}
 				n, err := dev.Control(

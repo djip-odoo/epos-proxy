@@ -18,14 +18,14 @@ type XmlEPOSPrint struct {
 	Items   []XmlRawItem `xml:",any"`
 }
 
-func ParseXML(body []byte, psc config.PrinterSettingConfig) ([]byte, error) {
-	if psc.Protocol == "ESCPOS" {
+func ParseXML(body []byte, info config.KnownPrinterInfo) ([]byte, error) {
+	if info.Protocol == "ESCPOS" {
 		return ParseXMLToESCPOS(body)
 	}
-	if psc.Protocol == "ESCPOS_COMPAT" {
-		return ParseXMLToRasterImage(body, psc)
+	if info.Protocol == "ESCPOS_COMPAT" {
+		return ParseXMLToRasterImage(body, info)
 	}
-	return nil, fmt.Errorf("unsupported protocol: %s", psc.Protocol)
+	return nil, fmt.Errorf("unsupported protocol: %s", info.Protocol)
 }
 
 func attrMap(attrs []xml.Attr) map[string]string {

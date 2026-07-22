@@ -1,0 +1,62 @@
+{
+  "2aaf:6015": {
+    "type": "receipt",
+    "protocol": "ESCPOS",
+    "width": 576,
+    "bottom_padding": 0
+  },
+  "04b8:0e32": {
+    "type": "receipt",
+    "protocol": "ESCPOS",
+    "width": 576,
+    "bottom_padding": 0
+  },
+  "04b8:0202": {
+    "type": "receipt",
+    "protocol": "ESCPOS",
+    "width": 576,
+    "bottom_padding": 0
+  },
+  "04b8:0203": {
+    "type": "receipt",
+    "protocol": "ESCPOS",
+    "width": 576,
+    "bottom_padding": 0
+  },
+  "2d84:c7c8": {
+    "type": "receipt",
+    "protocol": "ESCPOS",
+    "width": 576,
+    "bottom_padding": 0
+  },
+  "4b43:3830": {
+    "type": "receipt",
+    "protocol": "ESCPOS",
+    "width": 576,
+    "bottom_padding": 0
+  },
+  "0483:5720": {
+    "type": "receipt",
+    "protocol": "ESCPOS_COMPAT",
+    "width": 576,
+    "bottom_padding": 120
+  },
+  "0456:0808": {
+    "type": "receipt",
+    "protocol": "ESCPOS_COMPAT",
+    "width": 384,
+    "bottom_padding": 120
+  },
+  "0a5f:0187": {
+    "type": "label",
+    "protocol": "ZPL",
+    "width": 576,
+    "bottom_padding": 0
+  },
+  "195f:0001": {
+    "type": "label",
+    "protocol": "ZPL",
+    "width": 576,
+    "bottom_padding": 0
+  }
+}

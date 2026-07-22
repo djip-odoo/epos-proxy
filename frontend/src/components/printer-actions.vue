@@ -15,14 +15,11 @@
       class="flex-1 border rounded-lg text-sm px-3 py-2 cursor-pointer border-stone-300 text-stone-600 hover:bg-stone-50 hover:border-stone-400 disabled:opacity-50 disabled:cursor-not-allowed">
       {{ isCashDrawerOpening ? 'Opening...' : 'Cash Drawer' }}
     </button>
-
-    <PrinterSettingsDialog :printer="printer" />
   </div>
 </template>
 <script setup>
 import { ref } from 'vue'
 import { executePrint, copyPrinterFieldValue } from "./printer-actions.js"
-import PrinterSettingsDialog from '../modal/printer-settings-dialog.vue'
 import { useToast } from '../hooks/useToast.js'
 
 const props = defineProps({

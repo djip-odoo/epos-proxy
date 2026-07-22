@@ -72,8 +72,8 @@ func New(port int, mgr *printer.Manager, cm *config.Manager) *Server {
 
 func printData(mgr *printer.Manager, ctx fiber.Ctx, printerID string) error {
 	logger.Debugf("Processing print job for printer: %s", printerID)
-	psc := config.GetPrinterSetting(printerID)
-	jobData, err := escpos.ParseXML(ctx.Body(), psc)
+	info := config.GetKnownPrinterInfoByPrinterID(printerID)
+	jobData, err := escpos.ParseXML(ctx.Body(), info)
 	if err != nil {
 		logger.Errorf("XML parsing error: %v", err)
 		return ctx.XML(EPOSResponse{Success: false, Code: "SchemaError", Status: ""})
