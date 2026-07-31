@@ -20,6 +20,10 @@ func ListUSBPrinters() (*Printers, error) {
 	// First list all  without opening devices, to avoid permission errors on some platforms
 	var descriptors []gousb.DeviceDesc
 	_, err := ctx.OpenDevices(func(desc *gousb.DeviceDesc) bool {
+		if isBlockedPrinter(desc) {
+			logger.Debugf("USB device blocked: VID=%04X PID=%04X (%s)", uint16(desc.Vendor), uint16(desc.Product), blockedPrinterRegistry[fmt.Sprintf("%04x:%04x", uint16(desc.Vendor), uint16(desc.Product))])
+			return false
+		}
 		if _, supported := findPrinterEndpoint(desc); supported {
 			descriptors = append(descriptors, *desc)
 			keys = append(keys, fingerprintKey(desc))
@@ -74,6 +78,10 @@ func GetPrinterInfo(ctx *gousb.Context, descToFind *gousb.DeviceDesc) (*LibUsbPr
 	logger.Debugf("Attempting to get info for USB device: Bus %d, Address %d, Vendor %04X, Product %04X", descToFind.Bus, descToFind.Address, uint16(descToFind.Vendor), uint16(descToFind.Product))
 	var found bool
 	devices, err := ctx.OpenDevices(func(desc *gousb.DeviceDesc) bool {
+		if isBlockedPrinter(desc) {
+			logger.Debugf("USB device blocked: VID=%04X PID=%04X (%s)", uint16(desc.Vendor), uint16(desc.Product), blockedPrinterRegistry[fmt.Sprintf("%04x:%04x", uint16(desc.Vendor), uint16(desc.Product))])
+			return false
+		}
 		if found {
 			return false
 		}

@@ -25,12 +25,27 @@ var printerRegistry = map[string]PrinterType{
 	"195f:0001": PrinterTypeLabel, // Godex G500
 }
 
+// blockedPrinterRegistry contains VID:PID pairs that should never be surfaced
+// as printers, even if they expose a printer-class interface. Devices in this
+// list are silently skipped during USB enumeration.
+var blockedPrinterRegistry = map[string]string{
+	"04f9:0328": "Brother PT-9500PC", // Label editor — not a POS printer
+}
+
 func isKnownPrinter(desc *gousb.DeviceDesc) bool {
 	vidPid := strings.ToLower(
 		fmt.Sprintf("%04x:%04x", uint16(desc.Vendor), uint16(desc.Product)),
 	)
 	_, ok := printerRegistry[vidPid]
 	return ok
+}
+
+func isBlockedPrinter(desc *gousb.DeviceDesc) bool {
+	vidPid := strings.ToLower(
+		fmt.Sprintf("%04x:%04x", uint16(desc.Vendor), uint16(desc.Product)),
+	)
+	_, blocked := blockedPrinterRegistry[vidPid]
+	return blocked
 }
 
 func getPrinterType(vidPid string) PrinterType {

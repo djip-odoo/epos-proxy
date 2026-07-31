@@ -145,6 +145,10 @@ func (p *Printer) ensureOpenUSBLocked() error {
 	)
 
 	devices, err := ctx.OpenDevices(func(desc *gousb.DeviceDesc) bool {
+		if isBlockedPrinter(desc) {
+			logger.Debugf("USB device blocked: VID=%04X PID=%04X (%s)", uint16(desc.Vendor), uint16(desc.Product), blockedPrinterRegistry[fmt.Sprintf("%04x:%04x", uint16(desc.Vendor), uint16(desc.Product))])
+			return false
+		}
 		if findAny && len(eps) > 0 {
 			return false
 		}
