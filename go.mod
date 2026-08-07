@@ -8,6 +8,7 @@ require (
 	github.com/google/gousb v1.1.3
 	github.com/google/uuid v1.6.0
 	github.com/sirupsen/logrus v1.9.4
+	github.com/wailsapp/go-webview2 v1.0.22
 	github.com/wailsapp/wails/v2 v2.12.0
 	github.com/yusufpapurcu/wmi v1.2.4
 	golang.org/x/sys v0.44.0
@@ -43,7 +44,6 @@ require (
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.71.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
-	github.com/wailsapp/go-webview2 v1.0.22 // indirect
 	github.com/wailsapp/mimetype v1.4.1 // indirect
 	golang.org/x/crypto v0.51.0 // indirect
 	golang.org/x/net v0.54.0 // indirect

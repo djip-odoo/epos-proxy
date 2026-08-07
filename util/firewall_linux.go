@@ -1,9 +1,9 @@
 package util
 
 import (
+	"epos-proxy/logger"
 	"fmt"
 	"os/exec"
-	"epos-proxy/logger"
 )
 
 func allowPortOS(port int) error {

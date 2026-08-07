@@ -2,16 +2,16 @@ package main
 
 import (
 	"context"
+	"embed"
 	"fmt"
 	"os"
-	"runtime"
 	"time"
 
 	"epos-proxy/config"
+	"epos-proxy/customerdisplay"
 	"epos-proxy/logger"
 	"epos-proxy/printer"
 	"epos-proxy/server"
-	"epos-proxy/util"
 
 	autostart "github.com/emersion/go-autostart"
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -19,28 +19,18 @@ import (
 
 // App struct
 type App struct {
-	ctx            context.Context
-	webserver      *server.Server
-	config         *config.Manager
-	printerManager *printer.Manager
-	autoStart      *autostart.App
+	ctx     context.Context
+	service *PrinterService
 }
 
-func NewApp() *App {
+func NewApp(assets embed.FS) *App {
 	a := &App{}
 
-	a.autoStart = &autostart.App{
+	autoStart := &autostart.App{
 		Name:        "epos-proxy",
 		DisplayName: "ePOS Proxy",
 		Exec:        []string{os.Args[0]},
 	}
-
-	return a
-}
-
-func (a *App) startup(ctx context.Context) {
-	a.ctx = ctx
-	logger.Debugf("Application startup")
 
 	cfg, err := config.NewManager()
 	if err != nil {
@@ -51,167 +41,150 @@ func (a *App) startup(ctx context.Context) {
 		logger.Warnf("Config load warning: %v", err)
 	}
 
-	logger.Debugf("Config loaded from %s", cfg.Path())
+	pm := printer.NewManager()
+	a.service = NewPrinterService(cfg, pm, autoStart, assets)
 
-	a.config = cfg
-	a.printerManager = printer.NewManager()
+	return a
+}
 
-	port, err := cfg.ResolvePort()
+func (a *App) startup(ctx context.Context) {
+	a.ctx = ctx
+	logger.Debugf("Application startup")
+
+	logger.Debugf("Config loaded from %s", a.service.config.Path())
+
+	port, err := a.service.config.ResolvePort()
 	if err != nil {
 		logger.Warn("Unable to resolve port, using default")
 	}
 
 	host := "127.0.0.1"
-	if a.config.Data.LANAccessEnabled {
+	if a.service.config.Data.LANAccessEnabled {
 		host = "0.0.0.0"
 	}
 
-	a.webserver = server.New(port, host, a.printerManager)
+	// Initialize customer display module and register callbacks
+	customerdisplay.Init()
+	customerdisplay.RegisterMonitorChangeCallback(func() {
+		monitors := customerdisplay.GetMonitors()
+		logger.Infof("[customerdisplay] Monitors updated: %d found", len(monitors))
+		wailsruntime.EventsEmit(a.ctx, "monitors-changed", monitors)
+
+		// Check if the currently saved monitor was disconnected
+		selectedID, _ := a.service.config.GetMonitorSelection()
+
+		if selectedID != "" {
+			found := false
+			for _, m := range monitors {
+				if m.ID == selectedID {
+					found = true
+					break
+				}
+			}
+			if !found {
+				logger.Warnf("[customerdisplay] Selected monitor %s disconnected. Closing customer display.", selectedID)
+				customerdisplay.Close()
+				a.service.SetCustomerDisplayOpen(false)
+				wailsruntime.EventsEmit(a.ctx, "selected-monitor-disconnected")
+			}
+		}
+	})
+
+	a.service.OnCustomerDisplayAction = func(open bool, url string) {
+		if open {
+			selectedID, _ := a.service.config.GetMonitorSelection()
+
+			if selectedID != "" {
+				// Verify it still exists
+				monitors := customerdisplay.GetMonitors()
+				exists := false
+				for _, m := range monitors {
+					if m.ID == selectedID {
+						exists = true
+						break
+					}
+				}
+				if exists {
+					customerdisplay.Open(selectedID, url)
+					wailsruntime.EventsEmit(a.ctx, "open-customer-display-webview", url)
+				} else {
+					wailsruntime.EventsEmit(a.ctx, "customer-display-selection-required")
+				}
+			} else {
+				wailsruntime.EventsEmit(a.ctx, "customer-display-selection-required")
+			}
+		} else {
+			customerdisplay.Close()
+			wailsruntime.EventsEmit(a.ctx, "close-customer-display-webview")
+		}
+	}
+
+	a.service.StartServer(port, host)
+
+	// Auto-open WebView if an active customer display URL is configured and we remember selection.
+	if active := a.service.GetActiveCustomerDisplayURL(); active != nil {
+		selectedID, remember := a.service.config.GetMonitorSelection()
+
+		if remember && selectedID != "" {
+			// Check if monitor is still connected
+			monitors := customerdisplay.GetMonitors()
+			exists := false
+			for _, m := range monitors {
+				if m.ID == selectedID {
+					exists = true
+					break
+				}
+			}
+			if exists {
+				logger.Infof("Auto-opening native customer display on monitor %s for URL: %s", selectedID, active.URL)
+				a.service.SetCustomerDisplayOpen(true)
+			} else {
+				logger.Warnf("Saved monitor %s no longer connected. Prompting selection.", selectedID)
+				time.AfterFunc(1500*time.Millisecond, func() {
+					wailsruntime.EventsEmit(a.ctx, "customer-display-selection-required")
+				})
+			}
+		} else {
+			time.AfterFunc(1500*time.Millisecond, func() {
+				wailsruntime.EventsEmit(a.ctx, "customer-display-selection-required")
+			})
+		}
+	}
 }
 
 func (a *App) shutdown(ctx context.Context) {
 	logger.Infof("Stopping proxy server")
-
-	if a.webserver != nil {
-		if err := a.webserver.Stop(); err != nil {
-			logger.Errorf("Server stop error: %v", err)
-		}
+	if err := a.service.StopServer(); err != nil {
+		logger.Errorf("Server stop error: %v", err)
 	}
 }
 
 func (a *App) RestartServer() {
-	if a.webserver != nil {
-		if err := a.webserver.Stop(); err != nil {
-			logger.Errorf("Failed to stop current server: %v", err)
-		}
-	}
-
-	host := "127.0.0.1"
-	if a.config.Data.LANAccessEnabled {
-		host = "0.0.0.0"
-	}
-
-	logger.Infof("Restarting server on host %s", host)
-	a.webserver = server.New(a.config.Data.Port, host, a.printerManager)
-}
-
-type Printer struct {
-	Name   string `json:"name"`
-	Ip     string `json:"ip"`
-	Id     string `json:"id"`
-	IsLAN  bool   `json:"isLAN"`
-	LANIp  string `json:"lanIp,omitempty"`
-	Online bool   `json:"online"`
-	Type   string `json:"type"`
-}
-
-type UnavailablePrinter struct {
-	Name     string `json:"name"`
-	ErrorMsg string `json:"errorMsg"`
-	IsLAN    bool   `json:"isLAN"`
-	LANIp    string `json:"lanIp,omitempty"`
-}
-
-type Status struct {
-	ServerRunning       bool                 `json:"serverRunning"`
-	DefaultIp           string               `json:"defaultIp"`
-	ErrorMsg            string               `json:"errorMsg"`
-	Printers            []Printer            `json:"printers"`
-	UnavailablePrinters []UnavailablePrinter `json:"unavailablePrinters"`
-	Os                  string               `json:"os"`
+	a.service.RestartServer()
 }
 
 func (a *App) GetPrinterIp(id string) string {
-	settings := a.GetLANSettings()
-	ip := fmt.Sprintf("%s:%d/p/%s", settings.IP, settings.Port, id)
-	logger.Debugf("Generated printer endpoint: %s", ip)
-	return ip
+	return a.service.GetPrinterIp(id)
 }
 
-func (a *App) Status() Status {
-
-	logger.Debug("Collecting printer status")
-
-	printers := make([]Printer, 0)
-	unavailablePrinters := make([]UnavailablePrinter, 0)
-
-	printerInfos, err := printer.ListUSBPrinters()
-	errorMsg := ""
-
-	if err == nil {
-
-		logger.Debugf("Detected %d available USB printers", len(printerInfos.Available))
-
-		for _, info := range printerInfos.Available {
-			printers = append(printers, Printer{
-				Id:     info.Id,
-				Name:   info.Name,
-				Ip:     a.GetPrinterIp(info.Id),
-				Online: true,
-				Type:   string(info.Type),
-			})
-		}
-
-		for _, info := range printerInfos.Unavailable {
-			unavailablePrinters = append(unavailablePrinters, UnavailablePrinter{
-				Name:     info.Name,
-				ErrorMsg: info.Error,
-			})
-
-			logger.Warnf("USB printer unavailable: %s (%s)", info.Name, info.Error)
-		}
-	} else {
-		errorMsg = err.Error()
-		logger.Errorf("USB printer detection failed: %v", err)
+func (a *App) Status() server.Status {
+	status, err := a.service.Status()
+	if err != nil {
+		logger.Errorf("Failed to retrieve status: %v", err)
+		return server.Status{ErrorMsg: err.Error()}
 	}
-
-	lanPrinters := printer.ListLANPrinters(a.config)
-
-	for _, info := range lanPrinters {
-		printers = append(printers, Printer{
-			Id:    info.Id,
-			Name:  fmt.Sprintf("Network - %s", info.IP),
-			Ip:    a.GetPrinterIp(info.Id),
-			IsLAN: true,
-			LANIp: info.IP,
-			Type:  string(printer.PrinterTypeReceipt),
-		})
-	}
-
-	return Status{
-		ServerRunning:       a.webserver.Running(),
-		DefaultIp:           fmt.Sprintf("127.0.0.1:%d", a.webserver.Port),
-		Printers:            printers,
-		UnavailablePrinters: unavailablePrinters,
-		ErrorMsg:            errorMsg,
-		Os:                  runtime.GOOS,
-	}
+	return status
 }
 
 func (a *App) AddLANPrinter(ip string) error {
+	return a.service.AddLANPrinter(ip)
+}
 
-	logger.Debugf("Adding LAN printer: %s", ip)
-
-	ip, err := printer.ValidateIPAddress(ip)
-	if err != nil {
-		return fmt.Errorf("invalid IP address: %s, error: %v", ip, err)
-	}
-
-	if err := printer.CheckLANPrinter(ip); err != nil {
-		return fmt.Errorf("LAN printer unreachable: %s, error: %v", ip, err)
-	}
-
-	if err := a.config.AddLanEposPrinter(ip); err != nil {
-		return fmt.Errorf("failed to save LAN printer: %s, error: %v", ip, err)
-	}
-
-	logger.Debugf("LAN printer added successfully: %s", ip)
-
-	return nil
+func (a *App) SetLANPin(pin string) error {
+	return a.service.SetLANPin(pin)
 }
 
 func (a *App) ConfirmRemoveLANPrinter(ip string) (bool, error) {
-
 	logger.Debugf("Remove LAN printer requested: %s", ip)
 
 	result, err := wailsruntime.MessageDialog(a.ctx, wailsruntime.MessageDialogOptions{
@@ -226,7 +199,7 @@ func (a *App) ConfirmRemoveLANPrinter(ip string) (bool, error) {
 		return false, fmt.Errorf("failed to show confirmation dialog: %w", err)
 	}
 	if result == "Confirm" || result == "Yes" {
-		if err := a.config.RemoveLANPrinter(ip); err != nil {
+		if err := a.service.RemoveLANPrinter(ip); err != nil {
 			return false, fmt.Errorf("failed to remove LAN printer: %w", err)
 		}
 		return true, nil
@@ -236,14 +209,11 @@ func (a *App) ConfirmRemoveLANPrinter(ip string) (bool, error) {
 }
 
 func (a *App) CheckLANPrinterStatus(ip string) bool {
-	logger.Debugf("Checking LAN printer status: %s", ip)
-	return printer.CheckLANPrinter(ip) == nil
+	return a.service.CheckLANPrinterStatus(ip)
 }
 
 func (a *App) DownloadLogs() {
 	logger.Debugf("Download logs requested")
-	logDir := logger.LogDirectory()
-	configDir := a.config.ConfigDirectory()
 	zipName := fmt.Sprintf("epos-proxy-logs-%s.zip",
 		time.Now().Format("2006-01-02"))
 	logger.Debugf("Creating logs archive: %s", zipName)
@@ -257,7 +227,15 @@ func (a *App) DownloadLogs() {
 			},
 		},
 	})
-	err = util.ZipPaths(savePath, map[string]string{"logs": logDir, "config": configDir})
+	if err != nil {
+		logger.Errorf("Save file dialog failed: %v", err)
+		return
+	}
+	if savePath == "" {
+		logger.Infof("Export cancelled by user")
+		return
+	}
+	err = a.service.ExportLogsToPath(savePath)
 	if err != nil {
 		logger.Errorf("Log export failed: %v", err)
 		wailsruntime.MessageDialog(a.ctx, wailsruntime.MessageDialogOptions{
@@ -271,29 +249,105 @@ func (a *App) DownloadLogs() {
 }
 
 func (a *App) IsAutostartEnabled() bool {
-	return a.autoStart.IsEnabled()
+	return a.service.IsAutostartEnabled()
 }
 
 func (a *App) EnableAutostart() error {
-	logger.Info("Enabling autostart")
-
-	if runtime.GOOS == "linux" {
-		return util.EnableLinuxAutostart()
-	}
-
-	if !a.autoStart.IsEnabled() {
-		return a.autoStart.Enable()
-	}
-
-	return nil
+	return a.service.EnableAutostart()
 }
 
 func (a *App) DisableAutostart() error {
-	logger.Info("Disabling autostart")
+	return a.service.DisableAutostart()
+}
 
-	if a.autoStart.IsEnabled() {
-		return a.autoStart.Disable()
+// ─── Customer Display WebView ─────────────────────────────────────────────────
+
+func (a *App) GetCustomerDisplayURLs() []config.CustomerDisplayURL {
+	return a.service.GetCustomerDisplayURLs()
+}
+
+func (a *App) GetActiveCustomerDisplayURL() *config.CustomerDisplayURL {
+	return a.service.GetActiveCustomerDisplayURL()
+}
+
+func (a *App) AddCustomerDisplayURL(name, rawURL, description string) (config.CustomerDisplayURL, error) {
+	return a.service.AddCustomerDisplayURL(name, rawURL, description)
+}
+
+func (a *App) UpdateCustomerDisplayURL(id, name, rawURL, description string, enabled bool) error {
+	return a.service.UpdateCustomerDisplayURL(id, name, rawURL, description, enabled)
+}
+
+func (a *App) SetActiveCustomerDisplayURL(id string) error {
+	return a.service.SetActiveCustomerDisplayURL(id)
+}
+
+func (a *App) DisableCustomerDisplayURL(id string) error {
+	return a.service.DisableCustomerDisplayURL(id)
+}
+
+func (a *App) DeleteCustomerDisplayURL(id string) error {
+	return a.service.DeleteCustomerDisplayURL(id)
+}
+
+func (a *App) ValidateAdminPin(pin string) bool {
+	return a.service.ValidateAdminPin(pin)
+}
+
+func (a *App) SetWindowFullscreen(fullscreen bool) {
+	if fullscreen {
+		logger.Infof("Setting window to fullscreen for customer display WebView")
+
+		// Frameless: true,
+		// DisableResize: true,
+		// StartHidden: true,
+		wailsruntime.WindowFullscreen(a.ctx)
+	} else {
+		logger.Infof("Restoring window from fullscreen")
+		wailsruntime.WindowUnfullscreen(a.ctx)
 	}
+}
 
-	return nil
+func (a *App) IsCustomerDisplayOpen() bool {
+	return a.service.IsCustomerDisplayOpen()
+}
+
+func (a *App) SetCustomerDisplayOpen(open bool) error {
+	return a.service.SetCustomerDisplayOpen(open)
+}
+
+func (a *App) GetMonitors() []customerdisplay.MonitorInfo {
+	return customerdisplay.GetMonitors()
+}
+
+func (a *App) SaveMonitorSelection(monitorID string, remember bool) error {
+	return a.service.config.SetMonitorSelection(monitorID, remember)
+}
+
+func (a *App) GetMonitorSelection() (string, bool) {
+	return a.service.config.GetMonitorSelection()
+}
+
+func (a *App) IdentifyDisplays() {
+	customerdisplay.Identify()
+}
+
+func (a *App) TestCustomerDisplay(monitorID string) {
+	customerdisplay.Test(monitorID)
+}
+
+func (a *App) OpenCustomerDisplayWindow(monitorID string, url string) {
+	customerdisplay.Open(monitorID, url)
+}
+
+func (a *App) CloseCustomerDisplayWindow() {
+	customerdisplay.Close()
+}
+
+func (a *App) ReloadCustomerDisplayWindow() {
+	customerdisplay.Reload()
+}
+
+func (a *App) NavigateCustomerDisplayWindow(url string) {
+	customerdisplay.Navigate(url)
 }

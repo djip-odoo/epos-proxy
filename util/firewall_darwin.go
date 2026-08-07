@@ -1,7 +1,7 @@
 package util
 
 import (
-	"printer-manager/logger"
+	"epos-proxy/logger"
 )
 
 func allowPortOS(port int) error {

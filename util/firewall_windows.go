@@ -7,7 +7,7 @@ import (
 
 	"golang.org/x/sys/windows"
 
-	"printer-manager/logger"
+	"epos-proxy/logger"
 )
 
 const ruleNamePrefix = "EPOS Proxy LAN Port "
