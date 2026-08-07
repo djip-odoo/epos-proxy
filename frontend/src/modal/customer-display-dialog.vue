@@ -136,11 +136,7 @@
                         <!-- Monitors List -->
                         <div class="space-y-2">
                           <div v-for="monitor in monitors" :key="monitor.id"
-                            @click="!monitor.isPrimary && selectMonitor(monitor.id)" :aria-disabled="monitor.isPrimary"
-                            class="relative overflow-hidden rounded-xl border p-4 transition-all duration-200" :class="[
-                              monitor.isPrimary
-                                ? 'opacity-50 cursor-not-allowed bg-gray-100 border-gray-200'
-                                : 'cursor-pointer',
+                            @click="selectMonitor(monitor.id)" class="relative overflow-hidden rounded-xl border p-4 transition-all duration-200" :class="[
                               selectedMonitorID === monitor.id
                                 ? 'border-odoo bg-odoo/5 shadow-sm'
                                 : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50/50'
