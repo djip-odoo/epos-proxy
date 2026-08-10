@@ -89,13 +89,24 @@ type UnavailablePrinter struct {
 	LANIp    string `json:"lanIp,omitempty"`
 }
 
-type Status struct {
-	ServerRunning       bool                 `json:"serverRunning"`
-	DefaultIp           string               `json:"defaultIp"`
+type AppVariable struct {
+	ServerRunning bool   `json:"serverRunning"`
+	DefaultIp     string `json:"defaultIp"`
+	Os            string `json:"os"`
+}
+
+func (a *App) AppVariable() AppVariable {
+	return AppVariable{
+		Os:            runtime.GOOS,
+		ServerRunning: a.webserver.Running(),
+		DefaultIp:     fmt.Sprintf("127.0.0.1:%d", a.webserver.Port),
+	}
+}
+
+type Printers struct {
 	ErrorMsg            string               `json:"errorMsg"`
 	Printers            []Printer            `json:"printers"`
 	UnavailablePrinters []UnavailablePrinter `json:"unavailablePrinters"`
-	Os                  string               `json:"os"`
 }
 
 func (a *App) GetPrinterIp(id string) string {
@@ -104,7 +115,7 @@ func (a *App) GetPrinterIp(id string) string {
 	return ip
 }
 
-func (a *App) Status() Status {
+func (a *App) Printers() Printers {
 
 	logger.Debug("Collecting printer status")
 
@@ -154,13 +165,10 @@ func (a *App) Status() Status {
 		})
 	}
 
-	return Status{
-		ServerRunning:       a.webserver.Running(),
-		DefaultIp:           fmt.Sprintf("127.0.0.1:%d", a.webserver.Port),
+	return Printers{
 		Printers:            printers,
 		UnavailablePrinters: unavailablePrinters,
 		ErrorMsg:            errorMsg,
-		Os:                  runtime.GOOS,
 	}
 }
 

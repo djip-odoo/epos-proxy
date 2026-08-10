@@ -1,0 +1,76 @@
+import { createContext, useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import type { ToastType } from "../types";
+
+type ToastContextType = {
+  setters: {};
+  data: {};
+  actions: {
+    showToast: (message: string, type?: ToastType) => void;
+  };
+};
+
+export const ToastContext = createContext({} as ToastContextType);
+
+interface ToastContextWrapper {
+  children: React.ReactNode;
+}
+
+interface Toast {
+  show: boolean;
+  message: string;
+  type: ToastType;
+}
+
+export const ToastContextWrapper = ({ children }: ToastContextWrapper) => {
+  const toastTimeout = useRef<number | null>(null);
+  const [toast, setToast] = useState<Toast>({
+    show: false,
+    message: "",
+    type: "success",
+  });
+
+  const showToast = useCallback(
+    (message: string, type: ToastType = "success") => {
+      if (toastTimeout.current) {
+        clearTimeout(toastTimeout.current);
+      }
+
+      setToast({ show: true, message, type });
+      toastTimeout.current = window.setTimeout(
+        () => setToast((current) => ({ ...current, show: false })),
+        type === "success" ? 2000 : 3000,
+      );
+    },
+    [],
+  );
+
+  const data = {};
+  const setters = {};
+  const actions = {
+    showToast,
+  };
+
+  return (
+    <>
+      <ToastContext.Provider value={{ data, setters, actions }}>
+        {children}
+      </ToastContext.Provider>
+
+      {createPortal(
+        <div
+          className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-white text-sm max-w-xs transition duration-300 ${
+            toast.type === "success" ? "bg-success" : "bg-danger"
+          } ${
+            toast.show
+              ? "opacity-100 translate-x-0 ease-out"
+              : "opacity-0 translate-x-4 ease-in pointer-events-none"
+          }`}
+        >
+          {toast.message}
+        </div>,
+        document.body,
+      )}
+    </>
+  );
+};
