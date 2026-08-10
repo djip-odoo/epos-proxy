@@ -42,6 +42,8 @@ func ListUSBPrinters() (*Printers, error) {
 		Available:   make([]Info, 0),
 		Unavailable: make([]UnavailableInfo, 0),
 	}
+
+	var collected []*LibUsbPrinter
 	for _, desc := range descriptors {
 		info, err := GetPrinterInfo(ctx, &desc)
 		if err != nil {
@@ -53,17 +55,23 @@ func ListUSBPrinters() (*Printers, error) {
 				Error: err.Error(),
 			})
 		} else if info != nil {
-			id, err := encodePrinterID(info)
-			if err != nil {
-				logger.Errorf("failed to encode printer ID: %v", err)
-				continue
-			}
-			result.Available = append(result.Available, Info{
-				Id:   id,
-				Name: info.Name,
-				Type: getPrinterType(info.VidPid),
-			})
+			collected = append(collected, info)
 		}
+	}
+
+	applySerialDedup(collected)
+
+	for _, info := range collected {
+		id, err := encodePrinterID(info)
+		if err != nil {
+			logger.Errorf("failed to encode printer ID: %v", err)
+			continue
+		}
+		result.Available = append(result.Available, Info{
+			Id:   id,
+			Name: info.Name,
+			Type: getPrinterType(info.VidPid),
+		})
 	}
 
 	usbCache.Update(keys, result.Available, result.Unavailable)
@@ -129,6 +137,24 @@ func GetPrinterInfo(ctx *gousb.Context, descToFind *gousb.DeviceDesc) (*LibUsbPr
 	info.DeviceId = deviceID
 	logger.Debugf("USB printer: %s (Serial: %s)", info.Name, info.Serial)
 	return &info, nil
+}
+
+func applySerialDedup(printers []*LibUsbPrinter) {
+	serialSeen := make(map[string]*LibUsbPrinter, len(printers))
+
+	for _, p := range printers {
+		if p.Serial == "" {
+			continue
+		}
+
+		if prev, conflict := serialSeen[p.Serial]; conflict {
+			prev.UseSerial = false
+			p.UseSerial = false
+		} else {
+			p.UseSerial = true
+			serialSeen[p.Serial] = p
+		}
+	}
 }
 
 func fingerprintKey(desc *gousb.DeviceDesc) string {

@@ -92,9 +92,10 @@ type Printers struct {
 type DeviceID map[string]string
 
 type LibUsbPrinter struct {
-	Serial   string
-	Path     string
-	Name     string
-	VidPid   string
-	DeviceId DeviceID
+	Serial    string
+	Path      string
+	Name      string
+	VidPid    string
+	DeviceId  DeviceID
+	UseSerial bool // true only when Serial is non-empty and unique among discovered devices
 }

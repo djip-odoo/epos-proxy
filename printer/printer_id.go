@@ -11,7 +11,7 @@ import (
 func encodePrinterID(libUsbPrinter *LibUsbPrinter) (string, error) {
 	var parts []string
 
-	if libUsbPrinter.Serial != "" {
+	if libUsbPrinter.UseSerial {
 		parts = append(parts, "s:"+libUsbPrinter.Serial)
 	} else {
 		if libUsbPrinter.VidPid != "" {
