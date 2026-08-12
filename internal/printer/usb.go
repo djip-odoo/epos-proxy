@@ -3,10 +3,46 @@ package printer
 import (
 	"fmt"
 
-	"epos-proxy/logger"
+	"epos-proxy/internal/logger"
 
 	"github.com/google/gousb"
 )
+
+// Info describes a USB printer that was successfully probed.
+type Info struct {
+	Id   string
+	Name string
+	Type Type
+}
+
+// UnavailableInfo describes a device that looks like a printer but could
+// not be opened, usually because of permissions or a driver holding it.
+type UnavailableInfo struct {
+	Name  string
+	Error string
+}
+
+type Printers struct {
+	Available   []Info
+	Unavailable []UnavailableInfo
+}
+
+// EndpointInfo locates the bulk OUT endpoint used to write to a device.
+type EndpointInfo struct {
+	config           int
+	iFace            int
+	alternateSetting int
+	outEndpoint      int
+}
+
+// LibUsbPrinter is the raw identity read off a device during a scan.
+type LibUsbPrinter struct {
+	Serial   string
+	Path     string
+	Name     string
+	VidPid   string
+	DeviceId DeviceID
+}
 
 func ListUSBPrinters() (*Printers, error) {
 	logger.Debug("Starting USB printer detection")

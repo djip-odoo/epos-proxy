@@ -1,7 +1,7 @@
 package main
 
 import (
-	"epos-proxy/logger"
+	"epos-proxy/internal/logger"
 
 	"github.com/wailsapp/wails/v2/pkg/menu"
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"

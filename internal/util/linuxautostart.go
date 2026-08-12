@@ -23,7 +23,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"epos-proxy/logger"
+	"epos-proxy/internal/logger"
 )
 
 func EnableLinuxAutostart() error {

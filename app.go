@@ -7,11 +7,11 @@ import (
 	"runtime"
 	"time"
 
-	"epos-proxy/config"
-	"epos-proxy/logger"
-	"epos-proxy/printer"
-	"epos-proxy/server"
-	"epos-proxy/util"
+	"epos-proxy/internal/config"
+	"epos-proxy/internal/logger"
+	"epos-proxy/internal/printer"
+	"epos-proxy/internal/server"
+	"epos-proxy/internal/util"
 
 	autostart "github.com/emersion/go-autostart"
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -24,6 +24,35 @@ type App struct {
 	config         *config.Manager
 	printerManager *printer.Manager
 	autoStart      *autostart.App
+}
+
+type Printer struct {
+	Name   string `json:"name"`
+	Ip     string `json:"ip"`
+	Id     string `json:"id"`
+	IsLAN  bool   `json:"isLAN"`
+	LANIp  string `json:"lanIp,omitempty"`
+	Online bool   `json:"online"`
+	Type   string `json:"type"`
+}
+
+type UnavailablePrinter struct {
+	Name     string `json:"name"`
+	ErrorMsg string `json:"errorMsg"`
+	IsLAN    bool   `json:"isLAN"`
+	LANIp    string `json:"lanIp,omitempty"`
+}
+
+type AppVariable struct {
+	ServerRunning bool   `json:"serverRunning"`
+	DefaultIp     string `json:"defaultIp"`
+	Os            string `json:"os"`
+}
+
+type Printers struct {
+	ErrorMsg            string               `json:"errorMsg"`
+	Printers            []Printer            `json:"printers"`
+	UnavailablePrinters []UnavailablePrinter `json:"unavailablePrinters"`
 }
 
 func NewApp() *App {
@@ -72,41 +101,12 @@ func (a *App) shutdown(ctx context.Context) {
 	}
 }
 
-type Printer struct {
-	Name   string `json:"name"`
-	Ip     string `json:"ip"`
-	Id     string `json:"id"`
-	IsLAN  bool   `json:"isLAN"`
-	LANIp  string `json:"lanIp,omitempty"`
-	Online bool   `json:"online"`
-	Type   string `json:"type"`
-}
-
-type UnavailablePrinter struct {
-	Name     string `json:"name"`
-	ErrorMsg string `json:"errorMsg"`
-	IsLAN    bool   `json:"isLAN"`
-	LANIp    string `json:"lanIp,omitempty"`
-}
-
-type AppVariable struct {
-	ServerRunning bool   `json:"serverRunning"`
-	DefaultIp     string `json:"defaultIp"`
-	Os            string `json:"os"`
-}
-
 func (a *App) AppVariable() AppVariable {
 	return AppVariable{
 		Os:            runtime.GOOS,
 		ServerRunning: a.webserver.Running(),
 		DefaultIp:     fmt.Sprintf("127.0.0.1:%d", a.webserver.Port),
 	}
-}
-
-type Printers struct {
-	ErrorMsg            string               `json:"errorMsg"`
-	Printers            []Printer            `json:"printers"`
-	UnavailablePrinters []UnavailablePrinter `json:"unavailablePrinters"`
 }
 
 func (a *App) GetPrinterIp(id string) string {
@@ -161,7 +161,7 @@ func (a *App) Printers() Printers {
 			Ip:    a.GetPrinterIp(info.Id),
 			IsLAN: true,
 			LANIp: info.IP,
-			Type:  string(printer.PrinterTypeReceipt),
+			Type:  string(printer.TypeReceipt),
 		})
 	}
 
