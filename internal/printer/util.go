@@ -1,7 +1,7 @@
 package printer
 
 import (
-	"epos-proxy/logger"
+	"epos-proxy/internal/logger"
 	"strconv"
 	"strings"
 

@@ -2,11 +2,19 @@ package printer
 
 import (
 	"encoding/base64"
-	"epos-proxy/logger"
+	"epos-proxy/internal/logger"
 	"errors"
 	"fmt"
 	"strings"
 )
+
+// ID is a decoded USB printer identity. Serial is preferred; VidPid plus
+// Path is the fallback for devices that expose no serial number.
+type ID struct {
+	Serial string
+	VidPid string
+	Path   string
+}
 
 func encodePrinterID(libUsbPrinter *LibUsbPrinter) (string, error) {
 	var parts []string
@@ -35,7 +43,7 @@ func encodePrinterID(libUsbPrinter *LibUsbPrinter) (string, error) {
 
 var ErrInvalidPrinterID = errors.New("invalid printer ID format")
 
-func decodePrinterID(id string) (*PrinterID, error) {
+func decodePrinterID(id string) (*ID, error) {
 	decoded, err := base64.RawURLEncoding.DecodeString(id)
 	if err != nil {
 		return nil, ErrInvalidPrinterID
@@ -66,7 +74,7 @@ func decodePrinterID(id string) (*PrinterID, error) {
 	}
 
 	logger.Infof("Decoded printer ID: %s {serial: %s, VidPid: %s, path: %s}", id, serial, VidPid, path)
-	return &PrinterID{
+	return &ID{
 		Serial: serial,
 		VidPid: VidPid,
 		Path:   path,

@@ -1,13 +1,17 @@
 package printer
 
 import (
-	"epos-proxy/logger"
+	"epos-proxy/internal/logger"
 	"regexp"
 	"strings"
 	"unicode"
 
 	"github.com/google/gousb"
 )
+
+// DeviceID holds the normalised IEEE-1284 device ID keys (MFG, MDL, CMD, CLS)
+// reported by a printer.
+type DeviceID map[string]string
 
 var nonAlphaRegex = regexp.MustCompile(`[^A-Z]+`)
 var keyAliases = map[string]string{

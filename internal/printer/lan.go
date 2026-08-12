@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"epos-proxy/config"
-	"epos-proxy/logger"
+	"epos-proxy/internal/config"
+	"epos-proxy/internal/logger"
 )
 
 const (
