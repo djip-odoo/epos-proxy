@@ -40,6 +40,8 @@ func main() {
 		Title:                    "ePOS Proxy",
 		Width:                    800,
 		Height:                   600,
+		MinWidth:                 700,
+		MinHeight:                500,
 		Menu:                     createMenu(app),
 		EnableDefaultContextMenu: true,
 		WindowStartState:         windowStartState,
