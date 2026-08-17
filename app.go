@@ -17,6 +17,25 @@ import (
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
+// dialoger abstracts the Wails runtime dialog calls. Production code uses
+// runtimeDialogs; tests substitute a fake so the dialog-driven code paths can
+// be exercised without a live Wails context.
+type dialoger interface {
+	Message(ctx context.Context, opts wailsruntime.MessageDialogOptions) (string, error)
+	SaveFile(ctx context.Context, opts wailsruntime.SaveDialogOptions) (string, error)
+}
+
+// runtimeDialogs forwards to the real Wails runtime.
+type runtimeDialogs struct{}
+
+func (runtimeDialogs) Message(ctx context.Context, opts wailsruntime.MessageDialogOptions) (string, error) {
+	return wailsruntime.MessageDialog(ctx, opts)
+}
+
+func (runtimeDialogs) SaveFile(ctx context.Context, opts wailsruntime.SaveDialogOptions) (string, error) {
+	return wailsruntime.SaveFileDialog(ctx, opts)
+}
+
 // App struct
 type App struct {
 	ctx            context.Context
@@ -24,6 +43,27 @@ type App struct {
 	config         *config.Manager
 	printerManager *printer.Manager
 	autoStart      *autostart.App
+	dialogs        dialoger
+}
+
+// dlg returns the dialog backend, defaulting to the Wails runtime so an App
+// built as a bare struct literal still behaves correctly.
+func (a *App) dlg() dialoger {
+	if a.dialogs == nil {
+		return runtimeDialogs{}
+	}
+	return a.dialogs
+}
+
+// showError surfaces an error to the user and logs any failure to do so.
+func (a *App) showError(title, message string) {
+	if _, err := a.dlg().Message(a.ctx, wailsruntime.MessageDialogOptions{
+		Type:    wailsruntime.ErrorDialog,
+		Title:   title,
+		Message: message,
+	}); err != nil {
+		logger.Errorf("Failed to show error dialog %q: %v", title, err)
+	}
 }
 
 type Printer struct {
@@ -63,6 +103,8 @@ func NewApp() *App {
 		DisplayName: "ePOS Proxy",
 		Exec:        []string{os.Args[0]},
 	}
+	a.printerManager = printer.NewManager()
+	a.dialogs = runtimeDialogs{}
 
 	return a
 }
@@ -83,7 +125,6 @@ func (a *App) startup(ctx context.Context) {
 	logger.Debugf("Config loaded from %s", cfg.Path())
 
 	a.config = cfg
-	a.printerManager = printer.NewManager()
 
 	port, err := cfg.ResolvePort()
 	if err != nil {
@@ -198,7 +239,7 @@ func (a *App) ConfirmRemoveLANPrinter(ip string) (bool, error) {
 
 	logger.Debugf("Remove LAN printer requested: %s", ip)
 
-	result, err := wailsruntime.MessageDialog(a.ctx, wailsruntime.MessageDialogOptions{
+	result, err := a.dlg().Message(a.ctx, wailsruntime.MessageDialogOptions{
 		Type:          wailsruntime.QuestionDialog,
 		Title:         "Remove Printer",
 		Message:       fmt.Sprintf("Are you sure you want to remove the printer at %s?", ip),
@@ -230,7 +271,7 @@ func (a *App) DownloadLogs() {
 	zipName := fmt.Sprintf("epos-proxy-logs-%s.zip",
 		time.Now().Format("2006-01-02"))
 	logger.Debugf("Creating logs archive: %s", zipName)
-	savePath, err := wailsruntime.SaveFileDialog(a.ctx, wailsruntime.SaveDialogOptions{
+	savePath, err := a.dlg().SaveFile(a.ctx, wailsruntime.SaveDialogOptions{
 		Title:           "Save Archive",
 		DefaultFilename: zipName,
 		Filters: []wailsruntime.FileFilter{
@@ -240,14 +281,21 @@ func (a *App) DownloadLogs() {
 			},
 		},
 	})
-	err = util.ZipLogs(logDir, savePath)
 	if err != nil {
+		logger.Errorf("Save dialog failed: %v", err)
+		a.showError("Download Logs Failed", err.Error())
+		return
+	}
+
+	// An empty path means the user dismissed the save dialog.
+	if savePath == "" {
+		logger.Infof("Download logs cancelled by user")
+		return
+	}
+
+	if err := util.ZipLogs(logDir, savePath); err != nil {
 		logger.Errorf("Log export failed: %v", err)
-		wailsruntime.MessageDialog(a.ctx, wailsruntime.MessageDialogOptions{
-			Type:    wailsruntime.ErrorDialog,
-			Title:   "Download Logs Failed",
-			Message: err.Error(),
-		})
+		a.showError("Download Logs Failed", err.Error())
 		return
 	}
 	logger.Infof("Logs successfully exported to: %s", savePath)

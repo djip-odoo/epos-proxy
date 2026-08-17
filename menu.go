@@ -45,7 +45,7 @@ func handleAutoStartToggle(app *App, cb *menu.CallbackData) {
 }
 
 func (app *App) ConfirmQuit() bool {
-	result, err := wailsruntime.MessageDialog(app.ctx, wailsruntime.MessageDialogOptions{
+	result, err := app.dlg().Message(app.ctx, wailsruntime.MessageDialogOptions{
 		Type:          wailsruntime.QuestionDialog,
 		Title:         "Quit ePOS Proxy",
 		Message:       "Stopping the proxy will prevent POS from printing receipts.\n\nAre you sure you want to quit?",
