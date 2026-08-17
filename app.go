@@ -126,19 +126,23 @@ func (a *App) startup(ctx context.Context) {
 
 	a.config = cfg
 
-	port, err := cfg.ResolvePort()
+	srv, err := server.New(cfg, a.printerManager)
 	if err != nil {
-		logger.Warn("Unable to resolve port, using default")
+		logger.Errorf("Failed to start required webserver: %v", err)
+		a.showError("Server Error", "Server not able to start plz free one port from 4545 to 4555")
+		return
 	}
 
-	a.webserver = server.New(port, a.printerManager)
+	a.webserver = srv
 }
 
 func (a *App) shutdown(ctx context.Context) {
 	logger.Infof("Stopping proxy server")
 
-	if err := a.webserver.Stop(); err != nil {
-		logger.Errorf("Server stop error: %v", err)
+	if a.webserver != nil {
+		if err := a.webserver.Stop(); err != nil {
+			logger.Errorf("Server stop error: %v", err)
+		}
 	}
 }
 
@@ -146,14 +150,8 @@ func (a *App) AppVariable() AppVariable {
 	return AppVariable{
 		Os:            runtime.GOOS,
 		ServerRunning: a.webserver.Running(),
-		DefaultIp:     fmt.Sprintf("127.0.0.1:%d", a.webserver.Port),
+		DefaultIp:     "",
 	}
-}
-
-func (a *App) GetPrinterIp(id string) string {
-	ip := fmt.Sprintf("127.0.0.1:%d/p/%s", a.webserver.Port, id)
-	logger.Debugf("Generated printer endpoint: %s", ip)
-	return ip
 }
 
 func (a *App) Printers() Printers {
@@ -174,7 +172,7 @@ func (a *App) Printers() Printers {
 			printers = append(printers, Printer{
 				Id:     info.Id,
 				Name:   info.Name,
-				Ip:     a.GetPrinterIp(info.Id),
+				Ip:     a.webserver.GetPrinterIp(info.Id),
 				Online: true,
 				Type:   string(info.Type),
 			})
@@ -199,7 +197,7 @@ func (a *App) Printers() Printers {
 		printers = append(printers, Printer{
 			Id:    info.Id,
 			Name:  fmt.Sprintf("Network - %s", info.IP),
-			Ip:    a.GetPrinterIp(info.Id),
+			Ip:    a.webserver.GetPrinterIp(info.Id),
 			IsLAN: true,
 			LANIp: info.IP,
 			Type:  string(printer.TypeReceipt),

@@ -4,8 +4,10 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"net"
 	"sync/atomic"
 
+	"epos-proxy/internal/config"
 	"epos-proxy/internal/escpos"
 	"epos-proxy/internal/logger"
 	"epos-proxy/internal/printer"
@@ -23,11 +25,25 @@ type EPOSResponse struct {
 
 type Server struct {
 	app     *fiber.App
+	ln      net.Listener
 	Port    int
 	running atomic.Bool
 }
 
-func New(port int, mgr *printer.Manager) *Server {
+func New(cfg *config.Manager, mgr *printer.Manager) (*Server, error) {
+	if cfg == nil {
+		return nil, errors.New("unable to start server: config manager is required")
+	}
+
+	port, err := cfg.ResolvePort()
+	if err != nil {
+		return nil, fmt.Errorf("unable to start server: %w", err)
+	}
+
+	ln, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
+	if err != nil {
+		return nil, fmt.Errorf("unable to start server: %w", err)
+	}
 	app := fiber.New(fiber.Config{
 		AppName: "ePOS proxy",
 	})
@@ -53,18 +69,18 @@ func New(port int, mgr *printer.Manager) *Server {
 		return printLabel(mgr, ctx, printerId)
 	})
 
-	server := &Server{app: app, Port: port}
+	server := &Server{app: app, ln: ln, Port: port}
 	server.running.Store(true)
 	go func() {
 		logger.Infof("HTTP server listening on 0.0.0.0:%d", port)
-		err := app.Listen(fmt.Sprintf("0.0.0.0:%d", port))
-		if err != nil {
+		if err := app.Listener(ln); err != nil {
 			logger.Error("EPOS Server Error: ", err)
 		}
 		server.running.Store(false)
 		logger.Warn("HTTP server stopped")
 	}()
-	return server
+
+	return server, nil
 }
 
 func printData(mgr *printer.Manager, ctx fiber.Ctx, printerID string) error {
@@ -135,9 +151,23 @@ func printLabel(mgr *printer.Manager, ctx fiber.Ctx, printerID string) error {
 func (s *Server) Stop() error {
 	logger.Infof("Stopping HTTP server")
 	s.running.Store(false)
-	return s.app.Shutdown()
+	var closeErr error
+	if s.ln != nil {
+		closeErr = s.ln.Close()
+	}
+	err := s.app.Shutdown()
+	if err != nil {
+		return err
+	}
+	return closeErr
 }
 
 func (s *Server) Running() bool {
 	return s.running.Load()
+}
+
+func (s *Server) GetPrinterIp(id string) string {
+	ip := fmt.Sprintf("127.0.0.1:%d/p/%s", s.Port, id)
+	logger.Debugf("Generated printer endpoint: %s", ip)
+	return ip
 }

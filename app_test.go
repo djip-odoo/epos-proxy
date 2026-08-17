@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"epos-proxy/internal/config"
 	"epos-proxy/internal/logger"
@@ -57,8 +59,10 @@ func TestApp_AppVariableAndPrintersAndGetPrinterIp(t *testing.T) {
 	testutil.ExpectedNoError(t, err)
 
 	port := testutil.GetFreePort(t)
+	cfg.Data.Port = port
 	mgr := printer.NewManager()
-	srv := server.New(port, mgr)
+	srv, err := server.New(cfg, mgr)
+	testutil.ExpectedNoError(t, err)
 	defer srv.Stop()
 
 	app := &App{
@@ -68,7 +72,7 @@ func TestApp_AppVariableAndPrintersAndGetPrinterIp(t *testing.T) {
 	}
 
 	appVariable := app.AppVariable()
-	testutil.ExpectedEqual(t, app.GetPrinterIp("czpTTjEyMzQ1Ng"), fmt.Sprintf("127.0.0.1:%d/p/czpTTjEyMzQ1Ng", port))
+	testutil.ExpectedEqual(t, srv.GetPrinterIp("czpTTjEyMzQ1Ng"), fmt.Sprintf("127.0.0.1:%d/p/czpTTjEyMzQ1Ng", port))
 	testutil.ExpectedTrue(t, appVariable.ServerRunning, "Expected ServerRunning to be true")
 	testutil.ExpectedEqual(t, appVariable.DefaultIp, fmt.Sprintf("127.0.0.1:%d", port))
 	testutil.ExpectedTrue(t, appVariable.Os != "", "Expected non-empty Os field in app variable")
@@ -287,3 +291,73 @@ func TestApp_AutostartMethods(t *testing.T) {
 	// Disable autostart
 	_ = app.DisableAutostart()
 }
+
+func TestApp_Startup_Success(t *testing.T) {
+	tempDir := t.TempDir()
+	t.Setenv("HOME", tempDir)
+
+	app := NewApp()
+	app.startup(context.Background())
+	defer app.shutdown(context.Background())
+
+	testutil.ExpectedNotNil(t, app.webserver)
+	testutil.ExpectedTrue(t, app.webserver.Running())
+	testutil.ExpectedNotNil(t, app.config)
+	testutil.ExpectedTrue(t, app.webserver.Port >= config.PortRangeStart && app.webserver.Port <= config.PortRangeEnd)
+}
+
+func TestApp_Startup_ServerError(t *testing.T) {
+	tempDir := t.TempDir()
+	t.Setenv("HOME", tempDir)
+
+	// Occupy all ports in range 4545-4555 so server.New fails
+	var listeners []net.Listener
+	for p := config.PortRangeStart; p <= config.PortRangeEnd; p++ {
+		var ln net.Listener
+		var err error
+		for range 10 {
+			ln, err = net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", p))
+			if err == nil {
+				break
+			}
+			time.Sleep(30 * time.Millisecond)
+		}
+		testutil.ExpectedNoError(t, err)
+		listeners = append(listeners, ln)
+	}
+	defer func() {
+		for _, ln := range listeners {
+			_ = ln.Close()
+		}
+	}()
+
+	dialogs := &fakeDialogs{}
+	app := NewApp()
+	app.dialogs = dialogs
+
+	app.startup(context.Background())
+	defer app.shutdown(context.Background())
+
+	testutil.ExpectedNil(t, app.webserver)
+	testutil.ExpectedLen(t, dialogs.messages, 1)
+	testutil.ExpectedEqual(t, dialogs.messages[0].Type, wailsruntime.ErrorDialog)
+	testutil.ExpectedEqual(t, dialogs.messages[0].Title, "Server Error")
+	testutil.ExpectedEqual(t, dialogs.messages[0].Message, "Server not able to start plz free one port from 4545 to 4555")
+}
+
+func TestApp_NilWebserver(t *testing.T) {
+	app := &App{}
+
+	// AppVariable handles nil webserver safely
+	appVar := app.AppVariable()
+	testutil.ExpectedFalse(t, appVar.ServerRunning)
+	testutil.ExpectedEqual(t, appVar.DefaultIp, "")
+
+	// GetPrinterIp handles nil webserver with default port 4545
+	printerIP := app.webserver.GetPrinterIp("printer123")
+	testutil.ExpectedEqual(t, printerIP, "127.0.0.1:4545/p/printer123")
+
+	// shutdown handles nil webserver without panic
+	app.shutdown(context.Background())
+}
+
