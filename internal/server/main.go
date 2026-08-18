@@ -57,10 +57,8 @@ func New(cfg *config.Manager) (*Server, error) {
 		cfg:  cfg,
 	}
 
-	s.registerRoutes(cfg)
-
 	s.obox = obox.Manager(cfg, s.LocalAddr)
-	s.obox.RegisterRoutes(s.app)
+	s.registerRoutes(cfg)
 
 	s.running.Store(true)
 	go func() {

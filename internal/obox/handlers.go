@@ -6,18 +6,13 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-func (m *Module) handleDiscovery(ctx fiber.Ctx) error {
+func (m *Module) HandleDiscovery(ctx fiber.Ctx) error {
 	logger.Debug("[obox] LAN health check /odoo/")
-	dbURL, _, _ := m.GetCredentials()
-	if dbURL != "" {
-		serial := m.appID
-		if serial == "" && m.cfg != nil {
-			serial = m.cfg.GetAppID()
-		}
+	if dbURL, _ := m.GetCredentials(); dbURL != "" {
 		return ctx.JSON(map[string]interface{}{
 			"status": "configured",
 			"data": map[string]string{
-				"serial": serial,
+				"serial": m.appID,
 				"db_url": dbURL,
 			},
 		})
@@ -27,32 +22,35 @@ func (m *Module) handleDiscovery(ctx fiber.Ctx) error {
 	})
 }
 
-func (m *Module) handleHealth(ctx fiber.Ctx) error {
-	logger.Infof("[obox] /odoo/health ping")
+func (m *Module) HandleHealth(ctx fiber.Ctx) error {
+	logger.Debugf("[obox] /odoo/health ping")
 	if m.IsConnected() {
 		go m.callOdooPing()
 	}
 	return ctx.JSON(map[string]string{"status": "ok"})
 }
 
-func (m *Module) handleRestart(ctx fiber.Ctx) error {
-	logger.Infof("[obox] restart — ignored, returning success")
-	return ctx.JSON(map[string]string{"status": "restarted"})
+func (m *Module) HandleRestart(ctx fiber.Ctx) error {
+	logger.Infof("[obox] Restart requested: not supported on desktop ePOS proxy")
+	return ctx.JSON(map[string]string{
+		"status":  "not_supported",
+		"message": "Restart is not supported on ePOS proxy",
+	})
 }
 
-func (m *Module) handleDisconnect(ctx fiber.Ctx) error {
+func (m *Module) HandleDisconnect(ctx fiber.Ctx) error {
 	logger.Infof("[obox] disconnect — clearing device credentials")
 	m.Disconnect()
 	return ctx.JSON(map[string]string{"status": "disconnected"})
 }
 
-func (m *Module) handleDiscoverDevices(ctx fiber.Ctx) error {
+func (m *Module) HandleDiscoverDevices(ctx fiber.Ctx) error {
 	logger.Infof("[obox] discover_devices")
 	devices := m.buildDeviceList()
 	return ctx.JSON(devices)
 }
 
-func (m *Module) handleConnect(ctx fiber.Ctx) error {
+func (m *Module) HandleConnect(ctx fiber.Ctx) error {
 	dbURL := ctx.Query("db_url")
 	token := ctx.Query("token")
 	dbUUID := ctx.Query("db_uuid")

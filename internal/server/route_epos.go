@@ -29,12 +29,12 @@ func registerEPOSRoutes(app *fiber.App, mgr *printer.Manager) {
 	app.Post("/p/:printerId/cgi-bin/epos/service.cgi", func(ctx fiber.Ctx) error {
 		printerId := ctx.Params("printerId")
 		logger.Debugf("Print request received for printer: %s", printerId)
-		return printData(mgr, ctx, printerId)
+		return printReceipt(mgr, ctx, printerId)
 	})
 
 	app.Post("/cgi-bin/epos/service.cgi", func(ctx fiber.Ctx) error {
 		logger.Debugf("Print request received (auto printer selection)")
-		return printData(mgr, ctx, "")
+		return printReceipt(mgr, ctx, "")
 	})
 
 	app.Post("/p/:printerId/pstprnt", func(ctx fiber.Ctx) error {
@@ -44,7 +44,7 @@ func registerEPOSRoutes(app *fiber.App, mgr *printer.Manager) {
 	})
 }
 
-func printData(mgr *printer.Manager, ctx fiber.Ctx, printerID string) error {
+func printReceipt(mgr *printer.Manager, ctx fiber.Ctx, printerID string) error {
 	logger.Debugf("Processing print job for printer: %s", printerID)
 	jobData, err := escpos.ParseXML(ctx.Body())
 	if err != nil {

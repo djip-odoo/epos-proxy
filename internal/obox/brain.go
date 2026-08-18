@@ -7,32 +7,31 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
 
-	"epos-proxy/internal/config"
 	"epos-proxy/internal/logger"
 	"epos-proxy/internal/printer"
 )
 
-// QueueAction represents an action sent from Odoo to be executed locally.
 type QueueAction struct {
 	UUID    string                 `json:"uuid"`
 	Payload map[string]interface{} `json:"payload"`
 }
 
-// DeviceEntry represents a discovered printer in Obox format.
-type DeviceEntry struct {
-	Name       string `json:"name"`
-	Identifier string `json:"identifier"`
-	Type       string `json:"type"`
+type rpcError struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    struct {
+		Name    string `json:"name"`
+		Message string `json:"message"`
+	} `json:"data"`
 }
 
-// rpcError carries the raw JSON-RPC error body returned by the server.
-type rpcError struct{ raw string }
-
 func (e *rpcError) Error() string {
-	return "server RPC error: " + e.raw
+	if e.Data.Name != "" {
+		return fmt.Sprintf("server RPC error %d (%s): %s", e.Code, e.Data.Name, e.Message)
+	}
+	return fmt.Sprintf("server RPC error %d: %s", e.Code, e.Message)
 }
 
 func isDeviceNotFound(err error) bool {
@@ -40,8 +39,20 @@ func isDeviceNotFound(err error) bool {
 	if !errors.As(err, &rpcErr) {
 		return false
 	}
-	return strings.Contains(rpcErr.raw, `"code": 404`) ||
-		strings.Contains(rpcErr.raw, `"code":404`)
+	return rpcErr.Code == http.StatusNotFound
+}
+
+func (m *Module) buildDeviceList() []map[string]string {
+	discovered := printer.DiscoverAllPrinters(m.cfg)
+	list := make([]map[string]string, 0, len(discovered.Available))
+	for _, p := range discovered.Available {
+		list = append(list, map[string]string{
+			"name":       p.Name,
+			"identifier": p.Identifier,
+			"type":       string(p.Type),
+		})
+	}
+	return list
 }
 
 func (m *Module) deviceBrain() {
@@ -49,7 +60,7 @@ func (m *Module) deviceBrain() {
 	for {
 		time.Sleep(5 * time.Second)
 
-		dbURL, token, _ := m.GetCredentials()
+		dbURL, token := m.GetCredentials()
 		if dbURL == "" || token == "" {
 			m.setLiveStatus("disconnected")
 			continue
@@ -64,7 +75,7 @@ func (m *Module) deviceBrain() {
 			}
 			logger.Infof("[obox brain] fetchNextActions: %v", err)
 			last := m.lastContactTime.Load()
-			if last == 0 || time.Since(time.UnixMilli(last)) > 8*time.Second {
+			if last == 0 || time.Since(time.UnixMilli(last)) > 10*time.Second {
 				m.setLiveStatus("disconnected")
 			} else {
 				m.setLiveStatus("connecting")
@@ -110,19 +121,18 @@ func (m *Module) fetchNextActions(dbURL, token string) ([]QueueAction, error) {
 	}
 
 	var rpcResp struct {
-		Result []QueueAction    `json:"result"`
-		Error  *json.RawMessage `json:"error"`
+		Result []QueueAction `json:"result"`
+		Error  *rpcError     `json:"error"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&rpcResp); err != nil {
 		return nil, err
 	}
 	if rpcResp.Error != nil {
-		return nil, &rpcError{raw: string(*rpcResp.Error)}
+		return nil, rpcResp.Error
 	}
 	return rpcResp.Result, nil
 }
 
-// ExecuteAction processes one queue action and reports the result back to Odoo.
 func (m *Module) ExecuteAction(action QueueAction) {
 	rawURL, _ := action.Payload["url"].(string)
 	method, _ := action.Payload["method"].(string)
@@ -137,28 +147,31 @@ func (m *Module) ExecuteAction(action QueueAction) {
 
 	var result interface{}
 
-	switch {
-	case actionPath == "/odoo/health":
+	switch actionPath {
+	case "/odoo/health":
 		logger.Infof("[obox brain] Action health ping: returning success")
 		result = map[string]string{"status": "ok"}
 		m.reportActionResult(action.UUID, result)
 		go m.callOdooPing()
 		return
 
-	case actionPath == "/odoo/restart":
-		logger.Infof("[obox brain] Action restart: ignored, returning success")
-		result = map[string]string{"status": "restarted"}
+	case "/odoo/restart":
+		logger.Infof("[obox brain] Action restart requested: not supported on desktop ePOS proxy")
+		result = map[string]string{
+			"status":  "not_supported",
+			"message": "Restart is not supported on ePOS proxy",
+		}
 		m.reportActionResult(action.UUID, result)
 		return
 
-	case actionPath == "/odoo/disconnect":
+	case "/odoo/disconnect":
 		logger.Infof("[obox brain] Action disconnect: returning success")
 		m.Disconnect()
 		result = map[string]string{"status": "disconnected"}
 		m.reportActionResult(action.UUID, result)
 		return
 
-	case actionPath == "/odoo/discover_devices":
+	case "/odoo/discover_devices":
 		logger.Infof("[obox brain] Action discover_devices: fetching device list")
 		devices := m.buildDeviceList()
 		devicesJSON, err := json.Marshal(devices)
@@ -170,12 +183,6 @@ func (m *Module) ExecuteAction(action QueueAction) {
 		m.reportActionResult(action.UUID, result)
 		return
 
-	case actionPath == "/usb/v1/printer/print":
-		logger.Infof("[obox brain] Action printer print: executing print simulation")
-		result = map[string]string{"status": "ok"}
-		m.reportActionResult(action.UUID, result)
-		return
-
 	default:
 		result = m.dispatchLocalAction(rawURL, method, payload)
 		m.reportActionResult(action.UUID, result)
@@ -183,9 +190,7 @@ func (m *Module) ExecuteAction(action QueueAction) {
 }
 
 func (m *Module) dispatchLocalAction(path, method string, payload interface{}) interface{} {
-	localAddr := m.localAddrFn()
-	base := fmt.Sprintf("http://%s", localAddr)
-	fullURL := base + path
+	fullURL := fmt.Sprintf("http://%s%s", m.localAddrFn(), path)
 
 	var req *http.Request
 	var err error
@@ -228,7 +233,7 @@ func (m *Module) dispatchLocalAction(path, method string, payload interface{}) i
 }
 
 func (m *Module) reportActionResult(uuid string, result interface{}) {
-	dbURL, token, _ := m.GetCredentials()
+	dbURL, token := m.GetCredentials()
 	if dbURL == "" || token == "" {
 		return
 	}
@@ -261,7 +266,7 @@ func (m *Module) reportActionResult(uuid string, result interface{}) {
 }
 
 func (m *Module) callOdooPing() {
-	dbURL, token, _ := m.GetCredentials()
+	dbURL, token := m.GetCredentials()
 	if dbURL == "" || token == "" {
 		return
 	}
@@ -292,26 +297,6 @@ func (m *Module) callOdooPing() {
 	logger.Infof("[obox brain] /obox/ping response status: %d", resp.StatusCode)
 }
 
-func (m *Module) buildDeviceList() []DeviceEntry {
-	var cfg *config.Manager
-	if m.cfg != nil {
-		cfg = m.cfg
-	}
-	discovered := printer.DiscoverAllPrinters(cfg)
-	devices := make([]DeviceEntry, 0, len(discovered.Available))
-
-	for _, p := range discovered.Available {
-		devices = append(devices, DeviceEntry{
-			Name:       p.Name,
-			Identifier: p.Identifier,
-			Type:       "printer",
-		})
-	}
-
-	logger.Infof("[obox] buildDeviceList: %d devices found", len(devices))
-	return devices
-}
-
 func (m *Module) callOdooOboxConnect(dbURL, token, dbUUID string) {
 	endpoint := dbURL + "/obox/connect"
 	client := &http.Client{Timeout: 5 * time.Second}
@@ -326,11 +311,6 @@ func (m *Module) callOdooOboxConnect(dbURL, token, dbUUID string) {
 	for attempt := 1; attempt <= 10; attempt++ {
 		time.Sleep(time.Duration(attempt*300) * time.Millisecond)
 
-		localIP := ""
-		if m.localAddrFn != nil {
-			localIP = m.localAddrFn()
-		}
-
 		payload := rpcPayload{
 			JSONRPC: "2.0",
 			Method:  "call",
@@ -338,7 +318,7 @@ func (m *Module) callOdooOboxConnect(dbURL, token, dbUUID string) {
 			Params: map[string]interface{}{
 				"serial_number": m.appID,
 				"token":         token,
-				"local_ip":      localIP,
+				"local_ip":      m.localAddrFn(),
 				"services":      []string{"usb", "printer"},
 			},
 		}

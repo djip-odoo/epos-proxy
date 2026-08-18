@@ -2,6 +2,7 @@ package obox
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -21,7 +22,12 @@ func createTestModule(t *testing.T) (*Module, *fiber.App) {
 	app := fiber.New()
 
 	m := Manager(cfg, func() string { return "127.0.0.1:4545" })
-	m.RegisterRoutes(app)
+	app.Get("/odoo/", m.HandleDiscovery)
+	app.Get("/odoo/health", m.HandleHealth)
+	app.Get("/odoo/restart", m.HandleRestart)
+	app.Get("/odoo/disconnect", m.HandleDisconnect)
+	app.Get("/odoo/discover_devices", m.HandleDiscoverDevices)
+	app.Get("/odoo/connect", m.HandleConnect)
 	return m, app
 }
 
@@ -34,10 +40,9 @@ func TestObox_CredentialsAndConnection(t *testing.T) {
 	m.SetCredentials("http://127.0.0.1:8069", "token-xyz", "db-uuid-1")
 	testutil.ExpectedTrue(t, m.IsConnected())
 
-	dbURL, tok, uuid := m.GetCredentials()
+	dbURL, tok := m.GetCredentials()
 	testutil.ExpectedEqual(t, dbURL, "http://127.0.0.1:8069")
 	testutil.ExpectedEqual(t, tok, "token-xyz")
-	testutil.ExpectedEqual(t, uuid, "db-uuid-1")
 	testutil.ExpectedEqual(t, m.GetDbURL(), "http://127.0.0.1:8069")
 
 	m.ClearCredentials()
@@ -149,4 +154,34 @@ func TestObox_ExecuteAction(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatalf("timed out waiting for action report")
 	}
+}
+
+func TestObox_IsDeviceNotFound(t *testing.T) {
+	// 1. Non-rpcError
+	testutil.ExpectedFalse(t, isDeviceNotFound(errors.New("regular network error")))
+	testutil.ExpectedFalse(t, isDeviceNotFound(nil))
+
+	// 2. rpcError with 404 code
+	err404 := &rpcError{Code: 404, Message: "404: Not Found"}
+	testutil.ExpectedTrue(t, isDeviceNotFound(err404))
+	testutil.ExpectedContains(t, err404.Error(), "404")
+
+	// 3. rpcError with werkzeug NotFound exception name
+	errWerkzeug := &rpcError{
+		Code:    200,
+		Message: "Odoo Error",
+		Data: struct {
+			Name    string `json:"name"`
+			Message string `json:"message"`
+		}{
+			Name:    "werkzeug.exceptions.NotFound",
+			Message: "404 Not Found",
+		},
+	}
+	testutil.ExpectedTrue(t, isDeviceNotFound(errWerkzeug))
+	testutil.ExpectedContains(t, errWerkzeug.Error(), "werkzeug.exceptions.NotFound")
+
+	// 4. Other RPC error (e.g. 500 Internal Server Error or AccessDenied)
+	err500 := &rpcError{Code: 500, Message: "Internal Server Error"}
+	testutil.ExpectedFalse(t, isDeviceNotFound(err500))
 }
