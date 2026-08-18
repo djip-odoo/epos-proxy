@@ -110,68 +110,7 @@ func TestOboxLANStatus_Endpoint(t *testing.T) {
 	testutil.ExpectedEqual(t, resp.StatusCode, http.StatusOK)
 }
 
-func TestOboxHealth_Endpoint(t *testing.T) {
-	s := createTestOboxServer(4605)
-	defer s.Stop()
 
-	req := httptest.NewRequest("GET", "/odoo/health", nil)
-	resp, err := s.App().Test(req)
-	testutil.ExpectedNoError(t, err)
-	defer resp.Body.Close()
-
-	testutil.ExpectedEqual(t, resp.StatusCode, http.StatusOK)
-
-	var res map[string]string
-	_ = json.NewDecoder(resp.Body).Decode(&res)
-	testutil.ExpectedEqual(t, res["status"], "ok")
-}
-
-func TestOboxRestart_Endpoint(t *testing.T) {
-	s := createTestOboxServer(4606)
-	defer s.Stop()
-
-	req := httptest.NewRequest("GET", "/odoo/restart", nil)
-	resp, err := s.App().Test(req)
-	testutil.ExpectedNoError(t, err)
-	defer resp.Body.Close()
-
-	testutil.ExpectedEqual(t, resp.StatusCode, http.StatusOK)
-
-	var res map[string]string
-	_ = json.NewDecoder(resp.Body).Decode(&res)
-	testutil.ExpectedEqual(t, res["status"], "not_supported")
-}
-
-func TestOboxDisconnect_Endpoint(t *testing.T) {
-	s := createTestOboxServer(4607)
-	defer s.Stop()
-
-	req := httptest.NewRequest("GET", "/odoo/disconnect", nil)
-	resp, err := s.App().Test(req)
-	testutil.ExpectedNoError(t, err)
-	defer resp.Body.Close()
-
-	testutil.ExpectedEqual(t, resp.StatusCode, http.StatusOK)
-}
-
-func TestOboxDiscoverDevices_Endpoint(t *testing.T) {
-	s := createTestOboxServer(4608)
-	defer s.Stop()
-
-	req := httptest.NewRequest("GET", "/odoo/discover_devices", nil)
-	resp, err := s.App().Test(req)
-	testutil.ExpectedNoError(t, err)
-	defer resp.Body.Close()
-
-	testutil.ExpectedEqual(t, resp.StatusCode, http.StatusOK)
-
-	var devices []map[string]string
-	err = json.NewDecoder(resp.Body).Decode(&devices)
-	testutil.ExpectedNoError(t, err)
-	for _, d := range devices {
-		testutil.ExpectedEqual(t, d["type"], "printer")
-	}
-}
 
 func TestOboxRemoteDebug_Endpoints(t *testing.T) {
 	s := createTestOboxServer(4609)

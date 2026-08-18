@@ -22,33 +22,7 @@ func (m *Module) HandleDiscovery(ctx fiber.Ctx) error {
 	})
 }
 
-func (m *Module) HandleHealth(ctx fiber.Ctx) error {
-	logger.Debugf("[obox] /odoo/health ping")
-	if m.IsConnected() {
-		go m.callOdooPing()
-	}
-	return ctx.JSON(map[string]string{"status": "ok"})
-}
 
-func (m *Module) HandleRestart(ctx fiber.Ctx) error {
-	logger.Infof("[obox] Restart requested: not supported on desktop ePOS proxy")
-	return ctx.JSON(map[string]string{
-		"status":  "not_supported",
-		"message": "Restart is not supported on ePOS proxy",
-	})
-}
-
-func (m *Module) HandleDisconnect(ctx fiber.Ctx) error {
-	logger.Infof("[obox] disconnect — clearing device credentials")
-	m.Disconnect()
-	return ctx.JSON(map[string]string{"status": "disconnected"})
-}
-
-func (m *Module) HandleDiscoverDevices(ctx fiber.Ctx) error {
-	logger.Infof("[obox] discover_devices")
-	devices := m.buildDeviceList()
-	return ctx.JSON(devices)
-}
 
 func (m *Module) HandleConnect(ctx fiber.Ctx) error {
 	dbURL := ctx.Query("db_url")

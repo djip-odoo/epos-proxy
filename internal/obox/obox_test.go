@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"epos-proxy/internal/config"
+	"epos-proxy/internal/printer"
 	"epos-proxy/internal/testutil"
 
 	"github.com/gofiber/fiber/v3"
@@ -21,12 +22,8 @@ func createTestModule(t *testing.T) (*Module, *fiber.App) {
 	testutil.ExpectedNoError(t, err)
 	app := fiber.New()
 
-	m := Manager(cfg, func() string { return "127.0.0.1:4545" })
+	m := Manager(cfg, printer.NewManager(), func() string { return "127.0.0.1:4545" })
 	app.Get("/odoo/", m.HandleDiscovery)
-	app.Get("/odoo/health", m.HandleHealth)
-	app.Get("/odoo/restart", m.HandleRestart)
-	app.Get("/odoo/disconnect", m.HandleDisconnect)
-	app.Get("/odoo/discover_devices", m.HandleDiscoverDevices)
 	app.Get("/odoo/connect", m.HandleConnect)
 	return m, app
 }
@@ -65,28 +62,14 @@ func TestObox_StatusChangeListener(t *testing.T) {
 func TestObox_Routes(t *testing.T) {
 	m, app := createTestModule(t)
 
-	// 1. Initial /odoo/
+	// 1. Initial /odoo/ (not configured)
 	req := httptest.NewRequest("GET", "/odoo/", nil)
 	resp, err := app.Test(req)
 	testutil.ExpectedNoError(t, err)
 	testutil.ExpectedEqual(t, resp.StatusCode, http.StatusOK)
 	resp.Body.Close()
 
-	// 2. /odoo/health
-	req = httptest.NewRequest("GET", "/odoo/health", nil)
-	resp, err = app.Test(req)
-	testutil.ExpectedNoError(t, err)
-	testutil.ExpectedEqual(t, resp.StatusCode, http.StatusOK)
-	resp.Body.Close()
-
-	// 3. /odoo/restart
-	req = httptest.NewRequest("GET", "/odoo/restart", nil)
-	resp, err = app.Test(req)
-	testutil.ExpectedNoError(t, err)
-	testutil.ExpectedEqual(t, resp.StatusCode, http.StatusOK)
-	resp.Body.Close()
-
-	// 4. /odoo/connect
+	// 2. /odoo/connect (offline connect)
 	req = httptest.NewRequest("GET", "/odoo/connect?db_url=http://127.0.0.1:8069&token=test-tok&db_uuid=test-uuid", nil)
 	resp, err = app.Test(req)
 	testutil.ExpectedNoError(t, err)
@@ -95,7 +78,7 @@ func TestObox_Routes(t *testing.T) {
 
 	testutil.ExpectedTrue(t, m.IsConnected())
 
-	// 5. /odoo/ configured discovery
+	// 3. /odoo/ configured discovery
 	req = httptest.NewRequest("GET", "/odoo/", nil)
 	resp, err = app.Test(req)
 	testutil.ExpectedNoError(t, err)
@@ -109,13 +92,8 @@ func TestObox_Routes(t *testing.T) {
 	testutil.ExpectedEqual(t, discResp.Data["db_url"], "http://127.0.0.1:8069")
 	resp.Body.Close()
 
-	// 6. /odoo/disconnect
-	req = httptest.NewRequest("GET", "/odoo/disconnect", nil)
-	resp, err = app.Test(req)
-	testutil.ExpectedNoError(t, err)
-	testutil.ExpectedEqual(t, resp.StatusCode, http.StatusOK)
-	resp.Body.Close()
-
+	// 4. In-memory Disconnect
+	m.Disconnect()
 	testutil.ExpectedFalse(t, m.IsConnected())
 }
 
@@ -153,6 +131,45 @@ func TestObox_ExecuteAction(t *testing.T) {
 		testutil.ExpectedEqual(t, uuid, "action-1")
 	case <-time.After(2 * time.Second):
 		t.Fatalf("timed out waiting for action report")
+	}
+
+	// Test ePOS direct print action
+	actionEpos := QueueAction{
+		UUID: "action-2",
+		Payload: map[string]interface{}{
+			"url":     "/usb/v1/printer/printer_1/cgi-bin/epos/service.cgi",
+			"method":  "POST",
+			"payload": `<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print"><text>Hello</text></epos-print></s:Body></s:Envelope>`,
+		},
+	}
+	m.ExecuteAction(actionEpos)
+
+	select {
+	case uuid := <-actionReported:
+		testutil.ExpectedEqual(t, uuid, "action-2")
+	case <-time.After(2 * time.Second):
+		t.Fatalf("timed out waiting for epos action report")
+	}
+
+	// Test Document direct print action
+	actionDoc := QueueAction{
+		UUID: "action-3",
+		Payload: map[string]interface{}{
+			"url":    "/usb/v1/printer/print",
+			"method": "POST",
+			"payload": map[string]interface{}{
+				"identifier": "printer_1",
+				"document":   "bW9jay1kb2M=",
+			},
+		},
+	}
+	m.ExecuteAction(actionDoc)
+
+	select {
+	case uuid := <-actionReported:
+		testutil.ExpectedEqual(t, uuid, "action-3")
+	case <-time.After(2 * time.Second):
+		t.Fatalf("timed out waiting for doc action report")
 	}
 }
 

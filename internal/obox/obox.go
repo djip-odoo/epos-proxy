@@ -6,6 +6,7 @@ import (
 
 	"epos-proxy/internal/config"
 	"epos-proxy/internal/logger"
+	"epos-proxy/internal/printer"
 )
 
 type StatusListener func()
@@ -13,6 +14,7 @@ type StatusListener func()
 type Module struct {
 	appID       string
 	cfg         *config.Manager
+	mgr         *printer.Manager
 	localAddrFn func() string
 
 	credMu sync.RWMutex
@@ -27,9 +29,10 @@ type Module struct {
 	listeners   []StatusListener
 }
 
-func Manager(cfg *config.Manager, localAddrFn func() string) *Module {
+func Manager(cfg *config.Manager, mgr *printer.Manager, localAddrFn func() string) *Module {
 	m := &Module{
 		cfg:         cfg,
+		mgr:         mgr,
 		localAddrFn: localAddrFn,
 		appID:       cfg.GetAppID(),
 	}

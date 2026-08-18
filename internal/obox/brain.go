@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
+	"epos-proxy/internal/escpos"
 	"epos-proxy/internal/logger"
 	"epos-proxy/internal/printer"
 )
@@ -147,15 +149,15 @@ func (m *Module) ExecuteAction(action QueueAction) {
 
 	var result interface{}
 
-	switch actionPath {
-	case "/odoo/health":
+	switch {
+	case actionPath == "/odoo/health":
 		logger.Infof("[obox brain] Action health ping: returning success")
 		result = map[string]string{"status": "ok"}
 		m.reportActionResult(action.UUID, result)
 		go m.callOdooPing()
 		return
 
-	case "/odoo/restart":
+	case actionPath == "/odoo/restart":
 		logger.Infof("[obox brain] Action restart requested: not supported on desktop ePOS proxy")
 		result = map[string]string{
 			"status":  "not_supported",
@@ -164,14 +166,14 @@ func (m *Module) ExecuteAction(action QueueAction) {
 		m.reportActionResult(action.UUID, result)
 		return
 
-	case "/odoo/disconnect":
+	case actionPath == "/odoo/disconnect":
 		logger.Infof("[obox brain] Action disconnect: returning success")
 		m.Disconnect()
 		result = map[string]string{"status": "disconnected"}
 		m.reportActionResult(action.UUID, result)
 		return
 
-	case "/odoo/discover_devices":
+	case actionPath == "/odoo/discover_devices":
 		logger.Infof("[obox brain] Action discover_devices: fetching device list")
 		devices := m.buildDeviceList()
 		devicesJSON, err := json.Marshal(devices)
@@ -183,53 +185,80 @@ func (m *Module) ExecuteAction(action QueueAction) {
 		m.reportActionResult(action.UUID, result)
 		return
 
-	default:
-		result = m.dispatchLocalAction(rawURL, method, payload)
+	case strings.Contains(actionPath, "/cgi-bin/epos/service.cgi"):
+		logger.Infof("[obox brain] Action POS ePOS print: executing directly")
+		result = m.directEPOSPrint(actionPath, payload)
 		m.reportActionResult(action.UUID, result)
+		return
+
+	case strings.HasPrefix(actionPath, "/sos/v1/"):
+		logger.Infof("[obox brain] Action remote debug: not supported on desktop ePOS proxy")
+		result = map[string]string{"error": "remote debug not supported on ePOS proxy"}
+		m.reportActionResult(action.UUID, result)
+		return
+
+	case actionPath == "/usb/v1/printer/print": // TODO: in office printer
+		logger.Infof("[obox brain] Action printer print: executing directly")
+		result = map[string]string{"error": "printer print not supported on ePOS proxy"}
+		m.reportActionResult(action.UUID, result)
+		return
+
+	default:
+		logger.Warnf("[obox brain] Action %s: unsupported on desktop ePOS proxy", actionPath)
+		result = map[string]string{"error": "action not supported on ePOS proxy"}
+		m.reportActionResult(action.UUID, result)
+		return
 	}
 }
 
-func (m *Module) dispatchLocalAction(path, method string, payload interface{}) interface{} {
-	fullURL := fmt.Sprintf("http://%s%s", m.localAddrFn(), path)
+func (m *Module) directEPOSPrint(actionPath string, payload interface{}) interface{} {
+	printerID := extractPrinterID(actionPath)
 
-	var req *http.Request
-	var err error
-
-	switch method {
-	case "POST":
-		var bodyBytes []byte
-		bodyBytes, err = json.Marshal(payload)
-		if err != nil {
-			logger.Errorf("[obox brain] marshal payload error: %v", err)
-			return map[string]string{"status": "ok"}
+	var xmlData []byte
+	switch v := payload.(type) {
+	case string:
+		xmlData = []byte(v)
+	case []byte:
+		xmlData = v
+	case map[string]interface{}:
+		if s, ok := v["receipt"].(string); ok {
+			xmlData = []byte(s)
 		}
-		req, err = http.NewRequest("POST", fullURL, bytes.NewReader(bodyBytes))
-		if err == nil {
-			req.Header.Set("Content-Type", "application/json")
+	}
+
+	if len(xmlData) == 0 {
+		return map[string]string{"error": "empty print payload"}
+	}
+
+	jobData, err := escpos.ParseXML(xmlData)
+	if err != nil {
+		logger.Errorf("[obox brain] XML parsing error: %v", err)
+		return map[string]string{"error": err.Error()}
+	}
+
+	reply, err := m.mgr.WriteAsync(printerID, jobData)
+	if err == nil {
+		result := <-reply
+		if !result.OK {
+			err = result.Err
 		}
-	default: // GET
-		req, err = http.NewRequest("GET", fullURL, nil)
 	}
-
 	if err != nil {
-		logger.Errorf("[obox brain] build request error: %v", err)
-		return map[string]string{"status": "ok"}
+		logger.Errorf("[obox brain] Print error: %v, Printer ID: %s", err, printerID)
+		return map[string]string{"error": err.Error()}
 	}
 
-	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		logger.Errorf("[obox brain] local action HTTP error url=%s: %v", fullURL, err)
-		return map[string]string{"status": "ok"}
-	}
-	defer resp.Body.Close()
+	return map[string]string{"status": "ok"}
+}
 
-	var result interface{}
-	if decodeErr := json.NewDecoder(resp.Body).Decode(&result); decodeErr != nil || result == nil {
-		return map[string]string{"status": "ok"}
+func extractPrinterID(path string) string {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	for i, part := range parts {
+		if (part == "printer" || part == "p") && i+1 < len(parts) && parts[i+1] != "list" && parts[i+1] != "print" && parts[i+1] != "open-cashbox" && parts[i+1] != "cgi-bin" && parts[i+1] != "pstprnt" {
+			return parts[i+1]
+		}
 	}
-	logger.Infof("[obox brain] local action result: %v", result)
-	return result
+	return ""
 }
 
 func (m *Module) reportActionResult(uuid string, result interface{}) {

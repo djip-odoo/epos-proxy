@@ -57,7 +57,7 @@ func New(cfg *config.Manager) (*Server, error) {
 		cfg:  cfg,
 	}
 
-	s.obox = obox.Manager(cfg, s.LocalAddr)
+	s.obox = obox.Manager(cfg, s.mgr, s.LocalAddr)
 	s.registerRoutes(cfg)
 
 	s.running.Store(true)
