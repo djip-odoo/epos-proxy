@@ -18,11 +18,11 @@ func registerOboxRoutes(s *Server) {
 	if s.obox == nil {
 		return
 	}
+
+	// LAN network discovery scan
 	s.app.Get("/odoo/", s.obox.HandleDiscovery)
-	s.app.Get("/odoo/health", s.obox.HandleHealth)
-	s.app.Get("/odoo/restart", s.obox.HandleRestart)
-	s.app.Get("/odoo/disconnect", s.obox.HandleDisconnect)
-	s.app.Get("/odoo/discover_devices", s.obox.HandleDiscoverDevices)
+
+	// offline connect
 	s.app.Get("/odoo/connect", s.obox.HandleConnect)
 
 	s.app.Post("/usb/v1/printer/:printerId/cgi-bin/epos/service.cgi", func(ctx fiber.Ctx) error {
