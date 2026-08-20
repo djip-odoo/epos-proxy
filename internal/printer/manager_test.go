@@ -117,3 +117,31 @@ func TestManager_WriteAsync_PrinterNotFound(t *testing.T) {
 	testutil.ExpectedError(t, err)
 	testutil.ExpectedNil(t, replyChan)
 }
+
+func removePrinterForTest(m *Manager, id string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if p, ok := m.printers[id]; ok {
+		p.close()
+		delete(m.printers, id)
+	}
+}
+
+func TestManager_Remove(t *testing.T) {
+	mgr := NewManager()
+
+	_, _, err := testutil.StartMockTCPServer(t)
+	testutil.ExpectedNoError(t, err)
+
+	id := EncodeLANPrinterID("127.0.0.1")
+	p1, err := mgr.Get(id)
+	testutil.ExpectedNoError(t, err)
+	testutil.ExpectedNotNil(t, p1)
+
+	removePrinterForTest(mgr, id)
+
+	mgr.mu.Lock()
+	_, exists := mgr.printers[id]
+	mgr.mu.Unlock()
+	testutil.ExpectedTrue(t, !exists)
+}

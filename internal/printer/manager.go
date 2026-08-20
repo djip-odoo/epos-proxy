@@ -20,13 +20,19 @@ func (m *Manager) Get(id string) (*Printer, error) {
 	defer m.mu.Unlock()
 
 	if p, ok := m.printers[id]; ok {
-		logger.Debugf("Reusing existing printer instance for ID: %s", id)
-		return p, nil
+		if err := p.ensureOpen(); err == nil {
+			logger.Debugf("Reusing existing printer instance for ID: %s", id)
+			return p, nil
+		}
+		logger.Warnf("Existing printer instance for ID %s failed ensureOpen, evicting and recreating", id)
+		p.close()
+		delete(m.printers, id)
 	}
 
 	logger.Debugf("Creating new printer instance for ID: %s", id)
 	p := newPrinter(id)
 	if err := p.ensureOpen(); err != nil {
+		p.close()
 		return nil, fmt.Errorf("failed to open new printer instance for ID %s: %w", id, err)
 	}
 
