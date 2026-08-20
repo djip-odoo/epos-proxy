@@ -148,6 +148,11 @@ func (p *Printer) ensureOpenUSBLocked() error {
 		if findAny && len(eps) > 0 {
 			return false
 		}
+
+		if p.id != nil && p.id.VidPid != "" && p.id.VidPid != fmt.Sprintf("%04X:%04X", uint16(desc.Vendor), uint16(desc.Product)) {
+			return false
+		}
+
 		ep, ok := findPrinterEndpoint(desc)
 		if ok {
 			eps = append(eps, ep)
@@ -156,12 +161,12 @@ func (p *Printer) ensureOpenUSBLocked() error {
 		return false
 	})
 	if err != nil {
-		_ = ctx.Close()
-		return fmt.Errorf("failed to open USB device for printer %s: %w", p.idToString(), err)
+		logger.Warnf("Some matching devices failed to open: %v", err)
 	}
 	if len(devices) == 0 {
-		_ = ctx.Close()
-		logger.Warnf("USB printer %s not found", p.idToString())
+		if err != nil {
+			return err
+		}
 		return ErrNotFound
 	}
 
