@@ -189,3 +189,31 @@ func TestPrinter_EnsureOpenUSB_AlreadyOpen(t *testing.T) {
 	err := p.ensureOpen()
 	testutil.ExpectedNoError(t, err)
 }
+
+func TestPrinter_EnsureOpenUSB_VidPidFiltering(t *testing.T) {
+	epsonDesc := testutil.MockEpsonPrinterDesc() // VID 04B8, PID 0202
+	zebraDesc := testutil.MockZebraPrinterDesc() // VID 0A5F, PID 0187
+
+	var filteredResults []bool
+	mockOpenDevices(t, func(ctx *gousb.Context, fn func(desc *gousb.DeviceDesc) bool) ([]*gousb.Device, error) {
+		filteredResults = append(filteredResults, fn(zebraDesc)) // should be false
+		filteredResults = append(filteredResults, fn(epsonDesc)) // should be true
+		return nil, nil
+	})
+
+	// Target Epson printer with VidPid: "04B8:0202"
+	p := &Printer{
+		connectionType: ConnKindUSB,
+		id:             &ID{VidPid: "04B8:0202", Path: "1.1.2"},
+	}
+	defer p.close()
+
+	// ensureOpen calls openDevices which runs the filter predicate
+	err := p.ensureOpen()
+	testutil.ExpectedTrue(t, errors.Is(err, ErrNotFound))
+
+	// Verify Zebra was filtered out and Epson was accepted
+	testutil.ExpectedLen(t, filteredResults, 2)
+	testutil.ExpectedFalse(t, filteredResults[0]) // zebra rejected
+	testutil.ExpectedTrue(t, filteredResults[1])  // epson accepted
+}

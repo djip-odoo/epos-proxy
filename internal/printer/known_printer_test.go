@@ -16,6 +16,7 @@ func TestGetPrinterType(t *testing.T) {
 		{"2AAF:6015", TypeReceipt}, // case-insensitive
 		{"04b8:0e32", TypeReceipt},
 		{"04B8:0202", TypeReceipt},
+		{"04b8:0e27", TypeReceipt},
 		{"0483:5720", TypeReceipt},
 		{"2d84:c7c8", TypeReceipt},
 		{"4b43:3830", TypeReceipt},

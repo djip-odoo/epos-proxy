@@ -19,20 +19,18 @@ type ID struct {
 func encodePrinterID(libUsbPrinter *LibUsbPrinter) (string, error) {
 	var parts []string
 
+	if libUsbPrinter.VidPid != "" {
+		parts = append(parts, "vp:"+libUsbPrinter.VidPid)
+	}
+
 	if libUsbPrinter.Serial != "" {
 		parts = append(parts, "s:"+libUsbPrinter.Serial)
-	} else {
-		if libUsbPrinter.VidPid != "" {
-			parts = append(parts, "vp:"+libUsbPrinter.VidPid)
-		}
+	} else if libUsbPrinter.Path != "" {
+		parts = append(parts, "p:"+libUsbPrinter.Path)
+	}
 
-		if libUsbPrinter.Path != "" {
-			parts = append(parts, "p:"+libUsbPrinter.Path)
-		}
-
-		if len(parts) == 0 {
-			return "", fmt.Errorf("cannot encode printer ID: no identifier provided")
-		}
+	if len(parts) == 0 {
+		return "", fmt.Errorf("cannot encode printer ID: no identifier provided")
 	}
 
 	base := strings.Join(parts, "|")
