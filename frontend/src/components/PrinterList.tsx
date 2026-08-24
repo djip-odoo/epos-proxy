@@ -2,6 +2,7 @@ import { useContext } from "react";
 import NetworkIpDialog from "./NetworkIpDialog";
 import PrinterListItem from "./PrinterListItem";
 import { PrinterContext } from "../contexts/PrinterContext";
+import WebViewDialog from "./WebViewDialog";
 
 export default function PrinterList() {
   const printerContext = useContext(PrinterContext);
@@ -65,7 +66,9 @@ export default function PrinterList() {
 
       <div className="mt-6 text-center flex flex-col gap-2 sm:flex-row sm:justify-center">
         <NetworkIpDialog />
+        <WebViewDialog />
       </div>
     </>
   );
 }
+

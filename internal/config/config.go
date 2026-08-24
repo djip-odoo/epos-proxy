@@ -21,13 +21,17 @@ const (
 )
 
 type AppConfig struct {
-	Port        int      `json:"port"`
-	LANPrinters []string `json:"lan_printers,omitempty"`
+	Port           int      `json:"port"`
+	LANPrinters    []string `json:"lan_printers,omitempty"`
+	WebViewURL     string   `json:"webview_url,omitempty"`
+	WebViewPIN     string   `json:"webview_pin,omitempty"`
+	WebViewEnabled bool     `json:"webview_enabled"`
 }
 
 func defaults() AppConfig {
 	return AppConfig{
-		Port: 0,
+		Port:       0,
+		WebViewPIN: "1234",
 	}
 }
 
@@ -154,6 +158,66 @@ func (cm *Manager) RemoveLANPrinter(ip string) error {
 		}
 	}
 	return nil // Not found, nothing to remove
+}
+
+// GetWebViewURL returns the configured kiosk URL.
+func (cm *Manager) GetWebViewURL() string {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	return cm.Data.WebViewURL
+}
+
+// GetWebViewEnabled returns whether kiosk mode is enabled.
+func (cm *Manager) GetWebViewEnabled() bool {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	return cm.Data.WebViewEnabled
+}
+
+// HasWebViewPIN reports whether a PIN has been configured.
+func (cm *Manager) HasWebViewPIN() bool {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	return cm.Data.WebViewPIN != ""
+}
+
+// SetWebViewURL validates and persists the kiosk URL.
+func (cm *Manager) SetWebViewURL(url string) error {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	cm.Data.WebViewURL = url
+	return cm.saveLocked()
+}
+
+// SetWebViewPIN validates (exactly 4 digits) and persists the plaintext PIN.
+func (cm *Manager) SetWebViewPIN(pin string) error {
+	if len(pin) != 4 {
+		return errors.New("PIN must be exactly 4 digits")
+	}
+	for _, ch := range pin {
+		if ch < '0' || ch > '9' {
+			return errors.New("PIN must contain digits only")
+		}
+	}
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	cm.Data.WebViewPIN = pin
+	return cm.saveLocked()
+}
+
+// CheckWebViewPIN returns true when raw matches the stored PIN.
+func (cm *Manager) CheckWebViewPIN(raw string) bool {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	return cm.Data.WebViewPIN != "" && cm.Data.WebViewPIN == raw
+}
+
+// SetWebViewEnabled persists the enabled flag.
+func (cm *Manager) SetWebViewEnabled(v bool) error {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	cm.Data.WebViewEnabled = v
+	return cm.saveLocked()
 }
 
 func (cm *Manager) GetLANPrinters() []string {

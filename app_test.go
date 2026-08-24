@@ -287,3 +287,45 @@ func TestApp_AutostartMethods(t *testing.T) {
 	// Disable autostart
 	_ = app.DisableAutostart()
 }
+
+func TestApp_WebViewMethods(t *testing.T) {
+	tempDir := t.TempDir()
+	t.Setenv("HOME", tempDir)
+
+	cfg, err := config.NewManager()
+	testutil.ExpectedNoError(t, err)
+
+	app := &App{
+		config: cfg,
+	}
+
+	// Initial config check
+	wvCfg := app.GetWebViewConfig()
+	testutil.ExpectedEqual(t, wvCfg.Enabled, false)
+	testutil.ExpectedEqual(t, wvCfg.URL, "")
+	testutil.ExpectedEqual(t, wvCfg.HasPIN, true)
+
+	// Set URL
+	err = app.SetWebViewURL("http://localhost:8069/pos/ui")
+	testutil.ExpectedNoError(t, err)
+
+	// Set PIN
+	err = app.SetWebViewPIN("5678")
+	testutil.ExpectedNoError(t, err)
+
+	// Validate PIN
+	testutil.ExpectedTrue(t, app.ValidateWebViewPIN("5678"))
+	testutil.ExpectedFalse(t, app.ValidateWebViewPIN("1234"))
+
+	// Set Enabled
+	err = app.SetWebViewEnabled(true)
+	testutil.ExpectedNoError(t, err)
+
+	wvCfg = app.GetWebViewConfig()
+	testutil.ExpectedEqual(t, wvCfg.Enabled, true)
+	testutil.ExpectedEqual(t, wvCfg.URL, "http://localhost:8069/pos/ui")
+	testutil.ExpectedEqual(t, wvCfg.HasPIN, true)
+
+	// SetWindowFullscreen should not panic even without live Wails context
+	app.SetWindowFullscreen(false)
+}

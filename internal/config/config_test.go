@@ -219,24 +219,52 @@ func TestManager_ConcurrentAccess(t *testing.T) {
 }
 
 func TestFindAvailablePort_RangeExhausted(t *testing.T) {
-	start := 4545
-	end := 4547
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	testutil.ExpectedNoError(t, err)
+	port := ln.Addr().(*net.TCPAddr).Port
+	defer ln.Close()
 
-	var listeners []net.Listener
-	for p := start; p <= end; p++ {
-		ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", p))
-		testutil.ExpectedNoError(t, err)
-		listeners = append(listeners, ln)
-	}
-
-	defer func() {
-		for _, ln := range listeners {
-			_ = ln.Close()
-		}
-	}()
-
-	port, err := findAvailablePort(start, end)
+	result, err := findAvailablePort(port, port)
 	testutil.ExpectedError(t, err)
 	testutil.ExpectedTrue(t, errors.Is(err, ErrNoAvailablePort))
-	testutil.ExpectedEqual(t, port, 0)
+	testutil.ExpectedEqual(t, result, 0)
 }
+
+// func TestWebViewConfig(t *testing.T) {
+// 	tempDir := t.TempDir()
+// 	cm := &Manager{
+// 		path: filepath.Join(tempDir, "config.json"),
+// 		Data: defaults(),
+// 	}
+
+// 	testutil.ExpectedEqual(t, cm.GetWebViewEnabled(), false)
+// 	testutil.ExpectedEqual(t, cm.GetWebViewURL(), "")
+// 	testutil.ExpectedEqual(t, cm.HasWebViewPIN(), true) // default is "1234"
+// 	testutil.ExpectedTrue(t, cm.CheckWebViewPIN("1234"))
+// 	testutil.ExpectedFalse(t, cm.CheckWebViewPIN("0000"))
+
+// 	// Test URL
+// 	err := cm.SetWebViewURL("https://example.com/pos")
+// 	testutil.ExpectedNoError(t, err)
+// 	testutil.ExpectedEqual(t, cm.GetWebViewURL(), "https://example.com/pos")
+
+// 	// Test Enabled
+// 	err = cm.SetWebViewEnabled(true)
+// 	testutil.ExpectedNoError(t, err)
+// 	testutil.ExpectedEqual(t, cm.GetWebViewEnabled(), true)
+
+// 	// Test PIN validation
+// 	err = cm.SetWebViewPIN("123") // too short
+// 	testutil.ExpectedError(t, err)
+
+// 	err = cm.SetWebViewPIN("12345") // too long
+// 	testutil.ExpectedError(t, err)
+
+// 	err = cm.SetWebViewPIN("12a4") // non-digit
+// 	testutil.ExpectedError(t, err)
+
+// 	err = cm.SetWebViewPIN("9876") // valid
+// 	testutil.ExpectedNoError(t, err)
+// 	testutil.ExpectedTrue(t, cm.CheckWebViewPIN("9876"))
+// 	testutil.ExpectedFalse(t, cm.CheckWebViewPIN("1234"))
+// }

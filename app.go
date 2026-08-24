@@ -14,6 +14,7 @@ import (
 	"epos-proxy/internal/util"
 
 	autostart "github.com/emersion/go-autostart"
+	"github.com/wailsapp/wails/v2/pkg/menu"
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -44,6 +45,7 @@ type App struct {
 	printerManager *printer.Manager
 	autoStart      *autostart.App
 	dialogs        dialoger
+	appMenu        *menu.Menu // stored so kiosk mode can hide/restore the menu bar
 }
 
 // dlg returns the dialog backend, defaulting to the Wails runtime so an App
@@ -87,6 +89,13 @@ type AppVariable struct {
 	ServerRunning bool   `json:"serverRunning"`
 	DefaultIp     string `json:"defaultIp"`
 	Os            string `json:"os"`
+}
+
+// WebViewConfig is the public view of kiosk settings (PIN is never exposed).
+type WebViewConfig struct {
+	URL     string `json:"url"`
+	Enabled bool   `json:"enabled"`
+	HasPIN  bool   `json:"hasPIN"`
 }
 
 type Printers struct {
@@ -233,6 +242,66 @@ func (a *App) AddLANPrinter(ip string) error {
 	logger.Debugf("LAN printer added successfully: %s", ip)
 
 	return nil
+}
+
+// ─── WebView / Kiosk ──────────────────────────────────────────────────────────
+
+// GetWebViewConfig returns the public kiosk configuration (URL, enabled flag,
+// and whether a PIN has been set). The PIN itself is never returned.
+func (a *App) GetWebViewConfig() WebViewConfig {
+	return WebViewConfig{
+		URL:     a.config.GetWebViewURL(),
+		Enabled: a.config.GetWebViewEnabled(),
+		HasPIN:  a.config.HasWebViewPIN(),
+	}
+}
+
+// SetWebViewURL persists the kiosk URL.
+func (a *App) SetWebViewURL(url string) error {
+	logger.Debugf("Setting WebView URL")
+	return a.config.SetWebViewURL(url)
+}
+
+// SetWebViewPIN validates and persists the 4-digit kiosk PIN.
+func (a *App) SetWebViewPIN(pin string) error {
+	logger.Debug("Setting WebView PIN")
+	return a.config.SetWebViewPIN(pin)
+}
+
+// ValidateWebViewPIN returns true when pin matches the stored PIN.
+// The incoming value is compared but never logged.
+func (a *App) ValidateWebViewPIN(pin string) bool {
+	return a.config.CheckWebViewPIN(pin)
+}
+
+// SetWebViewEnabled persists the kiosk-enabled flag.
+func (a *App) SetWebViewEnabled(v bool) error {
+	logger.Debugf("Setting WebView enabled: %v", v)
+	return a.config.SetWebViewEnabled(v)
+}
+
+// SetWindowFullscreen puts the main Wails window into or out of fullscreen
+// and hides/restores the native menu bar accordingly.
+func (a *App) SetWindowFullscreen(fullscreen bool) {
+	if a.ctx == nil {
+		return
+	}
+	if fullscreen {
+		wailsruntime.WindowFullscreen(a.ctx)
+		// Hide the native menu bar in kiosk mode
+		setNativeMenubarVisible(false)
+		wailsruntime.MenuSetApplicationMenu(a.ctx, menu.NewMenu())
+		wailsruntime.MenuUpdateApplicationMenu(a.ctx)
+	} else {
+		wailsruntime.WindowUnfullscreen(a.ctx)
+		// Restore the menu bar when leaving kiosk mode
+		setNativeMenubarVisible(true)
+		if a.appMenu == nil {
+			a.appMenu = createMenu(a)
+		}
+		wailsruntime.MenuSetApplicationMenu(a.ctx, a.appMenu)
+		wailsruntime.MenuUpdateApplicationMenu(a.ctx)
+	}
 }
 
 func (a *App) ConfirmRemoveLANPrinter(ip string) (bool, error) {
