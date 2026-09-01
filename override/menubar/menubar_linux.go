@@ -3,18 +3,20 @@
 package menubar
 
 /*
-#cgo linux pkg-config: gtk+-3.0 webkit2gtk-4.0
+#cgo linux pkg-config: gtk+-3.0
 #include <gtk/gtk.h>
-#include <webkit2/webkit2.h>
 
-static gboolean on_context_menu(WebKitWebView *web_view, WebKitContextMenu *context_menu, GdkEvent *event, WebKitHitTestResult *hit_test_result, gpointer user_data) {
+static gboolean on_context_menu_cb(GtkWidget *widget, gpointer context_menu, gpointer event, gpointer hit_test_result, gpointer user_data) {
     return TRUE; // Returning TRUE cancels the context menu completely
 }
 
 static void find_and_disable_context_menu(GtkWidget *widget, gpointer data) {
-    if (WEBKIT_IS_WEB_VIEW(widget)) {
-        g_signal_handlers_disconnect_by_func(widget, G_CALLBACK(on_context_menu), NULL);
-        g_signal_connect(widget, "context-menu", G_CALLBACK(on_context_menu), NULL);
+    if (!widget) return;
+    GType type = G_OBJECT_TYPE(widget);
+    const gchar *type_name = g_type_name(type);
+    if (type_name && g_str_has_prefix(type_name, "WebKitWebView")) {
+        g_signal_handlers_disconnect_by_func(widget, G_CALLBACK(on_context_menu_cb), NULL);
+        g_signal_connect(widget, "context-menu", G_CALLBACK(on_context_menu_cb), NULL);
         return;
     }
     if (GTK_IS_CONTAINER(widget)) {
