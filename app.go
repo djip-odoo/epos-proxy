@@ -327,6 +327,7 @@ func (a *App) SetWindowFullscreen(fullscreen bool) {
 		wailsruntime.WindowFullscreen(a.ctx)
 		// Hide the native menu bar in kiosk mode
 		menubar.SetNativeMenubarVisible(false)
+		menubar.DisableContextMenu()
 		if runtime.GOOS != "linux" {
 			wailsruntime.MenuSetApplicationMenu(a.ctx, menu.NewMenu())
 			wailsruntime.MenuUpdateApplicationMenu(a.ctx)

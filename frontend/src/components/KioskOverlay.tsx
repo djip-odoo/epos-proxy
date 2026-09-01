@@ -1,4 +1,4 @@
-import { useContext, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { WebViewContext } from "../contexts/WebViewContext";
 import { AppContext } from "../contexts/AppContext";
 import PINModal from "./PINModal";
@@ -29,7 +29,29 @@ export default function KioskOverlay() {
   const tapCount = useRef(0);
   const resetTimer = useRef<number | null>(null);
 
-  const handleCornerTap = () => {
+  const isKiosk =
+    Boolean(appContext.data.isWails) &&
+    Boolean(data.isKioskActive) &&
+    Boolean(data.config?.url);
+
+  useEffect(() => {
+    if (!isKiosk) return;
+
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+
+    window.addEventListener("contextmenu", handleContextMenu, true);
+    document.addEventListener("contextmenu", handleContextMenu, true);
+    return () => {
+      window.removeEventListener("contextmenu", handleContextMenu, true);
+      document.removeEventListener("contextmenu", handleContextMenu, true);
+    };
+  }, [isKiosk]);
+
+  const handleCornerTap = (e: React.PointerEvent) => {
+    if (e.button !== 0) return; // Only trigger on primary click / touch
     if (pinVisible) return;
 
     tapCount.current += 1;
@@ -58,7 +80,7 @@ export default function KioskOverlay() {
     setPinVisible(false);
   };
 
-  if (!appContext.data.isWails || !data.isKioskActive || !data.config?.url) {
+  if (!isKiosk || !data.config?.url) {
     return null;
   }
 
@@ -75,12 +97,18 @@ export default function KioskOverlay() {
   return (
     <>
       {/* Top-right corner tap zone */}
-      <div style={{ ...cornerBase, top: 0, right: 0 }} onPointerDown={handleCornerTap} />
+      <div
+        style={{ ...cornerBase, top: 0, right: 0 }}
+        className="select-none"
+        onPointerDown={handleCornerTap}
+        onContextMenu={(e) => e.preventDefault()}
+      />
 
       {/* Full-screen kiosk iframe */}
       <div
-        className="fixed inset-0 bg-black"
+        className="fixed inset-0 bg-black select-none"
         style={{ zIndex: 9990, pointerEvents: pinVisible ? "none" : "auto" }}
+        onContextMenu={(e) => e.preventDefault()}
       >
         <iframe
           key={data.reloadNonce}

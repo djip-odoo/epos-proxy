@@ -3,8 +3,39 @@
 package menubar
 
 /*
-#cgo linux pkg-config: gtk+-3.0
+#cgo linux pkg-config: gtk+-3.0 webkit2gtk-4.0
 #include <gtk/gtk.h>
+#include <webkit2/webkit2.h>
+
+static gboolean on_context_menu(WebKitWebView *web_view, WebKitContextMenu *context_menu, GdkEvent *event, WebKitHitTestResult *hit_test_result, gpointer user_data) {
+    return TRUE; // Returning TRUE cancels the context menu completely
+}
+
+static void find_and_disable_context_menu(GtkWidget *widget, gpointer data) {
+    if (WEBKIT_IS_WEB_VIEW(widget)) {
+        g_signal_handlers_disconnect_by_func(widget, G_CALLBACK(on_context_menu), NULL);
+        g_signal_connect(widget, "context-menu", G_CALLBACK(on_context_menu), NULL);
+        return;
+    }
+    if (GTK_IS_CONTAINER(widget)) {
+        gtk_container_forall(GTK_CONTAINER(widget), find_and_disable_context_menu, data);
+    }
+}
+
+static gboolean disable_context_menus_idle(gpointer data) {
+    GList *toplevels = gtk_window_list_toplevels();
+    for (GList *l = toplevels; l != NULL; l = l->next) {
+        if (GTK_IS_WINDOW(l->data)) {
+            find_and_disable_context_menu(GTK_WIDGET(l->data), data);
+        }
+    }
+    g_list_free(toplevels);
+    return G_SOURCE_REMOVE;
+}
+
+static void disable_context_menu() {
+    g_idle_add(disable_context_menus_idle, NULL);
+}
 
 static void find_and_set_menubar_visibility(GtkWidget *widget, gpointer data) {
     gboolean visible = GPOINTER_TO_INT(data);
@@ -37,6 +68,11 @@ static void set_menubars_visible(int visible) {
 }
 */
 import "C"
+
+// DisableContextMenu disables native WebKitGTK right-click context menus.
+func DisableContextMenu() {
+	C.disable_context_menu()
+}
 
 // SetNativeMenubarVisible toggles the visibility of the native GTK menubar on Linux.
 func SetNativeMenubarVisible(visible bool) {

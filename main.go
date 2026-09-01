@@ -18,6 +18,7 @@ import (
 	"os"
 
 	"epos-proxy/internal/logger"
+	"epos-proxy/override/menubar"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -53,7 +54,7 @@ func main() {
 		MinWidth:                 700,
 		MinHeight:                500,
 		Menu:                     appMenu,
-		EnableDefaultContextMenu: true,
+		EnableDefaultContextMenu: false,
 		WindowStartState:         windowStartState,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
@@ -78,6 +79,9 @@ func main() {
 		},
 		BackgroundColour: &options.RGBA{R: 255, G: 255, B: 255, A: 1},
 		OnStartup:        app.startup,
+		OnDomReady: func(ctx context.Context) {
+			menubar.DisableContextMenu()
+		},
 		Bind: []interface{}{
 			app,
 		},
