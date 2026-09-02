@@ -88,7 +88,7 @@ export default function TroubleshootDialog() {
   const [activeTab, setActiveTab] = useState<"service" | "edge" | "faq">("service");
 
   const fullServiceScript = `:: Create the Windows Service
-sc.exe create odoopos binPath= "C:\\Program Files\\ePOS proxy\\ePOS proxy\\ePOS proxy.exe" start= auto obj= "LocalSystem"
+sc.exe create odoopos binPath= "\\"C:\\Program Files\\ePOS proxy\\ePOS proxy\\ePOS proxy.exe\\" --kiosk" start= auto obj= "LocalSystem"
 
 :: Start the service
 sc.exe start odoopos
@@ -185,19 +185,6 @@ sc.exe query odoopos`;
           >
             Edge Kiosk Guide
           </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("faq")}
-            className={`
-              flex-1 rounded-md py-1.5 transition-colors cursor-pointer text-center
-              ${activeTab === "faq"
-                ? "bg-white text-gray-900 shadow-2xs font-semibold"
-                : "text-gray-600 hover:text-gray-900"
-              }
-            `}
-          >
-            Diagnostics
-          </button>
         </div>
 
         {/* TAB 1: WINDOWS SERVICE */}
@@ -246,7 +233,7 @@ sc.exe query odoopos`;
               <CodeSnippet
                 label="1. Create Windows Service"
                 description="Registers ePOS proxy as an auto-start service under LocalSystem."
-                command='sc.exe create odoopos binPath= "C:\Program Files\ePOS proxy\ePOS proxy\ePOS proxy.exe" start= auto obj= "LocalSystem"'
+                command='sc.exe create odoopos binPath= "\"C:\Program Files\ePOS proxy\ePOS proxy\ePOS proxy.exe\" --kiosk" start= auto obj= "LocalSystem"'
               />
 
               <CodeSnippet
@@ -289,7 +276,7 @@ sc.exe query odoopos`;
                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-odoo/10 text-odoo text-[11px] font-bold">
                   A
                 </span>
-                Method 1: Windows Assigned Access (Recommended)
+                Method: Windows Assigned Access (Recommended)
               </div>
               <p className="mt-1 text-[11px] text-gray-500">
                 Locks down Windows into a dedicated single-app kiosk with automatic login.
@@ -318,30 +305,6 @@ sc.exe query odoopos`;
                   Restart the machine. Windows will sign in to the kiosk account and launch Edge automatically.
                 </li>
               </ol>
-            </div>
-
-            {/* Shortcut / CLI */}
-            <div className="rounded-xl border border-gray-200 bg-white p-3.5 shadow-2xs">
-              <div className="flex items-center gap-2 font-semibold text-gray-900">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-blue-700 text-[11px] font-bold">
-                  B
-                </span>
-                Method 2: Command Line / Desktop Shortcut
-              </div>
-              <p className="mt-1 text-[11px] text-gray-500">
-                Launch Microsoft Edge directly in fullscreen kiosk mode on any user profile.
-              </p>
-
-              <div className="mt-2.5">
-                <CodeSnippet
-                  label="Edge Kiosk Launch Command"
-                  command='"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" --kiosk http://127.0.0.1:4545/ --edge-kiosk-type=fullscreen --no-first-run'
-                />
-              </div>
-
-              <div className="mt-2 text-[11px] text-gray-500">
-                Tip: Press <kbd className="rounded border border-gray-300 bg-gray-100 px-1 py-0.5 font-mono text-[10px]">Alt + F4</kbd> to exit fullscreen Edge kiosk.
-              </div>
             </div>
           </div>
         )}
