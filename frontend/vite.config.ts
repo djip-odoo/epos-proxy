@@ -9,5 +9,8 @@ export default defineConfig({
     host: "127.0.0.1",
     port: 5173,
     strictPort: true,
+    headers: {
+      "Permissions-Policy": "local-network-access=*, private-network-access=*, local-network=*, loopback-network=*",
+    },
   },
 })

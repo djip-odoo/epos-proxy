@@ -15,6 +15,7 @@ import (
 	"C"
 	"context"
 	"embed"
+	"net/http"
 	"os"
 
 	"epos-proxy/internal/logger"
@@ -29,7 +30,23 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
+func securityHeadersMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Permissions-Policy", "local-network-access=*, private-network-access=*, local-network=*, loopback-network=*")
+		next.ServeHTTP(w, r)
+	})
+}
+
 func main() {
+	// Configure WebView2 browser arguments to permit Local Network Access (LNA / PNA)
+	// and bypass restrictive preflight blocking inside embedded webviews where user prompts cannot be shown.
+	pnaFlags := "--disable-features=PrivateNetworkAccessSendPreflights,PrivateNetworkAccessRespectPreflightResults,BlockInsecurePrivateNetworkRequests"
+	if existing := os.Getenv("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"); existing == "" {
+		_ = os.Setenv("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", pnaFlags)
+	} else {
+		_ = os.Setenv("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", existing+" "+pnaFlags)
+	}
+
 	logger.InitLogger()
 	logger.Debugf("Starting ePOS Proxy")
 
@@ -84,7 +101,8 @@ func runNormalMode(app *App) {
 		EnableDefaultContextMenu: false,
 		WindowStartState:         windowStartState,
 		AssetServer: &assetserver.Options{
-			Assets: assets,
+			Assets:     assets,
+			Middleware: securityHeadersMiddleware,
 		},
 		SingleInstanceLock: &options.SingleInstanceLock{
 			UniqueId: "epos-proxy-single-instance",
