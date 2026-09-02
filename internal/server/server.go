@@ -147,6 +147,14 @@ func NewWithHost(host string, port int, mgr *printer.Manager, cfg *config.Manage
 	})
 	srv.app = app
 
+	app.Use(func(c fiber.Ctx) error {
+		// Chrome / Edge Local Network Access (LNA) and Private Network Access (PNA)
+		c.Set("Access-Control-Allow-Private-Network", "true")
+		c.Set("Access-Control-Allow-Local-Network", "true")
+		c.Set("Permissions-Policy", "local-network=*, local-network-access=*, private-network-access=*, loopback-network=*")
+		return c.Next()
+	})
+
 	app.Use(cors.New(cors.Config{
 		AllowOrigins:        []string{"*"},
 		AllowPrivateNetwork: true,

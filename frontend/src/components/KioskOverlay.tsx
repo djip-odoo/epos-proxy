@@ -121,8 +121,7 @@ export default function KioskOverlay() {
           src={data.config.url}
           title="Kiosk"
           className="w-full h-full border-0"
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation"
-          allow="local-network-access"
+          allow="local-network *; local-network-access *; private-network-access *; loopback-network *; clipboard-read *; clipboard-write *; camera *; microphone *; geolocation *; autoplay *"
         />
       </div>
 
