@@ -118,42 +118,6 @@ export default function PrinterList() {
       <div className="mt-4 sm:mt-6 w-full flex flex-col gap-3 max-w-full sm:max-w-md md:max-w-lg lg:max-w-xl">
         <NetworkIpDialog />
         <WebViewDialog />
-
-        <button
-          type="button"
-          onClick={handleLockKiosk}
-          className="w-full flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors cursor-pointer shadow-xs"
-        >
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
-              <svg
-                className="h-5 w-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                />
-              </svg>
-            </div>
-            <div className="text-left">
-              <div className="text-sm font-semibold text-gray-800">
-                Lock Kiosk
-              </div>
-              <div className="text-xs text-gray-500">
-                Lock application into fullscreen kiosk mode
-              </div>
-            </div>
-          </div>
-          <span className="rounded-full bg-indigo-50 border border-indigo-200 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-indigo-700">
-            Lock
-          </span>
-        </button>
-
         {isWindowsKioskServer && (
           <button
             type="button"

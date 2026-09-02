@@ -33,6 +33,13 @@ func main() {
 	logger.InitLogger()
 	logger.Debugf("Starting ePOS Proxy")
 
+	if isWindowsService() {
+		logger.Infof("Detected Windows Service context. Starting in native service mode.")
+		app := NewApp()
+		runWindowsService(app)
+		return
+	}
+
 	forceKiosk := false
 	for _, arg := range os.Args[1:] {
 		if arg == "--kiosk" || arg == "-kiosk" || arg == "--server" || arg == "-server" {
@@ -43,7 +50,8 @@ func main() {
 
 	app := NewApp()
 
-	if forceKiosk || app.config.IsKioskEnabled() {
+	mode := determineLaunchMode(false, forceKiosk, app.config.IsKioskEnabled())
+	if mode == ModeServer {
 		runServerMode(app)
 		return
 	}

@@ -13,24 +13,45 @@ var log = logrus.New()
 var logDir string
 
 func InitLogger() {
-	dir, err := os.UserConfigDir()
-	if err != nil {
-		Fatalf("Failed to get user config dir: %v", err)
-	}
-	logDir = filepath.Join(dir, "EposProxy", "logs")
-	if err := os.MkdirAll(logDir, 0755); err != nil {
-		Fatalf("Failed to create log directory: %v", err)
+	var candidates []string
+
+	// 1. User config directory
+	if dir, err := os.UserConfigDir(); err == nil && dir != "" {
+		candidates = append(candidates, filepath.Join(dir, "EposProxy", "logs"))
 	}
 
-	filename := filepath.Join(logDir, "epos-proxy.log")
+	// 2. ProgramData (system-wide on Windows, ideal for Windows services)
+	if pd := os.Getenv("ProgramData"); pd != "" {
+		candidates = append(candidates, filepath.Join(pd, "EposProxy", "logs"))
+	}
 
-	log.SetOutput(&lumberjack.Logger{
-		Filename:   filename,
-		MaxSize:    20, // MB
-		MaxBackups: 5,  // keep last x files
-		MaxAge:     5,  // days
-		Compress:   false,
-	})
+	// 3. Executable directory
+	if execPath, err := os.Executable(); err == nil {
+		candidates = append(candidates, filepath.Join(filepath.Dir(execPath), "logs"))
+	}
+
+	// 4. System temp directory
+	candidates = append(candidates, filepath.Join(os.TempDir(), "EposProxy", "logs"))
+
+	for _, cand := range candidates {
+		if err := os.MkdirAll(cand, 0755); err == nil {
+			logDir = cand
+			break
+		}
+	}
+
+	if logDir != "" {
+		filename := filepath.Join(logDir, "epos-proxy.log")
+		log.SetOutput(&lumberjack.Logger{
+			Filename:   filename,
+			MaxSize:    20, // MB
+			MaxBackups: 5,  // keep last x files
+			MaxAge:     5,  // days
+			Compress:   false,
+		})
+	} else {
+		log.SetOutput(os.Stderr)
+	}
 
 	// log.SetReportCaller(true)
 

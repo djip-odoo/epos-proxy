@@ -53,6 +53,12 @@ type Manager struct {
 	Data AppConfig
 }
 
+func isSystemDir(dir string) bool {
+	clean := strings.ToLower(filepath.Clean(dir))
+	base := filepath.Base(clean)
+	return base == "system32" || base == "syswow64" || base == "windows"
+}
+
 func NewManager() (*Manager, error) {
 	// 1. Check if config.json exists in the executable's directory
 	if execPath, err := os.Executable(); err == nil {
@@ -65,31 +71,60 @@ func NewManager() (*Manager, error) {
 		}
 	}
 
-	// 2. Check current working directory
-	if _, err := os.Stat("config.json"); err == nil {
-		if cwdPath, err := filepath.Abs("config.json"); err == nil {
+	// 2. Check %ProgramData%\EposProxy\config.json (standard on Windows for services/all users)
+	if programData := os.Getenv("ProgramData"); programData != "" {
+		pdConfig := filepath.Join(programData, AppName, "config.json")
+		if _, err := os.Stat(pdConfig); err == nil {
 			return &Manager{
-				path: cwdPath,
+				path: pdConfig,
 				Data: defaults(),
 			}, nil
 		}
 	}
 
-	// 3. Fallback to user config directory
+	// 3. Check current working directory ONLY if it's not a Windows system directory (e.g. C:\Windows\System32)
+	if cwd, err := os.Getwd(); err == nil && !isSystemDir(cwd) {
+		cwdConfig := filepath.Join(cwd, "config.json")
+		if _, err := os.Stat(cwdConfig); err == nil {
+			return &Manager{
+				path: cwdConfig,
+				Data: defaults(),
+			}, nil
+		}
+	}
+
+	// 4. Try user config directory
 	base, err := os.UserConfigDir()
-	if err != nil {
-		return nil, fmt.Errorf("cannot locate user config dir: %w", err)
+	if err == nil {
+		dir := filepath.Join(base, AppName)
+		if err := os.MkdirAll(dir, 0755); err == nil {
+			return &Manager{
+				path: filepath.Join(dir, "config.json"),
+				Data: defaults(),
+			}, nil
+		}
 	}
 
-	dir := filepath.Join(base, AppName)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return nil, fmt.Errorf("cannot create config dir: %w", err)
+	// 5. Fallback for services / LocalSystem when UserConfigDir fails:
+	// Use %ProgramData%\EposProxy or executable directory
+	if programData := os.Getenv("ProgramData"); programData != "" {
+		dir := filepath.Join(programData, AppName)
+		if err := os.MkdirAll(dir, 0755); err == nil {
+			return &Manager{
+				path: filepath.Join(dir, "config.json"),
+				Data: defaults(),
+			}, nil
+		}
 	}
 
-	return &Manager{
-		path: filepath.Join(dir, "config.json"),
-		Data: defaults(),
-	}, nil
+	if execPath, err := os.Executable(); err == nil {
+		return &Manager{
+			path: filepath.Join(filepath.Dir(execPath), "config.json"),
+			Data: defaults(),
+		}, nil
+	}
+
+	return nil, fmt.Errorf("cannot locate or create any valid config directory")
 }
 
 func (cm *Manager) Load() error {

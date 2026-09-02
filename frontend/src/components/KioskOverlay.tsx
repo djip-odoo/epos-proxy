@@ -122,6 +122,7 @@ export default function KioskOverlay() {
           title="Kiosk"
           className="w-full h-full border-0"
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation"
+          allow="local-network-access"
         />
       </div>
 
