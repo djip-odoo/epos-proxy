@@ -8,6 +8,7 @@ import { PINContext } from "../contexts/PINContext";
 import { WebViewContext } from "../contexts/WebViewContext";
 import { backendService } from "../services/backend";
 import WebViewDialog from "./WebViewDialog";
+import TroubleshootDialog from "./TroubleshootDialog";
 
 export default function PrinterList() {
   const printerContext = useContext(PrinterContext);
@@ -118,41 +119,88 @@ export default function PrinterList() {
       <div className="mt-4 sm:mt-6 w-full flex flex-col gap-3 max-w-full sm:max-w-md md:max-w-lg lg:max-w-xl">
         <NetworkIpDialog />
         <WebViewDialog />
+        <TroubleshootDialog />
         {isWindowsKioskServer && (
-          <button
-            type="button"
-            onClick={handleQuitServer}
-            className="w-full flex items-center justify-between rounded-xl border border-red-200 bg-white px-4 py-3 text-red-600 hover:bg-red-50 transition-colors cursor-pointer shadow-xs"
-          >
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50 text-red-600">
-                <svg
-                  className="h-5 w-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                  />
-                </svg>
-              </div>
-              <div className="text-left">
-                <div className="text-sm font-semibold text-gray-800">
-                  Stop ePOS Proxy
+          <>
+            <button
+              type="button"
+              onClick={handleLockKiosk}
+              className="w-full flex items-center justify-between rounded-xl border border-odoo/30 bg-white px-4 py-3 text-odoo hover:bg-odoo/5 transition-colors cursor-pointer shadow-2xs"
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-odoo/10 text-odoo">
+                  <svg
+                    className="h-5 w-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <rect
+                      x="3"
+                      y="11"
+                      width="18"
+                      height="11"
+                      rx="2"
+                      ry="2"
+                      strokeWidth="2"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M7 11V7a5 5 0 0110 0v4"
+                    />
+                  </svg>
                 </div>
-                <div className="text-xs text-gray-500">
-                  Shut down background server process
+                <div className="text-left">
+                  <div className="text-sm font-semibold text-gray-800">
+                    Lock into Kiosk Mode
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Switch to fullscreen locked kiosk view
+                  </div>
                 </div>
               </div>
-            </div>
-            <span className="rounded-full bg-red-50 border border-red-200 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-red-600">
-              Quit
-            </span>
-          </button>
+              <span className="rounded-full bg-odoo/10 border border-odoo/20 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-odoo">
+                Lock
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleQuitServer}
+              className="w-full flex items-center justify-between rounded-xl border border-red-200 bg-white px-4 py-3 text-red-600 hover:bg-red-50 transition-colors cursor-pointer shadow-2xs"
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50 text-red-600">
+                  <svg
+                    className="h-5 w-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                    />
+                  </svg>
+                </div>
+                <div className="text-left">
+                  <div className="text-sm font-semibold text-gray-800">
+                    Stop ePOS Proxy
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Shut down background server process
+                  </div>
+                </div>
+              </div>
+              <span className="rounded-full bg-red-50 border border-red-200 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-red-600">
+                Quit
+              </span>
+            </button>
+          </>
         )}
       </div>
     </>
