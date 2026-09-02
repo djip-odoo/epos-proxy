@@ -35,6 +35,17 @@ func main() {
 
 	app := NewApp()
 
+	if app.config.IsKioskEnabled() {
+		runServerMode(app)
+		return
+	}
+
+	runNormalMode(app)
+}
+
+func runNormalMode(app *App) {
+	logger.Infof("Starting application in normal Wails mode")
+
 	windowStartState := options.Normal
 	for _, arg := range os.Args[1:] {
 		if arg == "--minimized" {
@@ -79,6 +90,7 @@ func main() {
 		},
 		BackgroundColour: &options.RGBA{R: 255, G: 255, B: 255, A: 1},
 		OnStartup:        app.startup,
+		OnShutdown:       app.shutdown,
 		OnDomReady: func(ctx context.Context) {
 			menubar.DisableContextMenu()
 		},
@@ -91,4 +103,8 @@ func main() {
 		logger.Errorf("Application crashed: %v", err)
 	}
 
+	if app.webserver != nil {
+		_ = app.webserver.Stop()
+	}
+	os.Exit(0)
 }

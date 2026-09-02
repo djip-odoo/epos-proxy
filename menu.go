@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"runtime"
 
 	"epos-proxy/internal/logger"
@@ -35,8 +36,11 @@ func createMenu(app *App) *menu.Menu {
 	})
 
 	appMenu.AddText("Quit", nil, func(_ *menu.CallbackData) {
-		logger.Infof("Quit requested by user")
-		wailsruntime.Quit(app.ctx)
+		logger.Infof("Quit requested by user from menu")
+		if app.webserver != nil {
+			_ = app.webserver.Stop()
+		}
+		os.Exit(0)
 	})
 
 	return mainMenu

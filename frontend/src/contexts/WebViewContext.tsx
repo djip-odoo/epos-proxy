@@ -10,10 +10,13 @@ import { EventsOn } from "../../wailsjs/runtime/runtime";
 import { AppContext } from "./AppContext";
 import { backendService } from "../services/backend";
 
+const POLL_INTERVAL = 2000;
+
 export type WebViewConfig = {
   url: string;
   enabled: boolean;
   hasPIN: boolean;
+  reloadCount?: number;
 };
 
 type WebViewContextType = {
@@ -47,36 +50,69 @@ export const WebViewContextWrapper = ({
   const [config, setConfig] = useState<WebViewConfig | null>(null);
   const [isKioskActive, setIsKioskActive] = useState(false);
   const [reloadNonce, setReloadNonce] = useState(0);
-  const initialStartupChecked = useRef(false);
 
   const refresh = useCallback(async () => {
     try {
       const cfg = await backendService.getWebViewConfig();
-      setConfig(cfg);
+      setConfig((prev) => {
+        const isLocal =
+          typeof window !== "undefined" &&
+          (window.location.hostname === "127.0.0.1" ||
+            window.location.hostname === "localhost");
 
-      // Auto-activate kiosk ONCE on desktop initial startup if enabled in config
-      if (
-        !initialStartupChecked.current &&
-        backendService.isWails &&
-        cfg.enabled &&
-        cfg.url
-      ) {
-        initialStartupChecked.current = true;
-        setIsKioskActive(true);
-        await backendService.setWindowFullscreen(true);
-      } else {
-        initialStartupChecked.current = true;
-      }
+        if (!prev) {
+          if (cfg.enabled && cfg.url && (backendService.isWails || isLocal)) {
+            setIsKioskActive(true);
+            if (backendService.isWails) {
+              backendService.setWindowFullscreen(true);
+            }
+          }
+          return cfg;
+        }
+
+        if (prev.enabled !== cfg.enabled) {
+          setIsKioskActive(cfg.enabled);
+          if (backendService.isWails) {
+            backendService.setWindowFullscreen(cfg.enabled);
+          }
+        }
+
+        if (
+          typeof cfg.reloadCount === "number" &&
+          typeof prev.reloadCount === "number" &&
+          cfg.reloadCount > prev.reloadCount
+        ) {
+          setReloadNonce((n) => n + 1);
+        }
+
+        return cfg;
+      });
     } catch (err) {
       console.error("Failed to fetch WebView config:", err);
     }
   }, []);
 
+  // Continuous polling for both browser (Edge on 127.0.0.1 and remote admin) and Wails
   useEffect(() => {
-    refresh();
+    let timer: number | null = null;
+    let mounted = true;
+
+    const poll = async () => {
+      await refresh();
+      if (mounted) {
+        timer = window.setTimeout(poll, POLL_INTERVAL);
+      }
+    };
+
+    poll();
+
+    return () => {
+      mounted = false;
+      if (timer) clearTimeout(timer);
+    };
   }, [refresh]);
 
-  // Listen for desktop events when config or kiosk state is modified
+  // Listen for desktop Wails events when config or kiosk state is modified
   useEffect(() => {
     if (!isWails) return;
 
@@ -127,8 +163,8 @@ export const WebViewContextWrapper = ({
 
   const toggleEnabled = async (v: boolean) => {
     await backendService.setWebViewEnabled(v);
+    setIsKioskActive(v);
     if (backendService.isWails) {
-      setIsKioskActive(v);
       await backendService.setWindowFullscreen(v);
     }
     const cfg = await backendService.getWebViewConfig();

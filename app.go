@@ -92,6 +92,7 @@ type UnavailablePrinter struct {
 type AppVariable struct {
 	ServerRunning bool   `json:"serverRunning"`
 	Os            string `json:"os"`
+	KioskMode     bool   `json:"kioskMode"`
 }
 
 // WebViewConfig is the public view of kiosk settings (PIN is never exposed).
@@ -110,10 +111,15 @@ type Printers struct {
 func NewApp() *App {
 	a := &App{}
 
+	execPath, err := os.Executable()
+	if err != nil {
+		execPath = os.Args[0]
+	}
+
 	a.autoStart = &autostart.App{
 		Name:        "epos-proxy",
 		DisplayName: "ePOS Proxy",
-		Exec:        []string{os.Args[0]},
+		Exec:        []string{execPath},
 	}
 	a.printerManager = printer.NewManager()
 	a.dialogs = runtimeDialogs{}
@@ -132,9 +138,7 @@ func NewApp() *App {
 	return a
 }
 
-func (a *App) startup(ctx context.Context) {
-	a.ctx = ctx
-	logger.Debugf("Application startup")
+func (a *App) startBackend(bindHost string) (int, error) {
 	logger.Debugf("Config loaded from %s", a.config.Path())
 
 	port, err := a.config.ResolvePort()
@@ -151,7 +155,7 @@ func (a *App) startup(ctx context.Context) {
 		distFS = subFS
 	}
 
-	a.webserver = server.New(port, a.printerManager, a.config, distFS)
+	a.webserver = server.NewWithHost(bindHost, port, a.printerManager, a.config, distFS)
 
 	// Generate a unique session token that identifies requests from this
 	// trusted Wails process. The remote webview never has this token.
@@ -175,6 +179,14 @@ func (a *App) startup(ctx context.Context) {
 			wailsruntime.EventsEmit(a.ctx, "kiosk-reload")
 		}
 	})
+
+	return port, nil
+}
+
+func (a *App) startup(ctx context.Context) {
+	a.ctx = ctx
+	logger.Debugf("Application startup")
+	_, _ = a.startBackend("0.0.0.0")
 }
 
 func (a *App) shutdown(ctx context.Context) {
@@ -186,10 +198,23 @@ func (a *App) shutdown(ctx context.Context) {
 }
 
 func (a *App) AppVariable() AppVariable {
+	kioskMode := false
+	if a.config != nil {
+		kioskMode = a.config.IsKioskEnabled()
+	}
 	return AppVariable{
 		Os:            runtime.GOOS,
-		ServerRunning: a.webserver.Running(),
+		ServerRunning: a.webserver != nil && a.webserver.Running(),
+		KioskMode:     kioskMode,
 	}
+}
+
+func (a *App) Quit() {
+	logger.Infof("Quit requested via App.Quit")
+	if a.webserver != nil {
+		_ = a.webserver.Stop()
+	}
+	os.Exit(0)
 }
 
 // GetSessionToken returns the per-launch session token that identifies HTTP

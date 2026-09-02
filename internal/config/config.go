@@ -22,13 +22,18 @@ const (
 	PortRangeEnd   = 4555
 )
 
+type KioskConfig struct {
+	Enabled bool `json:"enabled"`
+}
+
 type AppConfig struct {
-	Port            int      `json:"port"`
-	LANPrinters     []string `json:"lan_printers,omitempty"`
-	WebViewURL      string   `json:"webview_url,omitempty"`
-	WebViewPIN      string   `json:"webview_pin,omitempty"`
-	WebViewEnabled  bool     `json:"webview_enabled"`
-	NetworkPrinting bool     `json:"network_printing"`
+	Port            int         `json:"port"`
+	LANPrinters     []string    `json:"lan_printers,omitempty"`
+	WebViewURL      string      `json:"webview_url,omitempty"`
+	WebViewPIN      string      `json:"webview_pin,omitempty"`
+	WebViewEnabled  bool        `json:"webview_enabled"`
+	NetworkPrinting bool        `json:"network_printing"`
+	Kiosk           KioskConfig `json:"kiosk,omitempty"`
 }
 
 func defaults() AppConfig {
@@ -36,6 +41,9 @@ func defaults() AppConfig {
 		Port:            0,
 		NetworkPrinting: false,
 		WebViewPIN:      "0000",
+		Kiosk: KioskConfig{
+			Enabled: false,
+		},
 	}
 }
 
@@ -264,4 +272,11 @@ func (cm *Manager) GetLANPrinters() []string {
 	result := make([]string, len(cm.Data.LANPrinters))
 	copy(result, cm.Data.LANPrinters)
 	return result
+}
+
+// IsKioskEnabled returns whether server/kiosk mode is enabled.
+func (cm *Manager) IsKioskEnabled() bool {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	return cm.Data.Kiosk.Enabled
 }

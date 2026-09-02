@@ -297,3 +297,36 @@ func TestWebViewConfig(t *testing.T) {
 	testutil.ExpectedTrue(t, cm.CheckWebViewPIN("9876"))
 	testutil.ExpectedFalse(t, cm.CheckWebViewPIN("0000"))
 }
+
+func TestKioskConfig(t *testing.T) {
+	// 1. Default config has kiosk disabled
+	d := defaults()
+	testutil.ExpectedFalse(t, d.Kiosk.Enabled)
+
+	tempDir := t.TempDir()
+	configFile := filepath.Join(tempDir, "config.json")
+
+	// 2. Empty JSON -> kiosk.enabled = false
+	cm := &Manager{path: configFile, Data: defaults()}
+	err := os.WriteFile(configFile, []byte(`{}`), 0644)
+	testutil.ExpectedNoError(t, err)
+	err = cm.Load()
+	testutil.ExpectedNoError(t, err)
+	testutil.ExpectedFalse(t, cm.IsKioskEnabled())
+
+	// 3. Explicitly disabled kiosk
+	err = os.WriteFile(configFile, []byte(`{"kiosk":{"enabled":false}}`), 0644)
+	testutil.ExpectedNoError(t, err)
+	err = cm.Load()
+	testutil.ExpectedNoError(t, err)
+	testutil.ExpectedFalse(t, cm.IsKioskEnabled())
+
+	// 4. Enabled kiosk mode with configured port
+	err = os.WriteFile(configFile, []byte(`{"port":4550,"kiosk":{"enabled":true}}`), 0644)
+	testutil.ExpectedNoError(t, err)
+	err = cm.Load()
+	testutil.ExpectedNoError(t, err)
+	testutil.ExpectedTrue(t, cm.IsKioskEnabled())
+	testutil.ExpectedEqual(t, cm.GetPort(), 4550)
+}
+

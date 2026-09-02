@@ -49,7 +49,7 @@ export function isValidUrl(urlStr: string): boolean {
 }
 
 export default function WebViewDialog() {
-  const { data: { isWails } } = useContext(AppContext);
+  const { data: { isWails, isWindows, isKioskMode } } = useContext(AppContext);
   const toastContext = useContext(ToastContext);
   const { data, actions } = useContext(WebViewContext);
   const gate = usePINGate();
@@ -67,9 +67,14 @@ export default function WebViewDialog() {
     errorMessage: "Failed to copy URL",
   });
 
+  const isLocalhost =
+    typeof window !== "undefined" &&
+    (window.location.hostname === "127.0.0.1" ||
+      window.location.hostname === "localhost");
+
   const isUrlValid = isValidUrl(url);
 
-  const isKioskCurrentlyActive = isWails
+  const isKioskCurrentlyActive = (isWails || isLocalhost)
     ? data.isKioskActive
     : Boolean(cfg?.enabled);
 
@@ -127,7 +132,7 @@ export default function WebViewDialog() {
         await actions.saveURL(trimmedUrl);
         await actions.toggleEnabled(true);
 
-        if (isWails) {
+        if (isWails || isLocalhost) {
           await actions.enterKiosk();
         }
 
@@ -165,7 +170,7 @@ export default function WebViewDialog() {
 
       await actions.toggleEnabled(true);
 
-      if (isWails) {
+      if (isWails || isLocalhost) {
         await actions.enterKiosk();
       }
     });
@@ -180,7 +185,7 @@ export default function WebViewDialog() {
     await gate(async () => {
       await actions.toggleEnabled(false);
 
-      if (isWails) {
+      if (isWails || isLocalhost) {
         await actions.exitKiosk();
       }
     });
@@ -607,7 +612,7 @@ export default function WebViewDialog() {
         {/* ============================================================
             REMOTE ACCESS
         ============================================================ */}
-        {isWails && <section>
+        {(isWails || isLocalhost) && <section>
           <div className="mb-3">
             <div className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
@@ -746,9 +751,9 @@ export default function WebViewDialog() {
           </svg>
 
           <p className="text-[11px] leading-relaxed text-red-500">
-            {isWails
+            {isWails || isLocalhost
               ? "To exit fullscreen kiosk mode, tap the top-right corner 4 times quickly and enter your admin PIN."
-              : "Kiosk fullscreen mode runs on the desktop application. This web interface is used to manage the kiosk and remote access settings."}
+              : "Kiosk fullscreen mode runs on the local application (127.0.0.1). This web interface is used to manage the kiosk and remote access settings."}
           </p>
         </div>
       </div>

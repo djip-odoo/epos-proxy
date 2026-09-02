@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"time"
 
 	"epos-proxy/internal/logger"
 	"epos-proxy/internal/printer"
@@ -17,6 +18,7 @@ import (
 type apiAppVariable struct {
 	ServerRunning bool   `json:"serverRunning"`
 	Os            string `json:"os"`
+	KioskMode     bool   `json:"kioskMode"`
 }
 
 type apiPrinter struct {
@@ -43,9 +45,10 @@ type apiPrintersResponse struct {
 }
 
 type apiWebViewConfig struct {
-	URL     string `json:"url"`
-	Enabled bool   `json:"enabled"`
-	HasPIN  bool   `json:"hasPIN"`
+	URL         string `json:"url"`
+	Enabled     bool   `json:"enabled"`
+	HasPIN      bool   `json:"hasPIN"`
+	ReloadCount int64  `json:"reloadCount"`
 }
 
 type apiTroubleshootInfo struct {
@@ -60,9 +63,14 @@ type apiTroubleshootInfo struct {
 // ── Read-only handlers ─────────────────────────────────────────────────────────
 
 func (s *Server) handleGetApp(c fiber.Ctx) error {
+	kioskMode := false
+	if s.cfg != nil {
+		kioskMode = s.cfg.IsKioskEnabled()
+	}
 	return c.JSON(apiAppVariable{
 		ServerRunning: true, // server is running — we received the request
 		Os:            runtime.GOOS,
+		KioskMode:     kioskMode,
 	})
 }
 
@@ -132,9 +140,10 @@ func (s *Server) handleGetWebView(c fiber.Ctx) error {
 		return c.JSON(apiWebViewConfig{})
 	}
 	return c.JSON(apiWebViewConfig{
-		URL:     s.cfg.GetWebViewURL(),
-		Enabled: s.cfg.GetWebViewEnabled(),
-		HasPIN:  s.cfg.HasWebViewPIN(),
+		URL:         s.cfg.GetWebViewURL(),
+		Enabled:     s.cfg.GetWebViewEnabled(),
+		HasPIN:      s.cfg.HasWebViewPIN(),
+		ReloadCount: s.reloadCount.Load(),
 	})
 }
 
@@ -271,6 +280,7 @@ func (s *Server) handleSetWebViewEnabled(c fiber.Ctx) error {
 }
 
 func (s *Server) handleReloadWebView(c fiber.Ctx) error {
+	s.reloadCount.Add(1)
 	s.mu.RLock()
 	cb := s.onKioskReload
 	s.mu.RUnlock()
@@ -294,3 +304,14 @@ func (s *Server) handleCashDrawer(c fiber.Ctx) error {
 	logger.Debugf("API: cash drawer open for printer: %s", printerID)
 	return s.executePrint(c, printerID, "<pulse />")
 }
+
+func (s *Server) handleQuitApp(c fiber.Ctx) error {
+	logger.Infof("Quit application requested via API")
+	go func() {
+		time.Sleep(200 * time.Millisecond)
+		_ = s.Stop()
+		os.Exit(0)
+	}()
+	return c.JSON(fiber.Map{"ok": true})
+}
+

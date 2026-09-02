@@ -29,10 +29,16 @@ export default function KioskOverlay() {
   const tapCount = useRef(0);
   const resetTimer = useRef<number | null>(null);
 
+  const isLocalhost =
+    typeof window !== "undefined" &&
+    (window.location.hostname === "127.0.0.1" ||
+      window.location.hostname === "localhost");
+
   const isKiosk =
-    Boolean(appContext.data.isWails) &&
+    Boolean(data.config?.url) &&
+    Boolean(data.config?.enabled) &&
     Boolean(data.isKioskActive) &&
-    Boolean(data.config?.url);
+    (Boolean(appContext.data.isWails) || isLocalhost);
 
   useEffect(() => {
     if (!isKiosk) return;

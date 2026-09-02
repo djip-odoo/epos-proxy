@@ -20,11 +20,12 @@ export type AppContextType = {
     isWails: boolean;
     ready: boolean;
     serverURL: string | null;
-    app: main.AppVariable | ApiAppVariable | null;
+    app: (main.AppVariable & { kioskMode?: boolean }) | ApiAppVariable | null;
     os: string | null;
     isWindows: boolean;
     isMac: boolean;
     isLinux: boolean;
+    isKioskMode: boolean;
     serverIsRunning: boolean;
   };
   actions: Record<string, never>;
@@ -43,7 +44,7 @@ interface AppContextWrapperProps {
 export const AppContextWrapper = ({ children }: AppContextWrapperProps) => {
   const isWails = detectWails();
   const [ready, setReady] = useState(!isWails);
-  const [app, setApp] = useState<main.AppVariable | ApiAppVariable | null>(null);
+  const [app, setApp] = useState<(main.AppVariable & { kioskMode?: boolean }) | ApiAppVariable | null>(null);
   const [serverURL, setServerURL] = useState<string | null>(
     isWails ? null : typeof window !== "undefined" ? window.location.origin : null,
   );
@@ -58,6 +59,7 @@ export const AppContextWrapper = ({ children }: AppContextWrapperProps) => {
     isWindows: os === "windows",
     isMac: os === "darwin",
     isLinux: os === "linux",
+    isKioskMode: Boolean(app?.kioskMode),
     serverIsRunning: app?.serverRunning ?? false,
   };
   const setters = {} as Record<string, never>;

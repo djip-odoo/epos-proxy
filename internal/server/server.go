@@ -1,11 +1,13 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"encoding/xml"
 	"errors"
 	"fmt"
 	"io/fs"
+	"net"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -32,7 +34,11 @@ type EPOSResponse struct {
 type Server struct {
 	app             *fiber.App
 	Port            int
+	Host            string
+	ready           chan struct{}
+	readyOnce       sync.Once
 	running         atomic.Bool
+	reloadCount     atomic.Int64
 	cfg             *config.Manager
 	mgr             *printer.Manager
 	mu              sync.RWMutex
@@ -113,14 +119,24 @@ func (s *Server) requireAuth(c fiber.Ctx) error {
 	return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "authentication required"})
 }
 
-// New creates and starts the HTTP server.
+// New creates and starts the HTTP server listening on 0.0.0.0.
 //
 // mgr   — printer manager (required)
 // cfg   — config manager; may be nil in tests that don't exercise APIs
 // distFS — embedded frontend/dist; may be nil (falls back to hello-world at /)
 func New(port int, mgr *printer.Manager, cfg *config.Manager, distFS fs.FS) *Server {
+	return NewWithHost("0.0.0.0", port, mgr, cfg, distFS)
+}
+
+// NewWithHost creates and starts the HTTP server on the specified bind host.
+func NewWithHost(host string, port int, mgr *printer.Manager, cfg *config.Manager, distFS fs.FS) *Server {
+	if host == "" {
+		host = "0.0.0.0"
+	}
 	srv := &Server{
 		Port:     port,
+		Host:     host,
+		ready:    make(chan struct{}),
 		cfg:      cfg,
 		mgr:      mgr,
 		sessions: make(map[string]bool),
@@ -149,6 +165,7 @@ func New(port int, mgr *printer.Manager, cfg *config.Manager, distFS fs.FS) *Ser
 
 	// ── Privileged APIs (require Wails token or PIN session) ─────────────────
 
+	app.Post("/api/app/quit", srv.requireAuth, srv.handleQuitApp)
 	app.Post("/api/printers/lan", srv.requireAuth, srv.handleAddLANPrinter)
 	app.Delete("/api/printers/lan", srv.requireAuth, srv.handleRemoveLANPrinter)
 	app.Post("/api/webview/url", srv.requireAuth, srv.handleSetWebViewURL)
@@ -197,14 +214,40 @@ func New(port int, mgr *printer.Manager, cfg *config.Manager, distFS fs.FS) *Ser
 
 	srv.running.Store(true)
 	go func() {
-		logger.Infof("HTTP server listening on 0.0.0.0:%d", port)
-		if err := app.Listen(fmt.Sprintf("0.0.0.0:%d", port)); err != nil {
+		logger.Infof("HTTP server listening on %s:%d", host, port)
+		listenCfg := fiber.ListenConfig{
+			DisableStartupMessage: true,
+			ListenerAddrFunc: func(addr net.Addr) {
+				srv.signalReady()
+			},
+		}
+		if err := app.Listen(fmt.Sprintf("%s:%d", host, port), listenCfg); err != nil {
 			logger.Error("EPOS Server Error: ", err)
+			srv.signalReady()
 		}
 		srv.running.Store(false)
 		logger.Warn("HTTP server stopped")
 	}()
 	return srv
+}
+
+func (s *Server) signalReady() {
+	s.readyOnce.Do(func() {
+		close(s.ready)
+	})
+}
+
+// WaitReady blocks until the HTTP server is listening or the context is cancelled.
+func (s *Server) WaitReady(ctx context.Context) error {
+	select {
+	case <-s.ready:
+		if !s.running.Load() {
+			return errors.New("HTTP server failed to start")
+		}
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // serveFrontend serves files from the embedded dist FS. Unrecognised paths

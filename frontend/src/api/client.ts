@@ -42,11 +42,13 @@ export interface ApiWebViewConfig {
   url: string;
   enabled: boolean;
   hasPIN: boolean;
+  reloadCount?: number;
 }
 
 export interface ApiAppVariable {
   serverRunning: boolean;
   os: string;
+  kioskMode?: boolean;
 }
 
 export interface ApiTroubleshootInfo {
@@ -217,4 +219,8 @@ export function apiCashDrawer(printerId: string): Promise<{ ok: boolean }> {
 
 export function apiReloadKiosk(): Promise<{ ok: boolean }> {
   return apiPost<{ ok: boolean }>("/api/webview/reload", {}, true);
+}
+
+export function apiQuitApp(): Promise<{ ok: boolean }> {
+  return apiPost<{ ok: boolean }>("/api/app/quit", {}, true);
 }
