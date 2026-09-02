@@ -53,7 +53,7 @@ export const WebViewContextWrapper = ({
 
   const refresh = useCallback(async () => {
     try {
-      const cfg = await backendService.getWebViewConfig();
+      const cfg: WebViewConfig = await backendService.getWebViewConfig();
       setConfig((prev) => {
         const isLocal =
           typeof window !== "undefined" &&

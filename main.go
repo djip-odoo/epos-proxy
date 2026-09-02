@@ -33,9 +33,17 @@ func main() {
 	logger.InitLogger()
 	logger.Debugf("Starting ePOS Proxy")
 
+	forceKiosk := false
+	for _, arg := range os.Args[1:] {
+		if arg == "--kiosk" || arg == "-kiosk" || arg == "--server" || arg == "-server" {
+			forceKiosk = true
+			break
+		}
+	}
+
 	app := NewApp()
 
-	if app.config.IsKioskEnabled() {
+	if forceKiosk || app.config.IsKioskEnabled() {
 		runServerMode(app)
 		return
 	}

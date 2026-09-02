@@ -54,6 +54,28 @@ type Manager struct {
 }
 
 func NewManager() (*Manager, error) {
+	// 1. Check if config.json exists in the executable's directory
+	if execPath, err := os.Executable(); err == nil {
+		execDirConfig := filepath.Join(filepath.Dir(execPath), "config.json")
+		if _, err := os.Stat(execDirConfig); err == nil {
+			return &Manager{
+				path: execDirConfig,
+				Data: defaults(),
+			}, nil
+		}
+	}
+
+	// 2. Check current working directory
+	if _, err := os.Stat("config.json"); err == nil {
+		if cwdPath, err := filepath.Abs("config.json"); err == nil {
+			return &Manager{
+				path: cwdPath,
+				Data: defaults(),
+			}, nil
+		}
+	}
+
+	// 3. Fallback to user config directory
 	base, err := os.UserConfigDir()
 	if err != nil {
 		return nil, fmt.Errorf("cannot locate user config dir: %w", err)

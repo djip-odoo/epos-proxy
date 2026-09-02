@@ -27,6 +27,11 @@ export default function PINModal({
   const appContext = useContext(AppContext);
   const toastContext = useContext(ToastContext);
 
+  const isLocalhost =
+    typeof window !== "undefined" &&
+    (window.location.hostname === "127.0.0.1" ||
+      window.location.hostname === "localhost");
+
   const [digits, setDigits] = useState<string[]>([]);
   const [attempts, setAttempts] = usePref<number>(KEYS.PIN_ATTEMPTS, 0);
   const [cooldown, setCooldown] = usePref<number>(KEYS.PIN_COOLDOWN_UNTIL, 0);
@@ -288,7 +293,7 @@ export default function PINModal({
         </div>
 
         {/* Cancel */}
-        {appContext.data.isWails && (
+        {(appContext.data.isWails || isLocalhost) && (
           <button
             onClick={onDismiss}
             className="text-sm text-gray-400 hover:text-gray-600 cursor-pointer transition-colors"
