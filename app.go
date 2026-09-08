@@ -368,15 +368,21 @@ func (a *App) SetWindowFullscreen(fullscreen bool) {
 	}
 	if fullscreen {
 		wailsruntime.WindowFullscreen(a.ctx)
-		wailsruntime.MenuSetApplicationMenu(a.ctx, menu.NewMenu())
-		wailsruntime.MenuUpdateApplicationMenu(a.ctx)
+		setLinuxMenubarVisible(false)
+		if runtime.GOOS != "linux" {
+			wailsruntime.MenuSetApplicationMenu(a.ctx, menu.NewMenu())
+			wailsruntime.MenuUpdateApplicationMenu(a.ctx)
+		}
 	} else {
 		wailsruntime.WindowUnfullscreen(a.ctx)
-		if a.appMenu == nil {
-			a.appMenu = createMenu(a)
+		setLinuxMenubarVisible(true)
+		if runtime.GOOS != "linux" {
+			if a.appMenu == nil {
+				a.appMenu = createMenu(a)
+			}
+			wailsruntime.MenuSetApplicationMenu(a.ctx, a.appMenu)
+			wailsruntime.MenuUpdateApplicationMenu(a.ctx)
 		}
-		wailsruntime.MenuSetApplicationMenu(a.ctx, a.appMenu)
-		wailsruntime.MenuUpdateApplicationMenu(a.ctx)
 	}
 }
 
