@@ -395,6 +395,14 @@ func TestApp_PinAuthAndWebAppNavigation(t *testing.T) {
 	testutil.ExpectedContains(t, script, "window.__eposProxyExitInstalled")
 	testutil.ExpectedContains(t, script, "/api/kiosk/exit")
 	testutil.ExpectedContains(t, script, "CORNER_SIZE")
+	testutil.ExpectedContains(t, script, `EXIT_CORNER = "top-right"`)
+
+	// Test updating exit corner
+	err = app.SetWebViewExitCorner("bottom-left")
+	testutil.ExpectedNoError(t, err)
+	testutil.ExpectedEqual(t, app.GetWebViewConfig().ExitCorner, "bottom-left")
+	scriptUpdated := app.getGestureScript()
+	testutil.ExpectedContains(t, scriptUpdated, `EXIT_CORNER = "bottom-left"`)
 }
 
 

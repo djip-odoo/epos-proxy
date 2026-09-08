@@ -13,6 +13,7 @@ import {
   Printers,
   SetNetworkPrintingEnabled,
   SetWebViewEnabled,
+  SetWebViewExitCorner,
   SetWebViewPIN,
   SetWebViewURL,
   SetWindowFullscreen,
@@ -34,6 +35,7 @@ import {
   apiGetWebViewConfig,
   apiRemoveLANPrinter,
   apiSetWebViewEnabled,
+  apiSetWebViewExitCorner,
   apiSetWebViewURL,
   apiTestPrint,
   ApiAppVariable,
@@ -70,6 +72,7 @@ export interface IBackendService {
   getWebViewConfig(): Promise<main.WebViewConfig | ApiWebViewConfig>;
   setWebViewURL(url: string): Promise<void>;
   setWebViewEnabled(enabled: boolean): Promise<void>;
+  setWebViewExitCorner(corner: string): Promise<void>;
   setWebViewPIN(pin: string): Promise<void>;
   validatePIN(pin: string): Promise<boolean>;
   setWindowFullscreen(fullscreen: boolean): Promise<void>;
@@ -149,6 +152,10 @@ class WailsBackendService implements IBackendService {
 
   setWebViewEnabled(enabled: boolean): Promise<void> {
     return SetWebViewEnabled(enabled);
+  }
+
+  setWebViewExitCorner(corner: string): Promise<void> {
+    return SetWebViewExitCorner(corner);
   }
 
   setWebViewPIN(pin: string): Promise<void> {
@@ -264,6 +271,10 @@ class RemoteBackendService implements IBackendService {
     await apiSetWebViewEnabled(enabled);
   }
 
+  async setWebViewExitCorner(corner: string): Promise<void> {
+    await apiSetWebViewExitCorner(corner);
+  }
+
   setWebViewPIN(): Promise<void> {
     return Promise.reject(new Error("PIN configuration is only permitted on the desktop application"));
   }
@@ -375,6 +386,10 @@ class DynamicBackendService implements IBackendService {
 
   setWebViewEnabled(enabled: boolean): Promise<void> {
     return this.service.setWebViewEnabled(enabled);
+  }
+
+  setWebViewExitCorner(corner: string): Promise<void> {
+    return this.service.setWebViewExitCorner(corner);
   }
 
   setWebViewPIN(pin: string): Promise<void> {

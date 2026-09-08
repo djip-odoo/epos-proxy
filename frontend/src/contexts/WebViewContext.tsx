@@ -16,6 +16,7 @@ export type WebViewConfig = {
   url: string;
   enabled: boolean;
   hasPIN: boolean;
+  exitCorner?: string;
   reloadCount?: number;
 };
 
@@ -28,6 +29,7 @@ type WebViewContextType = {
   actions: {
     saveURL: (url: string) => Promise<void>;
     savePIN: (pin: string) => Promise<void>;
+    saveExitCorner: (corner: string) => Promise<void>;
     toggleEnabled: (v: boolean) => Promise<void>;
     validatePIN: (pin: string) => Promise<boolean>;
     exitKiosk: () => Promise<void>;
@@ -161,6 +163,12 @@ export const WebViewContextWrapper = ({
     setConfig(cfg);
   };
 
+  const saveExitCorner = async (corner: string) => {
+    await backendService.setWebViewExitCorner(corner);
+    const cfg = await backendService.getWebViewConfig();
+    setConfig(cfg);
+  };
+
   const toggleEnabled = async (v: boolean) => {
     await backendService.setWebViewEnabled(v);
     setIsKioskActive(v);
@@ -205,6 +213,7 @@ export const WebViewContextWrapper = ({
         actions: {
           saveURL,
           savePIN,
+          saveExitCorner,
           toggleEnabled,
           validatePIN,
           enterKiosk,

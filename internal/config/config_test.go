@@ -330,3 +330,26 @@ func TestKioskConfig(t *testing.T) {
 	testutil.ExpectedEqual(t, cm.GetPort(), 4550)
 }
 
+func TestWebViewExitCorner(t *testing.T) {
+	tempDir := t.TempDir()
+	configFile := filepath.Join(tempDir, "config.json")
+	cm := &Manager{path: configFile, Data: defaults()}
+
+	// 1. Default should be top-right
+	testutil.ExpectedEqual(t, cm.GetWebViewExitCorner(), "top-right")
+
+	// 2. Set valid corners
+	validCorners := []string{"top-left", "top-right", "bottom-left", "bottom-right", "TOP-LEFT", "  bottom-right  "}
+	for _, corner := range validCorners {
+		err := cm.SetWebViewExitCorner(corner)
+		testutil.ExpectedNoError(t, err)
+	}
+	testutil.ExpectedEqual(t, cm.GetWebViewExitCorner(), "bottom-right")
+
+	// 3. Set invalid corner
+	err := cm.SetWebViewExitCorner("middle-center")
+	testutil.ExpectedError(t, err)
+	testutil.ExpectedEqual(t, cm.GetWebViewExitCorner(), "bottom-right")
+}
+
+

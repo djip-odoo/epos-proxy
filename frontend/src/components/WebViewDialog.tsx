@@ -54,6 +54,7 @@ export default function WebViewDialog() {
   const cfg = data.config;
 
   const [url, setUrl] = useState(cfg?.url ?? "");
+  const [exitCorner, setExitCorner] = useState(cfg?.exitCorner ?? "top-right");
   const [localError, setLocalError] = useState<string | null>(null);
   const [serverUrl, setServerUrl] = useState(
     window.location.origin + "/"
@@ -79,13 +80,19 @@ export default function WebViewDialog() {
   const canEnable = Boolean(isUrlValid && cfg?.hasPIN);
 
   /*
-   * Keep URL field synchronized with configuration.
+   * Keep URL and Exit Corner fields synchronized with configuration.
    */
   useEffect(() => {
     if (cfg?.url) {
       setUrl(cfg.url);
     }
   }, [cfg?.url]);
+
+  useEffect(() => {
+    if (cfg?.exitCorner) {
+      setExitCorner(cfg.exitCorner);
+    }
+  }, [cfg?.exitCorner]);
 
   /*
    * Load the local server address used for remote access.
@@ -128,6 +135,7 @@ export default function WebViewDialog() {
     const saved = await gate(async () => {
       try {
         await actions.saveURL(trimmedUrl);
+        await actions.saveExitCorner(exitCorner);
         await actions.toggleEnabled(true);
 
         if (isWails || isLocalhost) {
@@ -146,7 +154,7 @@ export default function WebViewDialog() {
     }
 
     toastContext.actions.showToast(
-      "Kiosk URL saved and opened",
+      "Kiosk settings saved and opened",
       "success"
     );
 
@@ -164,6 +172,9 @@ export default function WebViewDialog() {
     await gate(async () => {
       if (url.trim() && url.trim() !== cfg?.url) {
         await actions.saveURL(url.trim());
+      }
+      if (exitCorner && exitCorner !== cfg?.exitCorner) {
+        await actions.saveExitCorner(exitCorner);
       }
 
       await actions.toggleEnabled(true);
@@ -557,6 +568,41 @@ export default function WebViewDialog() {
               </div>
             )}
 
+            {/* Exit Corner Configuration */}
+            <div className="mt-4 border-t border-gray-200 pt-3">
+              <label className="mb-1.5 block text-xs font-medium text-gray-700">
+                Exit Gesture Corner
+              </label>
+
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {[
+                  { id: "top-left", label: "Top Left" },
+                  { id: "top-right", label: "Top Right (Default)" },
+                  { id: "bottom-left", label: "Bottom Left" },
+                  { id: "bottom-right", label: "Bottom Right" },
+                ].map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setExitCorner(item.id)}
+                    className={`
+                      flex items-center justify-center rounded-lg border px-2.5 py-2 text-xs font-medium transition-all cursor-pointer text-center
+                      ${exitCorner === item.id
+                        ? "border-odoo bg-odoo/10 text-odoo font-semibold ring-1 ring-odoo shadow-xs"
+                        : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300"
+                      }
+                    `}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+
+              <p className="mt-1.5 text-[11px] text-gray-500">
+                Tap this corner 4 times quickly to exit fullscreen kiosk and prompt for your admin PIN.
+              </p>
+            </div>
+
             {/* Toggle */}
             <div className="mt-4 flex items-center justify-between border-t border-gray-200 pt-3">
               <div>
@@ -750,7 +796,7 @@ export default function WebViewDialog() {
 
           <p className="text-[11px] leading-relaxed text-red-500">
             {isWails || isLocalhost
-              ? "To exit fullscreen kiosk mode, tap the top-right corner 4 times quickly and enter your admin PIN."
+              ? `To exit fullscreen kiosk mode, tap the ${exitCorner.replace("-", " ")} corner 4 times quickly and enter your admin PIN.`
               : "Kiosk fullscreen mode runs on the local application (127.0.0.1). This web interface is used to manage the kiosk and remote access settings."}
           </p>
         </div>

@@ -27,20 +27,22 @@ type KioskConfig struct {
 }
 
 type AppConfig struct {
-	Port            int         `json:"port"`
-	LANPrinters     []string    `json:"lan_printers,omitempty"`
-	WebViewURL      string      `json:"webview_url,omitempty"`
-	WebViewPIN      string      `json:"webview_pin,omitempty"`
-	WebViewEnabled  bool        `json:"webview_enabled"`
-	NetworkPrinting bool        `json:"network_printing"`
-	Kiosk           KioskConfig `json:"kiosk,omitempty"`
+	Port              int         `json:"port"`
+	LANPrinters       []string    `json:"lan_printers,omitempty"`
+	WebViewURL        string      `json:"webview_url,omitempty"`
+	WebViewPIN        string      `json:"webview_pin,omitempty"`
+	WebViewEnabled    bool        `json:"webview_enabled"`
+	WebViewExitCorner string      `json:"webview_exit_corner,omitempty"`
+	NetworkPrinting   bool        `json:"network_printing"`
+	Kiosk             KioskConfig `json:"kiosk,omitempty"`
 }
 
 func defaults() AppConfig {
 	return AppConfig{
-		Port:            0,
-		NetworkPrinting: false,
-		WebViewPIN:      "0000",
+		Port:              0,
+		NetworkPrinting:   false,
+		WebViewPIN:        "0000",
+		WebViewExitCorner: "top-right",
 		Kiosk: KioskConfig{
 			Enabled: false,
 		},
@@ -315,6 +317,31 @@ func (cm *Manager) SetWebViewEnabled(v bool) error {
 		return errors.New("cannot enable kiosk mode: URL is not configured")
 	}
 	cm.Data.WebViewEnabled = v
+	return cm.saveLocked()
+}
+
+// GetWebViewExitCorner returns the configured exit gesture corner.
+// Valid values: "top-right" (default), "top-left", "bottom-right", "bottom-left".
+func (cm *Manager) GetWebViewExitCorner() string {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	if cm.Data.WebViewExitCorner == "" {
+		return "top-right"
+	}
+	return cm.Data.WebViewExitCorner
+}
+
+// SetWebViewExitCorner validates and persists the exit gesture corner.
+func (cm *Manager) SetWebViewExitCorner(corner string) error {
+	trimmed := strings.ToLower(strings.TrimSpace(corner))
+	switch trimmed {
+	case "top-right", "top-left", "bottom-right", "bottom-left":
+	default:
+		return fmt.Errorf("invalid exit corner: %q (must be top-right, top-left, bottom-right, or bottom-left)", corner)
+	}
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	cm.Data.WebViewExitCorner = trimmed
 	return cm.saveLocked()
 }
 

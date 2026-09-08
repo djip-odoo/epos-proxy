@@ -105,9 +105,10 @@ type AppVariable struct {
 
 // WebViewConfig is the public view of kiosk settings (PIN is never exposed).
 type WebViewConfig struct {
-	URL     string `json:"url"`
-	Enabled bool   `json:"enabled"`
-	HasPIN  bool   `json:"hasPIN"`
+	URL        string `json:"url"`
+	Enabled    bool   `json:"enabled"`
+	HasPIN     bool   `json:"hasPIN"`
+	ExitCorner string `json:"exitCorner"`
 }
 
 type Printers struct {
@@ -331,10 +332,17 @@ func (a *App) AddLANPrinter(ip string) error {
 // and whether a PIN has been set). The PIN itself is never returned.
 func (a *App) GetWebViewConfig() WebViewConfig {
 	return WebViewConfig{
-		URL:     a.config.GetWebViewURL(),
-		Enabled: a.config.GetWebViewEnabled(),
-		HasPIN:  a.config.HasWebViewPIN(),
+		URL:        a.config.GetWebViewURL(),
+		Enabled:    a.config.GetWebViewEnabled(),
+		HasPIN:     a.config.HasWebViewPIN(),
+		ExitCorner: a.config.GetWebViewExitCorner(),
 	}
+}
+
+// SetWebViewExitCorner persists the configured corner for the 4-tap exit gesture.
+func (a *App) SetWebViewExitCorner(corner string) error {
+	logger.Debugf("Setting WebView exit corner: %s", corner)
+	return a.config.SetWebViewExitCorner(corner)
 }
 
 // SetWebViewURL persists the kiosk URL.
@@ -548,6 +556,7 @@ func (a *App) getGestureScript() string {
 		port = a.webserver.Port
 	}
 	wailsAppURL := a.getWailsAppURL()
+	exitCorner := a.config.GetWebViewExitCorner()
 
 	return fmt.Sprintf(`(function() {
   if (window.__eposProxyExitInstalled) return;
@@ -558,16 +567,26 @@ func (a *App) getGestureScript() string {
   var RESET_MS = 1000;
   var WAILS_APP_URL = %q;
   var PROXY_PORT = %d;
+  var EXIT_CORNER = %q;
 
   var tapCount = 0;
   var lastTapTime = 0;
 
-  function isTopRight(x, y) {
+  function isExitCorner(x, y) {
     var w = window.innerWidth || document.documentElement.clientWidth || (document.body ? document.body.clientWidth : 0);
+    var h = window.innerHeight || document.documentElement.clientHeight || (document.body ? document.body.clientHeight : 0);
+    if (EXIT_CORNER === "top-left") {
+      return (x <= CORNER_SIZE && y <= CORNER_SIZE);
+    } else if (EXIT_CORNER === "bottom-left") {
+      return (x <= CORNER_SIZE && y >= h - CORNER_SIZE);
+    } else if (EXIT_CORNER === "bottom-right") {
+      return (x >= w - CORNER_SIZE && y >= h - CORNER_SIZE);
+    }
+    // Default: "top-right"
     return (x >= w - CORNER_SIZE && y <= CORNER_SIZE);
   }
 
-  function flashTopRight(count) {
+  function flashIndicator(count) {
     try {
       var dot = document.createElement("div");
       dot.style.position = "fixed";
@@ -579,8 +598,17 @@ func (a *App) getGestureScript() string {
       dot.style.pointerEvents = "none";
       dot.style.boxShadow = "0 0 10px rgba(0,0,0,0.5)";
       dot.style.transition = "opacity 0.4s";
-      dot.style.top = "12px";
-      dot.style.right = "12px";
+
+      if (EXIT_CORNER === "top-left") {
+        dot.style.top = "12px"; dot.style.left = "12px";
+      } else if (EXIT_CORNER === "bottom-left") {
+        dot.style.bottom = "12px"; dot.style.left = "12px";
+      } else if (EXIT_CORNER === "bottom-right") {
+        dot.style.bottom = "12px"; dot.style.right = "12px";
+      } else {
+        // Default: top-right
+        dot.style.top = "12px"; dot.style.right = "12px";
+      }
 
       (document.body || document.documentElement).appendChild(dot);
       setTimeout(function() {
@@ -591,7 +619,7 @@ func (a *App) getGestureScript() string {
   }
 
   function handleTap(x, y) {
-    if (!isTopRight(x, y)) {
+    if (!isExitCorner(x, y)) {
       tapCount = 0;
       return false;
     }
@@ -604,7 +632,7 @@ func (a *App) getGestureScript() string {
     }
     lastTapTime = now;
 
-    flashTopRight(tapCount);
+    flashIndicator(tapCount);
 
     if (tapCount >= REQUIRED_TAPS) {
       tapCount = 0;
@@ -615,7 +643,7 @@ func (a *App) getGestureScript() string {
   }
 
   function triggerExit() {
-    console.log("[ePOS] 4 top-right taps detected, returning to Wails app");
+    console.log("[ePOS] 4 taps detected on " + EXIT_CORNER + ", returning to Wails app");
 
     // 1. Direct top-level navigation to local proxy exit endpoint
     // Top-level navigation is never blocked by Mixed Content or CORS policies!
@@ -669,7 +697,7 @@ func (a *App) getGestureScript() string {
       triggerExit();
     }
   }, true);
-})();`, wailsAppURL, port)
+})();`, wailsAppURL, port, exitCorner)
 }
 
 func (a *App) ConfirmRemoveLANPrinter(ip string) (bool, error) {

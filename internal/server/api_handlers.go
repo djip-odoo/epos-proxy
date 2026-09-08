@@ -48,6 +48,7 @@ type apiWebViewConfig struct {
 	URL         string `json:"url"`
 	Enabled     bool   `json:"enabled"`
 	HasPIN      bool   `json:"hasPIN"`
+	ExitCorner  string `json:"exitCorner"`
 	ReloadCount int64  `json:"reloadCount"`
 }
 
@@ -143,6 +144,7 @@ func (s *Server) handleGetWebView(c fiber.Ctx) error {
 		URL:         s.cfg.GetWebViewURL(),
 		Enabled:     s.cfg.GetWebViewEnabled(),
 		HasPIN:      s.cfg.HasWebViewPIN(),
+		ExitCorner:  s.cfg.GetWebViewExitCorner(),
 		ReloadCount: s.reloadCount.Load(),
 	})
 }
@@ -275,6 +277,27 @@ func (s *Server) handleSetWebViewEnabled(c fiber.Ctx) error {
 	s.mu.RUnlock()
 	if cb != nil {
 		cb(req.Enabled)
+	}
+	return c.JSON(fiber.Map{"ok": true})
+}
+
+type setWebViewExitCornerReq struct {
+	Corner string `json:"corner"`
+}
+
+func (s *Server) handleSetWebViewExitCorner(c fiber.Ctx) error {
+	var req setWebViewExitCornerReq
+	if err := bindJSON(c, &req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request"})
+	}
+	if err := s.cfg.SetWebViewExitCorner(req.Corner); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+	s.mu.RLock()
+	cb := s.onConfigChanged
+	s.mu.RUnlock()
+	if cb != nil {
+		cb()
 	}
 	return c.JSON(fiber.Map{"ok": true})
 }
