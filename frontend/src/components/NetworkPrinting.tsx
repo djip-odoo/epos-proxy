@@ -8,14 +8,15 @@ import type { Step } from "../types";
 import { AppContext } from "../contexts/AppContext";
 
 export default function NetworkPrinting() {
-  const printerContext = useContext(PrinterContext);
   const appContext = useContext(AppContext);
+  const printerContext = useContext(PrinterContext);
   const [isLoadingInfo, setIsLoadingInfo] = useState(false);
   const [info, setInfo] = useState<main.TroubleshootInfo | null>(null);
 
   const enabled = printerContext.data.networkPrintingEnabled;
 
   const fetchInfo = async () => {
+    if (!appContext.data.isWails) return;
     setIsLoadingInfo(true);
     try {
       const data = await GetTroubleshootInfo();
@@ -30,10 +31,10 @@ export default function NetworkPrinting() {
   };
 
   useEffect(() => {
-    if (enabled) {
+    if (appContext.data.isWails && enabled) {
       fetchInfo();
     }
-  }, [enabled]);
+  }, [appContext.data.isWails, enabled]);
 
   const steps = useMemo<Step[]>(() => {
     if (!info) return [];
@@ -47,9 +48,9 @@ export default function NetworkPrinting() {
       return getMacSteps(info);
     }
     return [];
-  }, [info]);
+  }, [info, appContext.data]);
 
-  if (!enabled) {
+  if (!appContext.data.isWails || !enabled) {
     return null;
   }
 
@@ -61,7 +62,7 @@ export default function NetworkPrinting() {
         isLoading={isLoadingInfo && !info}
         onOpen={fetchInfo}
         openButton={
-          <span className="text-sm  text-gray-600 hover:text-odoo  underline-offset-2 cursor-pointer transition-colors">
+          <span className="text-sm text-gray-600 hover:text-odoo underline-offset-2 cursor-pointer transition-colors">
             Having trouble printing?
           </span>
         }

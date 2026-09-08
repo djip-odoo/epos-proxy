@@ -1,6 +1,7 @@
 import { useContext, useRef, useState } from "react";
 import { PrinterContext } from "../contexts/PrinterContext";
 import Dialog, { ActionType } from "./Dialog";
+import { usePINGate } from "../hooks/usePINGate";
 
 const isValidOctet = (value: string) => {
   const number = Number(value);
@@ -15,6 +16,7 @@ const extractIP = (text: string) => {
 
 export default function NetworkIpDialog() {
   const printerContext = useContext(PrinterContext);
+  const gate = usePINGate();
   const [ipParts, setIpParts] = useState(["", "", "", ""]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -39,12 +41,12 @@ export default function NetworkIpDialog() {
     }
   };
 
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>, index: number,) => {
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>, index: number) => {
     if (event.ctrlKey || event.metaKey) {
       return;
     }
 
-    const allowedKeys = ["Backspace", "Delete", "ArrowLeft", "ArrowRight", "Tab",];
+    const allowedKeys = ["Backspace", "Delete", "ArrowLeft", "ArrowRight", "Tab"];
 
     if (!/[0-9]/.test(event.key) && !allowedKeys.includes(event.key)) {
       if (event.key === ".") {
@@ -86,12 +88,18 @@ export default function NetworkIpDialog() {
     }
   
     const ip = ipParts.join(".");
-    const result = await printerContext.actions.addLanPrinter(ip);
-    if (!result.status) {
-      setErrorMessage(result.message);
+    const result = await gate(async () => {
+      const res = await printerContext.actions.addLanPrinter(ip);
+      if (!res.status) {
+        setErrorMessage(res.message);
+        return false;
+      }
+      return true;
+    });
+
+    if (result === null || result === false) {
       return false;
     }
-
     return true;
   };
 

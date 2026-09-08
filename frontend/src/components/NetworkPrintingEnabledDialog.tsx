@@ -1,15 +1,19 @@
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { EventsOn } from "../../wailsjs/runtime/runtime";
 import { GetTroubleshootInfo } from "../../wailsjs/go/main/App";
 import { staticIpAdvice } from "../assets/data/troubleshootStep";
 import { renderFormattedText } from "../functions/renderFormattedText";
 import Dialog, { type ActionType } from "./Dialog";
+import { AppContext } from "../contexts/AppContext";
 
 export default function NetworkPrintingEnabledDialog() {
+  const { data: { isWails } } = useContext(AppContext);
   const [openSignal, setOpenSignal] = useState(0);
   const [localIp, setLocalIp] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!isWails) return;
+
     return EventsOn("network-printing-changed", (enabled: boolean) => {
       if (!enabled) {
         return;
@@ -20,7 +24,11 @@ export default function NetworkPrintingEnabledDialog() {
         .then((info) => setLocalIp(info?.localIp ?? null))
         .catch((err) => console.error("Failed to load troubleshoot info", err));
     });
-  }, []);
+  }, [isWails]);
+
+  if (!isWails) {
+    return null;
+  }
 
   return (
     <Dialog

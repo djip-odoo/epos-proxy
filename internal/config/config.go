@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -20,16 +22,28 @@ const (
 	PortRangeEnd   = 4555
 )
 
+type KioskConfig struct {
+	Enabled bool `json:"enabled"`
+}
+
 type AppConfig struct {
-	Port            int      `json:"port"`
-	LANPrinters     []string `json:"lan_printers,omitempty"`
-	NetworkPrinting bool     `json:"network_printing"`
+	Port            int         `json:"port"`
+	LANPrinters     []string    `json:"lan_printers,omitempty"`
+	WebViewURL      string      `json:"webview_url,omitempty"`
+	WebViewPIN      string      `json:"webview_pin,omitempty"`
+	WebViewEnabled  bool        `json:"webview_enabled"`
+	NetworkPrinting bool        `json:"network_printing"`
+	Kiosk           KioskConfig `json:"kiosk,omitempty"`
 }
 
 func defaults() AppConfig {
 	return AppConfig{
 		Port:            0,
 		NetworkPrinting: false,
+		WebViewPIN:      "0000",
+		Kiosk: KioskConfig{
+			Enabled: false,
+		},
 	}
 }
 
@@ -39,21 +53,78 @@ type Manager struct {
 	Data AppConfig
 }
 
+func isSystemDir(dir string) bool {
+	clean := strings.ToLower(filepath.Clean(dir))
+	base := filepath.Base(clean)
+	return base == "system32" || base == "syswow64" || base == "windows"
+}
+
 func NewManager() (*Manager, error) {
+	// 1. Check if config.json exists in the executable's directory
+	if execPath, err := os.Executable(); err == nil {
+		execDirConfig := filepath.Join(filepath.Dir(execPath), "config.json")
+		if _, err := os.Stat(execDirConfig); err == nil {
+			return &Manager{
+				path: execDirConfig,
+				Data: defaults(),
+			}, nil
+		}
+	}
+
+	// 2. Check %ProgramData%\EposProxy\config.json (standard on Windows for services/all users)
+	if programData := os.Getenv("ProgramData"); programData != "" {
+		pdConfig := filepath.Join(programData, AppName, "config.json")
+		if _, err := os.Stat(pdConfig); err == nil {
+			return &Manager{
+				path: pdConfig,
+				Data: defaults(),
+			}, nil
+		}
+	}
+
+	// 3. Check current working directory ONLY if it's not a Windows system directory (e.g. C:\Windows\System32)
+	if cwd, err := os.Getwd(); err == nil && !isSystemDir(cwd) {
+		cwdConfig := filepath.Join(cwd, "config.json")
+		if _, err := os.Stat(cwdConfig); err == nil {
+			return &Manager{
+				path: cwdConfig,
+				Data: defaults(),
+			}, nil
+		}
+	}
+
+	// 4. Try user config directory
 	base, err := os.UserConfigDir()
-	if err != nil {
-		return nil, fmt.Errorf("cannot locate user config dir: %w", err)
+	if err == nil {
+		dir := filepath.Join(base, AppName)
+		if err := os.MkdirAll(dir, 0755); err == nil {
+			return &Manager{
+				path: filepath.Join(dir, "config.json"),
+				Data: defaults(),
+			}, nil
+		}
 	}
 
-	dir := filepath.Join(base, AppName)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return nil, fmt.Errorf("cannot create config dir: %w", err)
+	// 5. Fallback for services / LocalSystem when UserConfigDir fails:
+	// Use %ProgramData%\EposProxy or executable directory
+	if programData := os.Getenv("ProgramData"); programData != "" {
+		dir := filepath.Join(programData, AppName)
+		if err := os.MkdirAll(dir, 0755); err == nil {
+			return &Manager{
+				path: filepath.Join(dir, "config.json"),
+				Data: defaults(),
+			}, nil
+		}
 	}
 
-	return &Manager{
-		path: filepath.Join(dir, "config.json"),
-		Data: defaults(),
-	}, nil
+	if execPath, err := os.Executable(); err == nil {
+		return &Manager{
+			path: filepath.Join(filepath.Dir(execPath), "config.json"),
+			Data: defaults(),
+		}, nil
+	}
+
+	return nil, fmt.Errorf("cannot locate or create any valid config directory")
 }
 
 func (cm *Manager) Load() error {
@@ -177,6 +248,76 @@ func (cm *Manager) RemoveLANPrinter(ip string) error {
 	return nil // Not found, nothing to remove
 }
 
+// GetWebViewURL returns the configured kiosk URL.
+func (cm *Manager) GetWebViewURL() string {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	return cm.Data.WebViewURL
+}
+
+// GetWebViewEnabled returns whether kiosk mode is enabled.
+func (cm *Manager) GetWebViewEnabled() bool {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	return cm.Data.WebViewEnabled
+}
+
+// HasWebViewPIN reports whether a PIN has been configured.
+func (cm *Manager) HasWebViewPIN() bool {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	return cm.Data.WebViewPIN != ""
+}
+
+// SetWebViewURL validates and persists the kiosk URL.
+func (cm *Manager) SetWebViewURL(rawURL string) error {
+	trimmed := strings.TrimSpace(rawURL)
+	if trimmed != "" {
+		parsed, err := url.ParseRequestURI(trimmed)
+		if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+			return errors.New("invalid URL: must be a valid HTTP or HTTPS address")
+		}
+	}
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	cm.Data.WebViewURL = trimmed
+	return cm.saveLocked()
+}
+
+// SetWebViewPIN validates (exactly 4 digits) and persists the plaintext PIN.
+func (cm *Manager) SetWebViewPIN(pin string) error {
+	if len(pin) != 4 {
+		return errors.New("PIN must be exactly 4 digits")
+	}
+	for _, ch := range pin {
+		if ch < '0' || ch > '9' {
+			return errors.New("PIN must contain digits only")
+		}
+	}
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	cm.Data.WebViewPIN = pin
+	return cm.saveLocked()
+}
+
+// CheckWebViewPIN returns true when raw matches the stored PIN.
+func (cm *Manager) CheckWebViewPIN(raw string) bool {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	return cm.Data.WebViewPIN != "" && cm.Data.WebViewPIN == raw
+}
+
+// SetWebViewEnabled persists the enabled flag.
+func (cm *Manager) SetWebViewEnabled(v bool) error {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	if v && cm.Data.WebViewURL == "" {
+		return errors.New("cannot enable kiosk mode: URL is not configured")
+	}
+	cm.Data.WebViewEnabled = v
+	return cm.saveLocked()
+}
+
 func (cm *Manager) GetLANPrinters() []string {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
@@ -188,4 +329,11 @@ func (cm *Manager) GetLANPrinters() []string {
 	result := make([]string, len(cm.Data.LANPrinters))
 	copy(result, cm.Data.LANPrinters)
 	return result
+}
+
+// IsKioskEnabled returns whether server/kiosk mode is enabled.
+func (cm *Manager) IsKioskEnabled() bool {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	return cm.Data.Kiosk.Enabled
 }

@@ -244,3 +244,89 @@ func TestFindAvailablePort_RangeExhausted(t *testing.T) {
 	testutil.ExpectedTrue(t, errors.Is(err, ErrNoAvailablePort))
 	testutil.ExpectedEqual(t, port, 0)
 }
+
+func TestWebViewConfig(t *testing.T) {
+	tempDir := t.TempDir()
+	cm := &Manager{
+		path: filepath.Join(tempDir, "config.json"),
+		Data: defaults(),
+	}
+
+	testutil.ExpectedEqual(t, cm.GetWebViewEnabled(), false)
+	testutil.ExpectedEqual(t, cm.GetWebViewURL(), "")
+	testutil.ExpectedEqual(t, cm.HasWebViewPIN(), true) // default is "0000"
+	testutil.ExpectedTrue(t, cm.CheckWebViewPIN("0000"))
+	testutil.ExpectedFalse(t, cm.CheckWebViewPIN("1234"))
+
+	// Test Invalid URLs
+	err := cm.SetWebViewURL("not_a_url")
+	testutil.ExpectedError(t, err)
+
+	err = cm.SetWebViewURL("ftp://example.com")
+	testutil.ExpectedError(t, err)
+
+	err = cm.SetWebViewURL("http://")
+	testutil.ExpectedError(t, err)
+
+	// Test Valid URL
+	err = cm.SetWebViewURL("https://123481892-master-all.runbot313.odoo.com/pos-self/204?access_token=4fcea930b2a1479a")
+	testutil.ExpectedNoError(t, err)
+	testutil.ExpectedEqual(t, cm.GetWebViewURL(), "https://123481892-master-all.runbot313.odoo.com/pos-self/204?access_token=4fcea930b2a1479a")
+
+	err = cm.SetWebViewURL("https://example.com/pos")
+	testutil.ExpectedNoError(t, err)
+	testutil.ExpectedEqual(t, cm.GetWebViewURL(), "https://example.com/pos")
+
+	// Test Enabled
+	err = cm.SetWebViewEnabled(true)
+	testutil.ExpectedNoError(t, err)
+	testutil.ExpectedEqual(t, cm.GetWebViewEnabled(), true)
+
+	// Test PIN validation
+	err = cm.SetWebViewPIN("123") // too short
+	testutil.ExpectedError(t, err)
+
+	err = cm.SetWebViewPIN("12345") // too long
+	testutil.ExpectedError(t, err)
+
+	err = cm.SetWebViewPIN("12a4") // non-digit
+	testutil.ExpectedError(t, err)
+
+	err = cm.SetWebViewPIN("9876") // valid
+	testutil.ExpectedNoError(t, err)
+	testutil.ExpectedTrue(t, cm.CheckWebViewPIN("9876"))
+	testutil.ExpectedFalse(t, cm.CheckWebViewPIN("0000"))
+}
+
+func TestKioskConfig(t *testing.T) {
+	// 1. Default config has kiosk disabled
+	d := defaults()
+	testutil.ExpectedFalse(t, d.Kiosk.Enabled)
+
+	tempDir := t.TempDir()
+	configFile := filepath.Join(tempDir, "config.json")
+
+	// 2. Empty JSON -> kiosk.enabled = false
+	cm := &Manager{path: configFile, Data: defaults()}
+	err := os.WriteFile(configFile, []byte(`{}`), 0644)
+	testutil.ExpectedNoError(t, err)
+	err = cm.Load()
+	testutil.ExpectedNoError(t, err)
+	testutil.ExpectedFalse(t, cm.IsKioskEnabled())
+
+	// 3. Explicitly disabled kiosk
+	err = os.WriteFile(configFile, []byte(`{"kiosk":{"enabled":false}}`), 0644)
+	testutil.ExpectedNoError(t, err)
+	err = cm.Load()
+	testutil.ExpectedNoError(t, err)
+	testutil.ExpectedFalse(t, cm.IsKioskEnabled())
+
+	// 4. Enabled kiosk mode with configured port
+	err = os.WriteFile(configFile, []byte(`{"port":4550,"kiosk":{"enabled":true}}`), 0644)
+	testutil.ExpectedNoError(t, err)
+	err = cm.Load()
+	testutil.ExpectedNoError(t, err)
+	testutil.ExpectedTrue(t, cm.IsKioskEnabled())
+	testutil.ExpectedEqual(t, cm.GetPort(), 4550)
+}
+

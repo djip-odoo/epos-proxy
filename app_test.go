@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"epos-proxy/internal/config"
 	"epos-proxy/internal/logger"
@@ -59,7 +60,7 @@ func TestApp_AppVariableAndPrintersAndGetPrinterUrl(t *testing.T) {
 
 	port := testutil.GetFreePort(t)
 	mgr := printer.NewManager()
-	srv := server.New(port, mgr)
+	srv := server.New(port, mgr, nil, nil)
 	defer srv.Stop()
 
 	app := &App{
@@ -297,7 +298,7 @@ func TestApp_NetworkPrintingEnabled(t *testing.T) {
 
 	port := testutil.GetFreePort(t)
 	mgr := printer.NewManager()
-	srv := server.New(port, mgr)
+	srv := server.New(port, mgr, nil, nil)
 	defer srv.Stop()
 
 	app := &App{config: cfg, webserver: srv}
@@ -327,3 +328,30 @@ func TestApp_GetTroubleshootInfo(t *testing.T) {
 	testutil.ExpectedNotEqual(t, info.Subnet, "")
 	testutil.ExpectedNotEqual(t, info.LocalIP, "")
 }
+
+func TestApp_StartBackendServerMode(t *testing.T) {
+	tempDir := t.TempDir()
+	t.Setenv("HOME", tempDir)
+
+	cfg, err := config.NewManager()
+	testutil.ExpectedNoError(t, err)
+
+	app := &App{
+		config:         cfg,
+		printerManager: printer.NewManager(),
+	}
+
+	port, err := app.startBackend("127.0.0.1")
+	testutil.ExpectedNoError(t, err)
+	testutil.ExpectedTrue(t, port > 0)
+	defer app.webserver.Stop()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	err = app.webserver.WaitReady(ctx)
+	testutil.ExpectedNoError(t, err)
+	testutil.ExpectedTrue(t, app.webserver.Running())
+	testutil.ExpectedEqual(t, app.webserver.Host, "127.0.0.1")
+}
+

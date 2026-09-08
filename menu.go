@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"runtime"
 
 	"epos-proxy/internal/logger"
@@ -26,13 +27,20 @@ func createMenu(app *App) *menu.Menu {
 		handleNetworkPrintingToggle(app, cb)
 	})
 
+	appMenu.AddText("Set PIN", nil, func(_ *menu.CallbackData) {
+		wailsruntime.EventsEmit(app.ctx, "open-set-pin-dialog")
+	})
+
 	appMenu.AddText("Download Logs", nil, func(_ *menu.CallbackData) {
 		app.DownloadLogs()
 	})
 
 	appMenu.AddText("Quit", nil, func(_ *menu.CallbackData) {
-		logger.Infof("Quit requested by user")
-		wailsruntime.Quit(app.ctx)
+		logger.Infof("Quit requested by user from menu")
+		if app.webserver != nil {
+			_ = app.webserver.Stop()
+		}
+		os.Exit(0)
 	})
 
 	return mainMenu

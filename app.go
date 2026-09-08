@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"os"
 	"runtime"
 	"time"
@@ -12,8 +13,11 @@ import (
 	"epos-proxy/internal/printer"
 	"epos-proxy/internal/server"
 	"epos-proxy/internal/util"
+	"epos-proxy/override/menubar"
 
 	autostart "github.com/emersion/go-autostart"
+	"github.com/google/uuid"
+	"github.com/wailsapp/wails/v2/pkg/menu"
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -44,6 +48,8 @@ type App struct {
 	printerManager *printer.Manager
 	autoStart      *autostart.App
 	dialogs        dialoger
+	appMenu        *menu.Menu // stored so kiosk mode can hide/restore the menu bar
+	sessionToken   string     // trusted Wails-origin token set once in startup()
 }
 
 // dlg returns the dialog backend, defaulting to the Wails runtime so an App
@@ -86,6 +92,14 @@ type UnavailablePrinter struct {
 type AppVariable struct {
 	ServerRunning bool   `json:"serverRunning"`
 	Os            string `json:"os"`
+	KioskMode     bool   `json:"kioskMode"`
+}
+
+// WebViewConfig is the public view of kiosk settings (PIN is never exposed).
+type WebViewConfig struct {
+	URL     string `json:"url"`
+	Enabled bool   `json:"enabled"`
+	HasPIN  bool   `json:"hasPIN"`
 }
 
 type Printers struct {
@@ -97,10 +111,15 @@ type Printers struct {
 func NewApp() *App {
 	a := &App{}
 
+	execPath, err := os.Executable()
+	if err != nil {
+		execPath = os.Args[0]
+	}
+
 	a.autoStart = &autostart.App{
 		Name:        "epos-proxy",
 		DisplayName: "ePOS Proxy",
-		Exec:        []string{os.Args[0]},
+		Exec:        []string{execPath},
 	}
 	a.printerManager = printer.NewManager()
 	a.dialogs = runtimeDialogs{}
@@ -119,9 +138,7 @@ func NewApp() *App {
 	return a
 }
 
-func (a *App) startup(ctx context.Context) {
-	a.ctx = ctx
-	logger.Debugf("Application startup")
+func (a *App) startBackend(bindHost string) (int, error) {
 	logger.Debugf("Config loaded from %s", a.config.Path())
 
 	port, err := a.config.ResolvePort()
@@ -129,7 +146,47 @@ func (a *App) startup(ctx context.Context) {
 		logger.Warn("Unable to resolve port, using default")
 	}
 
-	a.webserver = server.New(port, a.printerManager)
+	// Build a sub-FS rooted at frontend/dist for the embedded SPA.
+	var distFS fs.FS
+	subFS, fsErr := fs.Sub(assets, "frontend/dist")
+	if fsErr != nil {
+		logger.Warnf("Could not create distFS sub: %v", fsErr)
+	} else {
+		distFS = subFS
+	}
+
+	a.webserver = server.NewWithHost(bindHost, port, a.printerManager, a.config, distFS)
+
+	// Generate a unique session token that identifies requests from this
+	// trusted Wails process. The remote webview never has this token.
+	token := uuid.New().String()
+	a.sessionToken = token
+	a.webserver.SetSessionToken(token)
+
+	// Notify the desktop frontend when kiosk status or config is modified remotely
+	a.webserver.SetKioskCallback(func(enabled bool) {
+		if a.ctx != nil {
+			wailsruntime.EventsEmit(a.ctx, "kiosk-state-changed", enabled)
+		}
+	})
+	a.webserver.SetConfigCallback(func() {
+		if a.ctx != nil {
+			wailsruntime.EventsEmit(a.ctx, "webview-config-changed")
+		}
+	})
+	a.webserver.SetKioskReloadCallback(func() {
+		if a.ctx != nil {
+			wailsruntime.EventsEmit(a.ctx, "kiosk-reload")
+		}
+	})
+
+	return port, nil
+}
+
+func (a *App) startup(ctx context.Context) {
+	a.ctx = ctx
+	logger.Debugf("Application startup")
+	_, _ = a.startBackend("0.0.0.0")
 }
 
 func (a *App) shutdown(ctx context.Context) {
@@ -141,10 +198,30 @@ func (a *App) shutdown(ctx context.Context) {
 }
 
 func (a *App) AppVariable() AppVariable {
+	kioskMode := false
+	if a.config != nil {
+		kioskMode = a.config.IsKioskEnabled()
+	}
 	return AppVariable{
 		Os:            runtime.GOOS,
-		ServerRunning: a.webserver.Running(),
+		ServerRunning: a.webserver != nil && a.webserver.Running(),
+		KioskMode:     kioskMode,
 	}
+}
+
+func (a *App) Quit() {
+	logger.Infof("Quit requested via App.Quit")
+	if a.webserver != nil {
+		_ = a.webserver.Stop()
+	}
+	os.Exit(0)
+}
+
+// GetSessionToken returns the per-launch session token that identifies HTTP
+// requests from this trusted Wails process. Called once by the frontend on
+// startup; the token is never embedded in the built JS bundle.
+func (a *App) GetSessionToken() string {
+	return a.sessionToken
 }
 
 func (a *App) GetPrinterUrl(id string) string {
@@ -227,6 +304,78 @@ func (a *App) AddLANPrinter(ip string) error {
 
 	logger.Debugf("LAN printer added successfully: %s", ip)
 	return nil
+}
+
+// ─── WebView / Kiosk ──────────────────────────────────────────────────────────
+
+// GetWebViewConfig returns the public kiosk configuration (URL, enabled flag,
+// and whether a PIN has been set). The PIN itself is never returned.
+func (a *App) GetWebViewConfig() WebViewConfig {
+	return WebViewConfig{
+		URL:     a.config.GetWebViewURL(),
+		Enabled: a.config.GetWebViewEnabled(),
+		HasPIN:  a.config.HasWebViewPIN(),
+	}
+}
+
+// SetWebViewURL persists the kiosk URL.
+func (a *App) SetWebViewURL(url string) error {
+	logger.Debugf("Setting WebView URL")
+	return a.config.SetWebViewURL(url)
+}
+
+// SetWebViewPIN validates and persists the 4-digit kiosk PIN.
+func (a *App) SetWebViewPIN(pin string) error {
+	logger.Debug("Setting WebView PIN")
+	return a.config.SetWebViewPIN(pin)
+}
+
+// ValidateWebViewPIN returns true when pin matches the stored PIN.
+// The incoming value is compared but never logged.
+func (a *App) ValidateWebViewPIN(pin string) bool {
+	return a.config.CheckWebViewPIN(pin)
+}
+
+// SetWebViewEnabled persists the kiosk-enabled flag.
+func (a *App) SetWebViewEnabled(v bool) error {
+	logger.Debugf("Setting WebView enabled: %v", v)
+	return a.config.SetWebViewEnabled(v)
+}
+
+// SetWindowFullscreen puts the main Wails window into or out of fullscreen
+// and hides/restores the native menu bar accordingly.
+func (a *App) SetWindowFullscreen(fullscreen bool) {
+	if a.ctx == nil {
+		return
+	}
+	if fullscreen {
+		wailsruntime.WindowFullscreen(a.ctx)
+		// Hide the native menu bar in kiosk mode
+		menubar.SetNativeMenubarVisible(false)
+		menubar.DisableContextMenu()
+		if runtime.GOOS != "linux" {
+			wailsruntime.MenuSetApplicationMenu(a.ctx, menu.NewMenu())
+			wailsruntime.MenuUpdateApplicationMenu(a.ctx)
+		}
+	} else {
+		wailsruntime.WindowUnfullscreen(a.ctx)
+		// Restore the menu bar when leaving kiosk mode
+		menubar.SetNativeMenubarVisible(true)
+		if runtime.GOOS != "linux" {
+			if a.appMenu == nil {
+				a.appMenu = createMenu(a)
+			}
+			wailsruntime.MenuSetApplicationMenu(a.ctx, a.appMenu)
+			wailsruntime.MenuUpdateApplicationMenu(a.ctx)
+		}
+	}
+}
+
+// ReloadKiosk broadcasts a kiosk-reload event to reload the active kiosk iframe.
+func (a *App) ReloadKiosk() {
+	if a.ctx != nil {
+		wailsruntime.EventsEmit(a.ctx, "kiosk-reload")
+	}
 }
 
 func (a *App) ConfirmRemoveLANPrinter(ip string) (bool, error) {
