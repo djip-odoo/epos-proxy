@@ -17,6 +17,11 @@ import {
   SetWebViewURL,
   SetWindowFullscreen,
   ValidateWebViewPIN,
+  IsPendingPinAuth,
+  CompletePinAuth,
+  NavigateToWebApp,
+  ReturnToWailsApp,
+  SetWailsAppURL,
 } from "../../wailsjs/go/main/App";
 import {
   apiAddLANPrinter,
@@ -70,6 +75,11 @@ export interface IBackendService {
   setWindowFullscreen(fullscreen: boolean): Promise<void>;
   reloadKiosk(): Promise<void>;
   quitServer(): Promise<void>;
+  isPendingPinAuth(): Promise<boolean>;
+  completePinAuth(success: boolean): Promise<void>;
+  navigateToWebApp(): Promise<void>;
+  returnToWailsApp(): Promise<void>;
+  setWailsAppURL(url: string): Promise<void>;
 }
 
 class WailsBackendService implements IBackendService {
@@ -168,6 +178,26 @@ class WailsBackendService implements IBackendService {
     }
     return Promise.resolve();
   }
+
+  isPendingPinAuth(): Promise<boolean> {
+    return IsPendingPinAuth();
+  }
+
+  completePinAuth(success: boolean): Promise<void> {
+    return CompletePinAuth(success);
+  }
+
+  navigateToWebApp(): Promise<void> {
+    return NavigateToWebApp();
+  }
+
+  returnToWailsApp(): Promise<void> {
+    return ReturnToWailsApp();
+  }
+
+  setWailsAppURL(url: string): Promise<void> {
+    return SetWailsAppURL(url);
+  }
 }
 
 class RemoteBackendService implements IBackendService {
@@ -253,8 +283,139 @@ class RemoteBackendService implements IBackendService {
   async quitServer(): Promise<void> {
     await apiQuitApp();
   }
+
+  isPendingPinAuth(): Promise<boolean> {
+    return Promise.resolve(false);
+  }
+
+  completePinAuth(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  navigateToWebApp(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  returnToWailsApp(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  setWailsAppURL(): Promise<void> {
+    return Promise.resolve();
+  }
 }
 
-export const backendService: IBackendService = detectWails()
-  ? new WailsBackendService()
-  : new RemoteBackendService();
+class DynamicBackendService implements IBackendService {
+  private wails = new WailsBackendService();
+  private remote = new RemoteBackendService();
+
+  private get service(): IBackendService {
+    return detectWails() ? this.wails : this.remote;
+  }
+
+  get isWails(): boolean {
+    return detectWails();
+  }
+
+  getAppVariable(): Promise<main.AppVariable | ApiAppVariable> {
+    return this.service.getAppVariable();
+  }
+
+  getTroubleshootInfo(): Promise<main.TroubleshootInfo | ApiTroubleshootInfo> {
+    return this.service.getTroubleshootInfo();
+  }
+
+  getNetworkPrintingEnabled(): Promise<boolean> {
+    return this.service.getNetworkPrintingEnabled();
+  }
+
+  setNetworkPrintingEnabled(v: boolean): Promise<void> {
+    return this.service.setNetworkPrintingEnabled(v);
+  }
+
+  getAutostart(): Promise<boolean> {
+    return this.service.getAutostart();
+  }
+
+  setAutostart(v: boolean): Promise<void> {
+    return this.service.setAutostart(v);
+  }
+
+  getPrinters(): Promise<main.Printers | ApiPrintersResponse> {
+    return this.service.getPrinters();
+  }
+
+  checkLANPrinterStatus(ip: string): Promise<{ online: boolean }> {
+    return this.service.checkLANPrinterStatus(ip);
+  }
+
+  addLANPrinter(ip: string): Promise<void> {
+    return this.service.addLANPrinter(ip);
+  }
+
+  removeLANPrinter(ip: string): Promise<boolean> {
+    return this.service.removeLANPrinter(ip);
+  }
+
+  testPrint(printer: main.Printer | ApiPrinter): Promise<void> {
+    return this.service.testPrint(printer);
+  }
+
+  openCashDrawer(printer: main.Printer | ApiPrinter): Promise<void> {
+    return this.service.openCashDrawer(printer);
+  }
+
+  getWebViewConfig(): Promise<main.WebViewConfig | ApiWebViewConfig> {
+    return this.service.getWebViewConfig();
+  }
+
+  setWebViewURL(url: string): Promise<void> {
+    return this.service.setWebViewURL(url);
+  }
+
+  setWebViewEnabled(enabled: boolean): Promise<void> {
+    return this.service.setWebViewEnabled(enabled);
+  }
+
+  setWebViewPIN(pin: string): Promise<void> {
+    return this.service.setWebViewPIN(pin);
+  }
+
+  validatePIN(pin: string): Promise<boolean> {
+    return this.service.validatePIN(pin);
+  }
+
+  setWindowFullscreen(fullscreen: boolean): Promise<void> {
+    return this.service.setWindowFullscreen(fullscreen);
+  }
+
+  reloadKiosk(): Promise<void> {
+    return this.service.reloadKiosk();
+  }
+
+  quitServer(): Promise<void> {
+    return this.service.quitServer();
+  }
+
+  isPendingPinAuth(): Promise<boolean> {
+    return this.service.isPendingPinAuth();
+  }
+
+  completePinAuth(success: boolean): Promise<void> {
+    return this.service.completePinAuth(success);
+  }
+
+  navigateToWebApp(): Promise<void> {
+    return this.service.navigateToWebApp();
+  }
+
+  returnToWailsApp(): Promise<void> {
+    return this.service.returnToWailsApp();
+  }
+
+  setWailsAppURL(url: string): Promise<void> {
+    return this.service.setWailsAppURL(url);
+  }
+}
+
+export const backendService: IBackendService = new DynamicBackendService();

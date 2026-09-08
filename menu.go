@@ -7,6 +7,7 @@ import (
 	"epos-proxy/internal/logger"
 
 	"github.com/wailsapp/wails/v2/pkg/menu"
+	"github.com/wailsapp/wails/v2/pkg/menu/keys"
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -18,6 +19,14 @@ func createMenu(app *App) *menu.Menu {
 		// Without an Edit menu, copy/paste do nothing on the webview on macO
 		mainMenu.Append(menu.EditMenu())
 	}
+
+	appMenu.AddText("Open WebApp", nil, func(_ *menu.CallbackData) {
+		app.NavigateToWebApp()
+	})
+
+	appMenu.AddText("Return to Wails Management", keys.Combo("s", keys.CmdOrCtrlKey, keys.OptionOrAltKey), func(_ *menu.CallbackData) {
+		app.ReturnToWailsApp()
+	})
 
 	appMenu.AddCheckbox("Auto Start", app.IsAutostartEnabled(), nil, func(cb *menu.CallbackData) {
 		handleAutoStartToggle(app, cb)

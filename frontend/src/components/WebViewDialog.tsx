@@ -40,9 +40,7 @@ export function isValidUrl(urlStr: string): boolean {
       return false;
     }
 
-    return KIOSK_URL_CONSTRAINTS.some((constraint) =>
-      constraint.validate(parsed)
-    );
+    return true
   } catch {
     return false;
   }
@@ -563,11 +561,11 @@ export default function WebViewDialog() {
             <div className="mt-4 flex items-center justify-between border-t border-gray-200 pt-3">
               <div>
                 <div className="text-xs font-medium text-gray-800">
-                  Enable kiosk mode
+                  Open WebApp
                 </div>
 
                 <div className="text-[11px] text-gray-500">
-                  Open the configured page in fullscreen.
+                  Launch the configured page in fullscreen.
                 </div>
               </div>
 
@@ -577,8 +575,8 @@ export default function WebViewDialog() {
                 onClick={handleToggleKiosk}
                 aria-label={
                   isKioskCurrentlyActive
-                    ? "Disable kiosk mode"
-                    : "Enable kiosk mode"
+                    ? "Close WebApp"
+                    : "Open WebApp"
                 }
                 className={`
                   relative h-6 w-11 shrink-0 rounded-full

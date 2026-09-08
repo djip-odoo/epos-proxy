@@ -25,11 +25,7 @@ func runServerMode(app *App) {
 		}
 	}
 
-	bindHost := "127.0.0.1"
-	if app.config.IsNetworkPrintingEnabled() {
-		bindHost = "0.0.0.0"
-	}
-
+	bindHost := "0.0.0.0"
 	port, err := app.startBackend(bindHost)
 	if err != nil {
 		logger.Errorf("HTTP server startup failure: %v", err)

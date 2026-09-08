@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"net/http"
 	"os"
 	"runtime"
+	"sync"
 	"time"
 
 	"epos-proxy/internal/config"
@@ -50,6 +52,12 @@ type App struct {
 	dialogs        dialoger
 	appMenu        *menu.Menu // stored so kiosk mode can hide/restore the menu bar
 	sessionToken   string     // trusted Wails-origin token set once in startup()
+	pinAuthMu         sync.RWMutex
+	pendingPinAuth    bool
+	inManagement      bool
+	isRenderingWebApp bool
+	wailsAppURL       string
+	navStopChan       chan struct{}
 }
 
 // dlg returns the dialog backend, defaulting to the Wails runtime so an App
@@ -165,6 +173,13 @@ func (a *App) startBackend(bindHost string) (int, error) {
 
 	// Notify the desktop frontend when kiosk status or config is modified remotely
 	a.webserver.SetKioskCallback(func(enabled bool) {
+		if enabled {
+			logger.Infof("Remote command received: Open WebApp")
+			a.NavigateToWebApp()
+		} else {
+			logger.Infof("Remote command received: Close WebApp")
+			a.ReturnToWailsApp()
+		}
 		if a.ctx != nil {
 			wailsruntime.EventsEmit(a.ctx, "kiosk-state-changed", enabled)
 		}
@@ -179,6 +194,9 @@ func (a *App) startBackend(bindHost string) (int, error) {
 			wailsruntime.EventsEmit(a.ctx, "kiosk-reload")
 		}
 	})
+	a.webserver.SetKioskExitCallback(func() {
+		a.ReturnToWailsApp()
+	})
 
 	return port, nil
 }
@@ -186,6 +204,9 @@ func (a *App) startBackend(bindHost string) (int, error) {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	logger.Debugf("Application startup")
+	menubar.SetNativeKioskExitCallback(func() {
+		a.ReturnToWailsApp()
+	})
 	_, _ = a.startBackend("0.0.0.0")
 }
 
@@ -376,6 +397,306 @@ func (a *App) ReloadKiosk() {
 	if a.ctx != nil {
 		wailsruntime.EventsEmit(a.ctx, "kiosk-reload")
 	}
+}
+
+// IsPendingPinAuth returns true if the Wails UI was opened from WebApp and requires PIN auth.
+func (a *App) IsPendingPinAuth() bool {
+	a.pinAuthMu.RLock()
+	defer a.pinAuthMu.RUnlock()
+	return a.pendingPinAuth
+}
+
+// IsInManagement returns true if the user is authenticated and currently viewing the Wails management UI.
+func (a *App) IsInManagement() bool {
+	a.pinAuthMu.RLock()
+	defer a.pinAuthMu.RUnlock()
+	return a.inManagement
+}
+
+// IsRenderingWebApp returns true if the top-level WebView is currently navigated to the external WebApp.
+func (a *App) IsRenderingWebApp() bool {
+	a.pinAuthMu.RLock()
+	defer a.pinAuthMu.RUnlock()
+	return a.isRenderingWebApp
+}
+
+// SetWailsAppURL records the local Wails UI URL so we can return to it cleanly.
+func (a *App) SetWailsAppURL(url string) {
+	a.pinAuthMu.Lock()
+	defer a.pinAuthMu.Unlock()
+	if url != "" {
+		a.wailsAppURL = url
+		logger.Infof("Recorded Wails App URL: %s", url)
+	}
+}
+
+// CompletePinAuth is called by the Wails frontend when PIN validation succeeds or is cancelled/failed.
+func (a *App) CompletePinAuth(success bool) {
+	logger.Infof("CompletePinAuth: success=%v", success)
+	if success {
+		a.pinAuthMu.Lock()
+		a.pendingPinAuth = false
+		a.inManagement = true
+		a.isRenderingWebApp = false
+		a.pinAuthMu.Unlock()
+		a.SetWindowFullscreen(false)
+	} else {
+		// PIN cancelled or failed: return directly to WebApp in fullscreen
+		a.NavigateToWebApp()
+	}
+}
+
+// NavigateToWebApp navigates the WebView directly to the configured WebApp URL in fullscreen with no menubar.
+func (a *App) NavigateToWebApp() {
+	a.pinAuthMu.Lock()
+	a.pendingPinAuth = false
+	a.inManagement = false
+	a.isRenderingWebApp = true
+	if a.navStopChan != nil {
+		close(a.navStopChan)
+	}
+	stopCh := make(chan struct{})
+	a.navStopChan = stopCh
+	a.pinAuthMu.Unlock()
+
+	targetURL := a.config.GetWebViewURL()
+	if targetURL == "" {
+		return
+	}
+
+	a.SetWindowFullscreen(true)
+
+	if a.ctx != nil {
+		logger.Infof("Navigating top-level WebView to configured URL: %s", targetURL)
+		menubar.NavigateToURL(targetURL)
+		wailsruntime.WindowExecJS(a.ctx, fmt.Sprintf("window.location.replace(%q);", targetURL))
+
+		script := a.getGestureScript()
+		go func() {
+			// Periodically inject non-blocking corner tap & shortcut listener across navigation
+			ticker := time.NewTicker(2 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-stopCh:
+					return
+				case <-ticker.C:
+					if a.ctx != nil {
+						wailsruntime.WindowExecJS(a.ctx, script)
+					}
+				}
+			}
+		}()
+	}
+}
+
+// ReturnToWailsApp returns from WebApp to the Wails app and requires PIN authentication before granting access.
+func (a *App) ReturnToWailsApp() {
+	logger.Infof("Returning to Wails app from WebApp")
+	a.pinAuthMu.Lock()
+	a.pendingPinAuth = true
+	a.inManagement = false
+	a.isRenderingWebApp = false
+	if a.navStopChan != nil {
+		close(a.navStopChan)
+		a.navStopChan = nil
+	}
+	target := a.wailsAppURL
+	a.pinAuthMu.Unlock()
+
+	if target == "" {
+		target = a.getWailsAppURL()
+	}
+
+	a.SetWindowFullscreen(false)
+
+	if a.ctx != nil {
+		logger.Infof("Navigating WebView back to Wails app URL: %s", target)
+		menubar.NavigateToURL(target)
+		wailsruntime.WindowExecJS(a.ctx, fmt.Sprintf("window.location.replace(%q);", target))
+	}
+}
+
+// InjectGestureScript injects the non-blocking exit gesture and hotkey listener into the currently active page.
+func (a *App) InjectGestureScript() {
+	if a.ctx != nil {
+		script := a.getGestureScript()
+		wailsruntime.WindowExecJS(a.ctx, script)
+	}
+}
+
+func (a *App) getWailsAppURL() string {
+	a.pinAuthMu.RLock()
+	url := a.wailsAppURL
+	a.pinAuthMu.RUnlock()
+	if url != "" {
+		return url
+	}
+	// In Wails dev mode, the app is served via the Vite dev server at 127.0.0.1:5173
+	client := http.Client{Timeout: 200 * time.Millisecond}
+	if resp, err := client.Get("http://127.0.0.1:5173/"); err == nil {
+		_ = resp.Body.Close()
+		if resp.StatusCode == http.StatusOK {
+			return "http://127.0.0.1:5173/"
+		}
+	}
+	if runtime.GOOS == "windows" {
+		return "https://wails.localhost/"
+	}
+	return "wails://app/index.html"
+}
+
+func (a *App) getGestureScript() string {
+	port := 4545
+	if a.webserver != nil && a.webserver.Port > 0 {
+		port = a.webserver.Port
+	}
+	wailsAppURL := a.getWailsAppURL()
+
+	return fmt.Sprintf(`(function() {
+  if (window.__eposProxyExitInstalled) return;
+  window.__eposProxyExitInstalled = true;
+
+  var CORNER_SIZE = 140;
+  var REQUIRED_TAPS = 4;
+  var RESET_MS = 3000;
+  var WAILS_APP_URL = %q;
+  var PROXY_PORT = %d;
+
+  var tapCount = 0;
+  var lastTapTime = 0;
+  var activeCorner = null;
+
+  function getCorner(x, y) {
+    var w = window.innerWidth || document.documentElement.clientWidth || (document.body ? document.body.clientWidth : 0);
+    var h = window.innerHeight || document.documentElement.clientHeight || (document.body ? document.body.clientHeight : 0);
+    if (x <= CORNER_SIZE && y <= CORNER_SIZE) return "tl";
+    if (x >= w - CORNER_SIZE && y <= CORNER_SIZE) return "tr";
+    if (x <= CORNER_SIZE && y >= h - CORNER_SIZE) return "bl";
+    if (x >= w - CORNER_SIZE && y >= h - CORNER_SIZE) return "br";
+    return null;
+  }
+
+  function flashCorner(corner, count) {
+    try {
+      var dot = document.createElement("div");
+      dot.style.position = "fixed";
+      dot.style.width = "26px";
+      dot.style.height = "26px";
+      dot.style.borderRadius = "50%%";
+      dot.style.backgroundColor = count >= REQUIRED_TAPS ? "#10B981" : "#EF4444";
+      dot.style.zIndex = "2147483647";
+      dot.style.pointerEvents = "none";
+      dot.style.boxShadow = "0 0 10px rgba(0,0,0,0.5)";
+      dot.style.transition = "opacity 0.4s";
+
+      if (corner === "tl") { dot.style.top = "12px"; dot.style.left = "12px"; }
+      else if (corner === "tr") { dot.style.top = "12px"; dot.style.right = "12px"; }
+      else if (corner === "bl") { dot.style.bottom = "12px"; dot.style.left = "12px"; }
+      else if (corner === "br") { dot.style.bottom = "12px"; dot.style.right = "12px"; }
+
+      (document.body || document.documentElement).appendChild(dot);
+      setTimeout(function() {
+        dot.style.opacity = "0";
+        setTimeout(function() { dot.remove(); }, 400);
+      }, 350);
+    } catch (e) {}
+  }
+
+  function handleTap(x, y) {
+    var corner = getCorner(x, y);
+    if (!corner) {
+      tapCount = 0;
+      activeCorner = null;
+      return false;
+    }
+
+    var now = Date.now();
+    if (activeCorner === corner && (now - lastTapTime) < RESET_MS) {
+      tapCount++;
+    } else {
+      activeCorner = corner;
+      tapCount = 1;
+    }
+    lastTapTime = now;
+
+    flashCorner(corner, tapCount);
+
+    if (tapCount >= REQUIRED_TAPS) {
+      tapCount = 0;
+      activeCorner = null;
+      triggerExit();
+      return true;
+    }
+    return false;
+  }
+
+  function triggerExit() {
+    console.log("[ePOS] 4 corner taps detected, returning to Wails app");
+
+    // 1. WebKitGTK (Linux) native message handler
+    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.eposProxyExit) {
+      try {
+        window.webkit.messageHandlers.eposProxyExit.postMessage("exit");
+        return;
+      } catch(e) {}
+    }
+
+    // 2. Windows WebView2 native message handler
+    if (window.chrome && window.chrome.webview && window.chrome.webview.postMessage) {
+      try {
+        window.chrome.webview.postMessage("eposProxyExit");
+        return;
+      } catch(e) {}
+    }
+
+    // 3. Navigation to kiosk_exit=1
+    try {
+      if (WAILS_APP_URL) {
+        window.location.href = WAILS_APP_URL + (WAILS_APP_URL.indexOf("?") >= 0 ? "&" : "?") + "kiosk_exit=1";
+      } else {
+        window.location.hash = "#kiosk_exit=1";
+      }
+    } catch(e) {}
+
+    // 4. Local proxy API fallback
+    try {
+      fetch("http://127.0.0.1:" + PROXY_PORT + "/api/kiosk/exit", { method: "POST", mode: "no-cors" }).catch(function(){});
+    } catch(e) {}
+  }
+
+  var lastInputTime = 0;
+  function onInput(e) {
+    if (e.button && e.button !== 0) return;
+    var now = Date.now();
+    if (now - lastInputTime < 60) return;
+    lastInputTime = now;
+
+    var clientX = e.clientX;
+    var clientY = e.clientY;
+    if (e.touches && e.touches.length > 0) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    }
+    if (typeof clientX !== "number" || typeof clientY !== "number") return;
+
+    var triggered = handleTap(clientX, clientY);
+    if (triggered) {
+      try { e.preventDefault(); e.stopPropagation(); } catch (err) {}
+    }
+  }
+
+  window.addEventListener("pointerdown", onInput, true);
+  window.addEventListener("mousedown", onInput, true);
+  window.addEventListener("touchstart", onInput, true);
+
+  window.addEventListener("keydown", function(e) {
+    if (e.key === "Escape" || (e.ctrlKey && e.altKey && e.key.toLowerCase() === "s") || e.key === "F11") {
+      try { e.preventDefault(); } catch (err) {}
+      triggerExit();
+    }
+  }, true);
+})();`, wailsAppURL, port)
 }
 
 func (a *App) ConfirmRemoveLANPrinter(ip string) (bool, error) {

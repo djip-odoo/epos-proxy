@@ -47,6 +47,7 @@ type Server struct {
 	onKioskChanged  func(enabled bool)
 	onConfigChanged func()
 	onKioskReload   func()
+	onKioskExit     func()
 }
 
 // SetKioskCallback registers a callback invoked when kiosk enabled status changes via HTTP API.
@@ -68,6 +69,13 @@ func (s *Server) SetKioskReloadCallback(cb func()) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.onKioskReload = cb
+}
+
+// SetKioskExitCallback registers a callback invoked when exiting kiosk/webapp to return to the Wails app.
+func (s *Server) SetKioskExitCallback(cb func()) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.onKioskExit = cb
 }
 
 // SetSessionToken registers the trusted Wails session token.
@@ -160,9 +168,6 @@ func NewWithHost(host string, port int, mgr *printer.Manager, cfg *config.Manage
 		AllowPrivateNetwork: true,
 	}))
 
-	app.Get("/", func(ctx fiber.Ctx) error {
-		return ctx.SendString(fmt.Sprintf("Hello from %s", app.Config().AppName))
-	})
 	// ── Read-only APIs ────────────────────────────────────────────────────────
 
 	app.Get("/api/app", srv.handleGetApp)
@@ -182,6 +187,15 @@ func NewWithHost(host string, port int, mgr *printer.Manager, cfg *config.Manage
 	app.Post("/api/webview/url", srv.requireAuth, srv.handleSetWebViewURL)
 	app.Post("/api/webview/enabled", srv.requireAuth, srv.handleSetWebViewEnabled)
 	app.Post("/api/webview/reload", srv.requireAuth, srv.handleReloadWebView)
+	app.All("/api/kiosk/exit", func(c fiber.Ctx) error {
+		srv.mu.RLock()
+		cb := srv.onKioskExit
+		srv.mu.RUnlock()
+		if cb != nil {
+			go cb()
+		}
+		return c.JSON(fiber.Map{"status": "ok"})
+	})
 
 	// Test-print / cash-drawer via proxy — privileged so random remote callers
 	// can't trigger prints, while Odoo POS continues to use the open /p/…

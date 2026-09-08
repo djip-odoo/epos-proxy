@@ -30,27 +30,6 @@ export default function PrinterList() {
     Boolean(isKioskMode) &&
     isLocalhost;
 
-  const handleLockKiosk = async () => {
-    const ok = await showPINDialog();
-    if (!ok) return;
-
-    if (!webViewData.config?.url) {
-      toastContext.actions.showToast(
-        "Please configure a Kiosk URL first in Kiosk & Remote Access",
-        "danger"
-      );
-      return;
-    }
-
-    try {
-      await webViewActions.toggleEnabled(true);
-      await webViewActions.enterKiosk();
-      toastContext.actions.showToast("Kiosk mode locked", "success");
-    } catch (err: unknown) {
-      toastContext.actions.showToast("Failed to lock kiosk: " + String(err), "danger");
-    }
-  };
-
   const handleQuitServer = async () => {
     const ok = await showPINDialog();
     if (!ok) return;
@@ -122,50 +101,6 @@ export default function PrinterList() {
         <TroubleshootDialog />
         {isWindowsKioskServer && (
           <>
-            <button
-              type="button"
-              onClick={handleLockKiosk}
-              className="w-full flex items-center justify-between rounded-xl border border-odoo/30 bg-white px-4 py-3 text-odoo hover:bg-odoo/5 transition-colors cursor-pointer shadow-2xs"
-            >
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-odoo/10 text-odoo">
-                  <svg
-                    className="h-5 w-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <rect
-                      x="3"
-                      y="11"
-                      width="18"
-                      height="11"
-                      rx="2"
-                      ry="2"
-                      strokeWidth="2"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M7 11V7a5 5 0 0110 0v4"
-                    />
-                  </svg>
-                </div>
-                <div className="text-left">
-                  <div className="text-sm font-semibold text-gray-800">
-                    Lock into Kiosk Mode
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    Switch to fullscreen locked kiosk view
-                  </div>
-                </div>
-              </div>
-              <span className="rounded-full bg-odoo/10 border border-odoo/20 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-odoo">
-                Lock
-              </span>
-            </button>
-
             <button
               type="button"
               onClick={handleQuitServer}

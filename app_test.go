@@ -355,3 +355,46 @@ func TestApp_StartBackendServerMode(t *testing.T) {
 	testutil.ExpectedEqual(t, app.webserver.Host, "127.0.0.1")
 }
 
+func TestApp_PinAuthAndWebAppNavigation(t *testing.T) {
+	tempDir := t.TempDir()
+	t.Setenv("HOME", tempDir)
+
+	cfg, err := config.NewManager()
+	testutil.ExpectedNoError(t, err)
+	err = cfg.SetWebViewURL("https://example.com/pos")
+	testutil.ExpectedNoError(t, err)
+
+	app := &App{
+		config: cfg,
+	}
+
+	testutil.ExpectedFalse(t, app.IsPendingPinAuth())
+	testutil.ExpectedFalse(t, app.IsInManagement())
+
+	// Return to Wails app sets pendingPinAuth
+	app.ReturnToWailsApp()
+	testutil.ExpectedTrue(t, app.IsPendingPinAuth())
+	testutil.ExpectedFalse(t, app.IsInManagement())
+
+	// Complete PIN auth with success
+	app.CompletePinAuth(true)
+	testutil.ExpectedFalse(t, app.IsPendingPinAuth())
+	testutil.ExpectedTrue(t, app.IsInManagement())
+
+	// Return to Wails app again
+	app.ReturnToWailsApp()
+	testutil.ExpectedTrue(t, app.IsPendingPinAuth())
+
+	// Complete PIN auth with failure/cancel -> returns to WebApp
+	app.CompletePinAuth(false)
+	testutil.ExpectedFalse(t, app.IsPendingPinAuth())
+	testutil.ExpectedFalse(t, app.IsInManagement())
+
+	// Verify gesture script contains port and corner logic
+	script := app.getGestureScript()
+	testutil.ExpectedContains(t, script, "window.__eposProxyExitInstalled")
+	testutil.ExpectedContains(t, script, "/api/kiosk/exit")
+	testutil.ExpectedContains(t, script, "CORNER_SIZE")
+}
+
+

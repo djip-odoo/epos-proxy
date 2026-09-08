@@ -127,6 +127,18 @@ func runNormalMode(app *App) {
 		OnShutdown:       app.shutdown,
 		OnDomReady: func(ctx context.Context) {
 			menubar.DisableContextMenu()
+			if !app.IsRenderingWebApp() {
+				if !app.IsPendingPinAuth() && !app.IsInManagement() {
+					if app.config.GetWebViewEnabled() {
+						if targetURL := app.config.GetWebViewURL(); targetURL != "" {
+							app.NavigateToWebApp()
+							return
+						}
+					}
+				}
+			} else {
+				app.InjectGestureScript()
+			}
 		},
 		Bind: []interface{}{
 			app,

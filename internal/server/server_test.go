@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"epos-proxy/internal/config"
 	"epos-proxy/internal/printer"
@@ -325,4 +326,18 @@ func TestServer_AuthAndPrivilegedRoutes(t *testing.T) {
 	testutil.ExpectedNoError(t, err)
 	testutil.ExpectedEqual(t, respReload.StatusCode, http.StatusOK)
 	testutil.ExpectedTrue(t, reloadCalled)
+
+	// 7. Kiosk exit callback
+	exitCalled := false
+	s.SetKioskExitCallback(func() {
+		exitCalled = true
+	})
+
+	reqExit := httptest.NewRequest("POST", "/api/kiosk/exit", nil)
+	respExit, err := s.app.Test(reqExit)
+	testutil.ExpectedNoError(t, err)
+	testutil.ExpectedEqual(t, respExit.StatusCode, http.StatusOK)
+	time.Sleep(50 * time.Millisecond)
+	testutil.ExpectedTrue(t, exitCalled)
 }
+

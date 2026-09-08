@@ -173,10 +173,16 @@ export const WebViewContextWrapper = ({
 
   const enterKiosk = async () => {
     await toggleEnabled(true);
+    if (backendService.isWails) {
+      await backendService.navigateToWebApp();
+    }
   };
 
   const exitKiosk = async () => {
     await toggleEnabled(false);
+    if (backendService.isWails) {
+      await backendService.completePinAuth(true);
+    }
   };
 
   const reloadKiosk = async () => {
