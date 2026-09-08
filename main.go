@@ -1,25 +1,12 @@
-// NOTE: this block is currently INERT. cgo only honours a preamble that
-// immediately precedes the `import "C"` line; because "C" is imported inside
-// the grouped import block below, these flags have never been applied and
-// libusb is linked dynamically via gousb's pkg-config. Left as-is pending a
-// decision — activating it needs the include path corrected to
-// -I/opt/homebrew/opt/libusb/include for <libusb-1.0/libusb.h> to resolve.
-/*
-#cgo darwin CFLAGS:  -I/opt/homebrew/opt/libusb/include/libusb-1.0
-#cgo darwin LDFLAGS: /opt/homebrew/opt/libusb/lib/libusb-1.0.a -framework IOKit -framework CoreFoundation
-#include <libusb-1.0/libusb.h>
-*/
 package main
 
 import (
-	"C"
 	"context"
 	"embed"
 	"net/http"
 	"os"
 
 	"epos-proxy/internal/logger"
-	"epos-proxy/override/menubar"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -126,7 +113,6 @@ func runNormalMode(app *App) {
 		OnStartup:        app.startup,
 		OnShutdown:       app.shutdown,
 		OnDomReady: func(ctx context.Context) {
-			menubar.DisableContextMenu()
 			if !app.IsRenderingWebApp() {
 				if !app.IsPendingPinAuth() && !app.IsInManagement() {
 					if app.config.GetWebViewEnabled() {

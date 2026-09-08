@@ -76,10 +76,6 @@ epos-proxy/
 ├── go.mod / go.sum             # Go module definition (Wails v2.15.0, Fiber v3, gousb)
 ├── wails.json                  # Wails build and project configuration
 │
-├── override/menubar/           # Platform-specific native menubar controls
-│   ├── menubar_linux.go        # Linux GTK idle callback CGO menubar show/hide
-│   └── menubar_other.go        # Windows/macOS no-op fallbacks
-│
 ├── internal/
 │   ├── config/                 # Persistent configuration manager (config.json)
 │   │   ├── config.go           # AppConfig schema, port range resolution (4545-4555), PIN, URL validation
@@ -292,6 +288,6 @@ wails dev
 
 1. **Never Mount Kiosk in Remote Browsers**: `KioskOverlay.tsx` must always check `if (!isWails) return null;`.
 2. **Never Call `enterKiosk()` Inside `toggleEnabled()`**: Circular calls between `toggleEnabled` and `exitKiosk/enterKiosk` will trigger infinite call stack recursion. Keep actions decoupled.
-3. **Preserve Menu Bar Visibility on Linux**: On Linux, toggle menubar visibility via `menubar.SetNativeMenubarVisible(visible)` rather than reconstructing the GTK menu widget tree (`wailsruntime.MenuSetApplicationMenu`), preventing GTK signal race conditions.
+3. **Pure-Go Window & Menu State**: Control fullscreen and menubar dynamically via `wailsruntime.WindowFullscreen`, `wailsruntime.WindowUnfullscreen`, and `wailsruntime.MenuSetApplicationMenu` without native CGO overrides.
 4. **PIN Updates Stay Local**: Do not expose a remote HTTP endpoint for changing the PIN. PIN setting belongs exclusively to `menu.go` and `SetPinDialog.tsx`.
 5. **Always Use `useClipboard`**: For any clipboard copy operations in the UI, use the unified `useClipboard` hook for consistent feedback and toast notifications.

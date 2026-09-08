@@ -48,6 +48,7 @@ type Server struct {
 	onConfigChanged func()
 	onKioskReload   func()
 	onKioskExit     func()
+	wailsAppURL     string
 }
 
 // SetKioskCallback registers a callback invoked when kiosk enabled status changes via HTTP API.
@@ -76,6 +77,13 @@ func (s *Server) SetKioskExitCallback(cb func()) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.onKioskExit = cb
+}
+
+// SetWailsAppURL stores the local Wails UI URL used to redirect upon kiosk exit.
+func (s *Server) SetWailsAppURL(url string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.wailsAppURL = url
 }
 
 // SetSessionToken registers the trusted Wails session token.
@@ -190,9 +198,16 @@ func NewWithHost(host string, port int, mgr *printer.Manager, cfg *config.Manage
 	app.All("/api/kiosk/exit", func(c fiber.Ctx) error {
 		srv.mu.RLock()
 		cb := srv.onKioskExit
+		wailsURL := srv.wailsAppURL
 		srv.mu.RUnlock()
 		if cb != nil {
 			go cb()
+		}
+		if c.Method() == fiber.MethodGet {
+			if wailsURL == "" {
+				wailsURL = "/"
+			}
+			return c.Redirect().Status(fiber.StatusTemporaryRedirect).To(wailsURL)
 		}
 		return c.JSON(fiber.Map{"status": "ok"})
 	})

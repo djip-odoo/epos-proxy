@@ -15,7 +15,6 @@ import (
 	"epos-proxy/internal/printer"
 	"epos-proxy/internal/server"
 	"epos-proxy/internal/util"
-	"epos-proxy/override/menubar"
 
 	autostart "github.com/emersion/go-autostart"
 	"github.com/google/uuid"
@@ -197,6 +196,7 @@ func (a *App) startBackend(bindHost string) (int, error) {
 	a.webserver.SetKioskExitCallback(func() {
 		a.ReturnToWailsApp()
 	})
+	a.webserver.SetWailsAppURL(a.getWailsAppURL())
 
 	return port, nil
 }
@@ -204,9 +204,6 @@ func (a *App) startBackend(bindHost string) (int, error) {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	logger.Debugf("Application startup")
-	menubar.SetNativeKioskExitCallback(func() {
-		a.ReturnToWailsApp()
-	})
 	_, _ = a.startBackend("0.0.0.0")
 }
 
@@ -371,24 +368,15 @@ func (a *App) SetWindowFullscreen(fullscreen bool) {
 	}
 	if fullscreen {
 		wailsruntime.WindowFullscreen(a.ctx)
-		// Hide the native menu bar in kiosk mode
-		menubar.SetNativeMenubarVisible(false)
-		menubar.DisableContextMenu()
-		if runtime.GOOS != "linux" {
-			wailsruntime.MenuSetApplicationMenu(a.ctx, menu.NewMenu())
-			wailsruntime.MenuUpdateApplicationMenu(a.ctx)
-		}
+		wailsruntime.MenuSetApplicationMenu(a.ctx, menu.NewMenu())
+		wailsruntime.MenuUpdateApplicationMenu(a.ctx)
 	} else {
 		wailsruntime.WindowUnfullscreen(a.ctx)
-		// Restore the menu bar when leaving kiosk mode
-		menubar.SetNativeMenubarVisible(true)
-		if runtime.GOOS != "linux" {
-			if a.appMenu == nil {
-				a.appMenu = createMenu(a)
-			}
-			wailsruntime.MenuSetApplicationMenu(a.ctx, a.appMenu)
-			wailsruntime.MenuUpdateApplicationMenu(a.ctx)
+		if a.appMenu == nil {
+			a.appMenu = createMenu(a)
 		}
+		wailsruntime.MenuSetApplicationMenu(a.ctx, a.appMenu)
+		wailsruntime.MenuUpdateApplicationMenu(a.ctx)
 	}
 }
 
@@ -426,6 +414,9 @@ func (a *App) SetWailsAppURL(url string) {
 	defer a.pinAuthMu.Unlock()
 	if url != "" {
 		a.wailsAppURL = url
+		if a.webserver != nil {
+			a.webserver.SetWailsAppURL(url)
+		}
 		logger.Infof("Recorded Wails App URL: %s", url)
 	}
 }
@@ -468,7 +459,6 @@ func (a *App) NavigateToWebApp() {
 
 	if a.ctx != nil {
 		logger.Infof("Navigating top-level WebView to configured URL: %s", targetURL)
-		menubar.NavigateToURL(targetURL)
 		wailsruntime.WindowExecJS(a.ctx, fmt.Sprintf("window.location.replace(%q);", targetURL))
 
 		script := a.getGestureScript()
@@ -512,7 +502,6 @@ func (a *App) ReturnToWailsApp() {
 
 	if a.ctx != nil {
 		logger.Infof("Navigating WebView back to Wails app URL: %s", target)
-		menubar.NavigateToURL(target)
 		wailsruntime.WindowExecJS(a.ctx, fmt.Sprintf("window.location.replace(%q);", target))
 	}
 }
@@ -634,32 +623,22 @@ func (a *App) getGestureScript() string {
   function triggerExit() {
     console.log("[ePOS] 4 corner taps detected, returning to Wails app");
 
-    // 1. WebKitGTK (Linux) native message handler
-    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.eposProxyExit) {
-      try {
-        window.webkit.messageHandlers.eposProxyExit.postMessage("exit");
-        return;
-      } catch(e) {}
-    }
+    // 1. Direct top-level navigation to local proxy exit endpoint
+    // Top-level navigation is never blocked by Mixed Content or CORS policies!
+    try {
+      window.location.replace("http://127.0.0.1:" + PROXY_PORT + "/api/kiosk/exit");
+      return;
+    } catch(e) {}
 
-    // 2. Windows WebView2 native message handler
-    if (window.chrome && window.chrome.webview && window.chrome.webview.postMessage) {
-      try {
-        window.chrome.webview.postMessage("eposProxyExit");
-        return;
-      } catch(e) {}
-    }
-
-    // 3. Navigation to kiosk_exit=1
+    // 2. Direct navigation to WAILS_APP_URL
     try {
       if (WAILS_APP_URL) {
-        window.location.href = WAILS_APP_URL + (WAILS_APP_URL.indexOf("?") >= 0 ? "&" : "?") + "kiosk_exit=1";
-      } else {
-        window.location.hash = "#kiosk_exit=1";
+        window.location.replace(WAILS_APP_URL + (WAILS_APP_URL.indexOf("?") >= 0 ? "&" : "?") + "kiosk_exit=1");
+        return;
       }
     } catch(e) {}
 
-    // 4. Local proxy API fallback
+    // 3. Fallback: beacon fetch
     try {
       fetch("http://127.0.0.1:" + PROXY_PORT + "/api/kiosk/exit", { method: "POST", mode: "no-cors" }).catch(function(){});
     } catch(e) {}
