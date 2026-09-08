@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"epos-proxy/internal/logger"
+	"epos-proxy/override/menubar"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -113,6 +114,7 @@ func runNormalMode(app *App) {
 		OnStartup:        app.startup,
 		OnShutdown:       app.shutdown,
 		OnDomReady: func(ctx context.Context) {
+			menubar.DisableContextMenu()
 			if !app.IsRenderingWebApp() {
 				if !app.IsPendingPinAuth() && !app.IsInManagement() {
 					if app.config.GetWebViewEnabled() {

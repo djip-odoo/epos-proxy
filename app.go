@@ -15,6 +15,7 @@ import (
 	"epos-proxy/internal/printer"
 	"epos-proxy/internal/server"
 	"epos-proxy/internal/util"
+	"epos-proxy/override/menubar"
 
 	autostart "github.com/emersion/go-autostart"
 	"github.com/google/uuid"
@@ -368,14 +369,14 @@ func (a *App) SetWindowFullscreen(fullscreen bool) {
 	}
 	if fullscreen {
 		wailsruntime.WindowFullscreen(a.ctx)
-		setLinuxMenubarVisible(false)
+		menubar.SetNativeMenubarVisible(false)
 		if runtime.GOOS != "linux" {
 			wailsruntime.MenuSetApplicationMenu(a.ctx, menu.NewMenu())
 			wailsruntime.MenuUpdateApplicationMenu(a.ctx)
 		}
 	} else {
 		wailsruntime.WindowUnfullscreen(a.ctx)
-		setLinuxMenubarVisible(true)
+		menubar.SetNativeMenubarVisible(true)
 		if runtime.GOOS != "linux" {
 			if a.appMenu == nil {
 				a.appMenu = createMenu(a)
@@ -554,25 +555,19 @@ func (a *App) getGestureScript() string {
 
   var CORNER_SIZE = 140;
   var REQUIRED_TAPS = 4;
-  var RESET_MS = 3000;
+  var RESET_MS = 1000;
   var WAILS_APP_URL = %q;
   var PROXY_PORT = %d;
 
   var tapCount = 0;
   var lastTapTime = 0;
-  var activeCorner = null;
 
-  function getCorner(x, y) {
+  function isTopRight(x, y) {
     var w = window.innerWidth || document.documentElement.clientWidth || (document.body ? document.body.clientWidth : 0);
-    var h = window.innerHeight || document.documentElement.clientHeight || (document.body ? document.body.clientHeight : 0);
-    if (x <= CORNER_SIZE && y <= CORNER_SIZE) return "tl";
-    if (x >= w - CORNER_SIZE && y <= CORNER_SIZE) return "tr";
-    if (x <= CORNER_SIZE && y >= h - CORNER_SIZE) return "bl";
-    if (x >= w - CORNER_SIZE && y >= h - CORNER_SIZE) return "br";
-    return null;
+    return (x >= w - CORNER_SIZE && y <= CORNER_SIZE);
   }
 
-  function flashCorner(corner, count) {
+  function flashTopRight(count) {
     try {
       var dot = document.createElement("div");
       dot.style.position = "fixed";
@@ -584,11 +579,8 @@ func (a *App) getGestureScript() string {
       dot.style.pointerEvents = "none";
       dot.style.boxShadow = "0 0 10px rgba(0,0,0,0.5)";
       dot.style.transition = "opacity 0.4s";
-
-      if (corner === "tl") { dot.style.top = "12px"; dot.style.left = "12px"; }
-      else if (corner === "tr") { dot.style.top = "12px"; dot.style.right = "12px"; }
-      else if (corner === "bl") { dot.style.bottom = "12px"; dot.style.left = "12px"; }
-      else if (corner === "br") { dot.style.bottom = "12px"; dot.style.right = "12px"; }
+      dot.style.top = "12px";
+      dot.style.right = "12px";
 
       (document.body || document.documentElement).appendChild(dot);
       setTimeout(function() {
@@ -599,27 +591,23 @@ func (a *App) getGestureScript() string {
   }
 
   function handleTap(x, y) {
-    var corner = getCorner(x, y);
-    if (!corner) {
+    if (!isTopRight(x, y)) {
       tapCount = 0;
-      activeCorner = null;
       return false;
     }
 
     var now = Date.now();
-    if (activeCorner === corner && (now - lastTapTime) < RESET_MS) {
+    if (now - lastTapTime < RESET_MS) {
       tapCount++;
     } else {
-      activeCorner = corner;
       tapCount = 1;
     }
     lastTapTime = now;
 
-    flashCorner(corner, tapCount);
+    flashTopRight(tapCount);
 
     if (tapCount >= REQUIRED_TAPS) {
       tapCount = 0;
-      activeCorner = null;
       triggerExit();
       return true;
     }
@@ -627,7 +615,7 @@ func (a *App) getGestureScript() string {
   }
 
   function triggerExit() {
-    console.log("[ePOS] 4 corner taps detected, returning to Wails app");
+    console.log("[ePOS] 4 top-right taps detected, returning to Wails app");
 
     // 1. Direct top-level navigation to local proxy exit endpoint
     // Top-level navigation is never blocked by Mixed Content or CORS policies!
