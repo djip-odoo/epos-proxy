@@ -54,7 +54,12 @@ export default function WebViewDialog() {
   const cfg = data.config;
 
   const [url, setUrl] = useState(cfg?.url ?? "");
-  const [exitCorner, setExitCorner] = useState(cfg?.exitCorner ?? "top-right");
+  const [exitCorners, setExitCorners] = useState<string[]>(() => {
+    if (cfg?.exitCorners && cfg.exitCorners.length > 0) {
+      return cfg.exitCorners;
+    }
+    return ["top-right"];
+  });
   const [localError, setLocalError] = useState<string | null>(null);
   const [serverUrl, setServerUrl] = useState(
     window.location.origin + "/"
@@ -88,11 +93,12 @@ export default function WebViewDialog() {
     }
   }, [cfg?.url]);
 
+  const remoteCornersKey = (cfg?.exitCorners || []).join(",");
   useEffect(() => {
-    if (cfg?.exitCorner) {
-      setExitCorner(cfg.exitCorner);
+    if (cfg?.exitCorners && cfg.exitCorners.length > 0) {
+      setExitCorners(cfg.exitCorners);
     }
-  }, [cfg?.exitCorner]);
+  }, [remoteCornersKey]);
 
   /*
    * Load the local server address used for remote access.
@@ -115,6 +121,18 @@ export default function WebViewDialog() {
     fetchServerInfo();
   }, []);
 
+  const toggleCorner = (id: string) => {
+    setExitCorners((prev) => {
+      if (prev.includes(id)) {
+        if (prev.length <= 1) {
+          return prev;
+        }
+        return prev.filter((c) => c !== id);
+      }
+      return [...prev, id];
+    });
+  };
+
   const saveSettings = async (): Promise<boolean> => {
     setLocalError(null);
 
@@ -135,7 +153,7 @@ export default function WebViewDialog() {
     const saved = await gate(async () => {
       try {
         await actions.saveURL(trimmedUrl);
-        await actions.saveExitCorner(exitCorner);
+        await actions.saveExitCorners(exitCorners);
         await actions.toggleEnabled(true);
 
         if (isWails || isLocalhost) {
@@ -173,9 +191,7 @@ export default function WebViewDialog() {
       if (url.trim() && url.trim() !== cfg?.url) {
         await actions.saveURL(url.trim());
       }
-      if (exitCorner && exitCorner !== cfg?.exitCorner) {
-        await actions.saveExitCorner(exitCorner);
-      }
+      await actions.saveExitCorners(exitCorners);
 
       await actions.toggleEnabled(true);
 
@@ -570,36 +586,44 @@ export default function WebViewDialog() {
 
             {/* Exit Corner Configuration */}
             <div className="mt-4 border-t border-gray-200 pt-3">
-              <label className="mb-1.5 block text-xs font-medium text-gray-700">
-                Exit Gesture Corner
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-medium text-gray-700">
+                  Exit Gesture Corners
+                </label>
+                <span className="text-[11px] text-gray-400">
+                  {exitCorners.length} selected
+                </span>
+              </div>
 
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {[
                   { id: "top-left", label: "Top Left" },
-                  { id: "top-right", label: "Top Right (Default)" },
+                  { id: "top-right", label: "Top Right" },
                   { id: "bottom-left", label: "Bottom Left" },
                   { id: "bottom-right", label: "Bottom Right" },
-                ].map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setExitCorner(item.id)}
-                    className={`
-                      flex items-center justify-center rounded-lg border px-2.5 py-2 text-xs font-medium transition-all cursor-pointer text-center
-                      ${exitCorner === item.id
-                        ? "border-odoo bg-odoo/10 text-odoo font-semibold ring-1 ring-odoo shadow-xs"
-                        : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300"
-                      }
-                    `}
-                  >
-                    {item.label}
-                  </button>
-                ))}
+                ].map((item) => {
+                  const isSelected = exitCorners.includes(item.id);
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => toggleCorner(item.id)}
+                      className={`
+                        flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-medium transition-all cursor-pointer text-center
+                        ${isSelected
+                          ? "border-odoo bg-odoo/10 text-odoo font-semibold ring-1 ring-odoo shadow-xs"
+                          : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300"
+                        }
+                      `}
+                    >
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
               </div>
 
               <p className="mt-1.5 text-[11px] text-gray-500">
-                Tap this corner 4 times quickly to exit fullscreen kiosk and prompt for your admin PIN.
+                Tap any selected corner 4 times quickly to exit fullscreen kiosk and prompt for your admin PIN.
               </p>
             </div>
 
@@ -796,7 +820,7 @@ export default function WebViewDialog() {
 
           <p className="text-[11px] leading-relaxed text-red-500">
             {isWails || isLocalhost
-              ? `To exit fullscreen kiosk mode, tap the ${exitCorner.replace("-", " ")} corner 4 times quickly and enter your admin PIN.`
+              ? `To exit fullscreen kiosk mode, tap any of the configured corners (${exitCorners.map((c) => c.replace("-", " ")).join(", ")}) 4 times quickly and enter your admin PIN.`
               : "Kiosk fullscreen mode runs on the local application (127.0.0.1). This web interface is used to manage the kiosk and remote access settings."}
           </p>
         </div>
