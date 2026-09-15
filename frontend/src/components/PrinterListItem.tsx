@@ -6,22 +6,16 @@ import LibusbFixDialog from "./LibusbFixDialog";
 import CloseButton from "./CloseButton";
 import ConfirmDialog from "./ConfirmDialog";
 
-type PrinterListItemProps =
-  | {
-      printer: printer.Device;
-      isOnline: true;
-    }
-  | {
-      printer: printer.UnavailableDevice;
-      isOnline: false;
-    };
+type PrinterListItemProps = {
+  printer: printer.Device;
+};
 
 export default function PrinterListItem({
   printer,
-  isOnline,
 }: PrinterListItemProps) {
   const printerContext = useContext(PrinterContext);
   const [confirmSignal, setConfirmSignal] = useState(0);
+  const isOnline = !printer.errorMsg;
 
   const getPrinterStatusClass = (printer: printer.Device) => {
     if (!printer.isLAN) {

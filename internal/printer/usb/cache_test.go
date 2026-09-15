@@ -29,14 +29,12 @@ func TestPrinterCache_Lifecycle(t *testing.T) {
 	keys := []string{"dev1", "dev2"}
 	testutil.ExpectedTrue(t, cache.HasChanged(keys))
 
-	available := []Info{
-		{Id: "p1", Name: "Printer 1", Type: printer.TypeReceipt},
-	}
-	unavailable := []UnavailableInfo{
-		{Name: "Printer Bad", Error: "permission denied"},
+	devices := []printer.Device{
+		{Identifier: "p1", Name: "Printer 1", Type: string(printer.TypeReceipt), Online: true},
+		{Name: "Printer Bad", ErrorMsg: "permission denied", Online: false},
 	}
 
-	cache.Update(keys, available, unavailable)
+	cache.Update(keys, devices)
 
 	// Now cache has been updated with keys -> HasChanged should be false
 	testutil.ExpectedFalse(t, cache.HasChanged(keys))
@@ -44,10 +42,10 @@ func TestPrinterCache_Lifecycle(t *testing.T) {
 	// HasUnavailable should be true
 	testutil.ExpectedTrue(t, cache.HasUnavailable())
 
-	// Get should return copy of available printers
+	// Get should return copy of cached printers
 	printers := cache.Get()
-	testutil.ExpectedLen(t, printers, 1)
-	testutil.ExpectedEqual(t, printers[0].Id, "p1")
+	testutil.ExpectedLen(t, printers, 2)
+	testutil.ExpectedEqual(t, printers[0].Identifier, "p1")
 
 	// Mutating returned slice should not mutate internal cache
 	printers[0].Name = "MUTATED"
@@ -55,7 +53,10 @@ func TestPrinterCache_Lifecycle(t *testing.T) {
 
 	// Update with new keys and no unavailable printers
 	newKeys := []string{"dev1", "dev2", "dev3"}
-	cache.Update(newKeys, available, nil)
+	onlyAvailable := []printer.Device{
+		{Identifier: "p1", Name: "Printer 1", Type: string(printer.TypeReceipt), Online: true},
+	}
+	cache.Update(newKeys, onlyAvailable)
 
 	testutil.ExpectedFalse(t, cache.HasUnavailable())
 	testutil.ExpectedFalse(t, cache.HasChanged(newKeys))
@@ -71,7 +72,7 @@ func TestPrinterCache_ConcurrentAccess(t *testing.T) {
 			defer wg.Done()
 			keys := []string{"dev1", "dev2"}
 			if workerID%2 == 0 {
-				cache.Update(keys, []Info{{Id: "p1"}}, nil)
+				cache.Update(keys, []printer.Device{{Identifier: "p1"}})
 			} else {
 				_ = cache.HasChanged(keys)
 				_ = cache.Get()

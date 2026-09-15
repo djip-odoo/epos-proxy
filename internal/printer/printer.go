@@ -31,7 +31,7 @@ type Printer interface {
 
 type Driver interface {
 	Name() string
-	Discover() ([]Device, []UnavailableDevice, error)
+	Discover() ([]Device, error)
 	Open(id string) (Printer, error)
 }
 
@@ -50,17 +50,10 @@ type Device struct {
 	IsLAN      bool   `json:"isLAN"`
 	LANIp      string `json:"lanIp,omitempty"`
 	Online     bool   `json:"online"`
-}
-
-type UnavailableDevice struct {
-	Name     string `json:"name"`
-	ErrorMsg string `json:"errorMsg"`
-	IsLAN    bool   `json:"isLAN"`
-	LANIp    string `json:"lanIp,omitempty"`
+	ErrorMsg   string `json:"errorMsg,omitempty"`
 }
 
 type DiscoveryResult struct {
-	Printers            []Device            `json:"printers"`
-	UnavailablePrinters []UnavailableDevice `json:"unavailablePrinters"`
-	ErrorMsg            string              `json:"errorMsg"`
+	Printers []Device `json:"printers"`
+	ErrorMsg string   `json:"errorMsg,omitempty"`
 }

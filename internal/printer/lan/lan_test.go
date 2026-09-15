@@ -61,9 +61,8 @@ func TestDriver_Discover(t *testing.T) {
 	}
 
 	d := NewDriver(cfg)
-	devs, unavail, err := d.Discover()
+	devs, err := d.Discover()
 	testutil.ExpectedNoError(t, err)
-	testutil.ExpectedLen(t, unavail, 0)
 	testutil.ExpectedLen(t, devs, 2)
 	testutil.ExpectedEqual(t, devs[0].Ip, "192.168.1.100")
 	testutil.ExpectedEqual(t, devs[0].Identifier, encodeID("192.168.1.100"))

@@ -138,17 +138,15 @@ func (m *Manager) Discover() DiscoveryResult {
 	m.mu.RUnlock()
 
 	available := make([]Device, 0)
-	unavailable := make([]UnavailableDevice, 0)
 	var scanErrs []string
 
 	for _, d := range drivers {
-		devs, unavail, err := d.Discover()
+		devs, err := d.Discover()
 		if err != nil {
 			scanErrs = append(scanErrs, err.Error())
 			logger.Errorf("Driver %s discovery failed: %v", d.Name(), err)
 		}
 		available = append(available, devs...)
-		unavailable = append(unavailable, unavail...)
 	}
 
 	var scanErr string
@@ -157,9 +155,8 @@ func (m *Manager) Discover() DiscoveryResult {
 	}
 
 	return DiscoveryResult{
-		Printers:            available,
-		UnavailablePrinters: unavailable,
-		ErrorMsg:            scanErr,
+		Printers: available,
+		ErrorMsg: scanErr,
 	}
 }
 

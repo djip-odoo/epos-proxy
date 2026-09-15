@@ -17,22 +17,6 @@ func init() {
 	})
 }
 
-type Info struct {
-	Id   string
-	Name string
-	Type printer.Type
-}
-
-type UnavailableInfo struct {
-	Name  string
-	Error string
-}
-
-type Printers struct {
-	Available   []Info
-	Unavailable []UnavailableInfo
-}
-
 type EndpointInfo struct {
 	config           int
 	iFace            int
@@ -62,38 +46,8 @@ func (d *Driver) Name() string {
 	return "USB"
 }
 
-func (d *Driver) Discover() ([]printer.Device, []printer.UnavailableDevice, error) {
-	usbPrinters, err := ListUSBPrinters()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if usbPrinters == nil {
-		return nil, nil, nil
-	}
-
-	devices := make([]printer.Device, 0, len(usbPrinters.Available))
-	unavailable := make([]printer.UnavailableDevice, 0, len(usbPrinters.Unavailable))
-
-	for _, info := range usbPrinters.Available {
-		devices = append(devices, printer.Device{
-			Identifier: info.Id,
-			Name:       info.Name,
-			Type:       string(info.Type),
-			IsLAN:      false,
-			Online:     true,
-		})
-	}
-
-	for _, info := range usbPrinters.Unavailable {
-		unavailable = append(unavailable, printer.UnavailableDevice{
-			Name:     info.Name,
-			ErrorMsg: info.Error,
-			IsLAN:    false,
-		})
-	}
-
-	return devices, unavailable, nil
+func (d *Driver) Discover() ([]printer.Device, error) {
+	return ListUSBPrinters()
 }
 
 func (d *Driver) Open(id string) (printer.Printer, error) {
@@ -106,7 +60,7 @@ func (d *Driver) Open(id string) (printer.Printer, error) {
 	return nil, printer.ErrNotFound
 }
 
-func ListUSBPrinters() (*Printers, error) {
+func ListUSBPrinters() ([]printer.Device, error) {
 	logger.Debug("Starting USB printer detection")
 	ctx := gousb.NewContext()
 	defer func(ctx *gousb.Context) {
@@ -130,24 +84,23 @@ func ListUSBPrinters() (*Printers, error) {
 
 	if !usbCache.HasChanged(keys) && !usbCache.HasUnavailable() {
 		logger.Debugf("USB unchanged → using cache")
-		return &Printers{Available: usbCache.Get()}, nil
+		return usbCache.Get(), nil
 	}
 
 	logger.Debugf("USB changed → rescanning devices")
 
-	result := &Printers{
-		Available:   make([]Info, 0),
-		Unavailable: make([]UnavailableInfo, 0),
-	}
+	devices := make([]printer.Device, 0, len(descriptors))
 	for _, desc := range descriptors {
 		info, err := GetPrinterInfo(ctx, &desc)
 		if err != nil {
 			// Device is not accessible, likely due to permissions / drivers.
 			vid := fmt.Sprintf("%04X", uint16(desc.Vendor))
 			pid := fmt.Sprintf("%04X", uint16(desc.Product))
-			result.Unavailable = append(result.Unavailable, UnavailableInfo{
-				Name:  getPrinterFriendlyName(vid, pid),
-				Error: err.Error(),
+			devices = append(devices, printer.Device{
+				Name:     getPrinterFriendlyName(vid, pid),
+				ErrorMsg: err.Error(),
+				IsLAN:    false,
+				Online:   false,
 			})
 		} else if info != nil {
 			id, err := encodeID(info)
@@ -155,16 +108,18 @@ func ListUSBPrinters() (*Printers, error) {
 				logger.Errorf("failed to encode printer ID: %v", err)
 				continue
 			}
-			result.Available = append(result.Available, Info{
-				Id:   id,
-				Name: info.Name,
-				Type: getPrinterType(info.VidPid),
+			devices = append(devices, printer.Device{
+				Identifier: id,
+				Name:       info.Name,
+				Type:       string(getPrinterType(info.VidPid)),
+				IsLAN:      false,
+				Online:     true,
 			})
 		}
 	}
 
-	usbCache.Update(keys, result.Available, result.Unavailable)
-	return result, nil
+	usbCache.Update(keys, devices)
+	return devices, nil
 }
 
 func GetPrinterInfo(ctx *gousb.Context, descToFind *gousb.DeviceDesc) (*LibUsbPrinter, error) {

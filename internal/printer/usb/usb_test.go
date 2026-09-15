@@ -75,7 +75,7 @@ func mockOpenDevices(t testing.TB, mockFn func(ctx *gousb.Context, fn func(desc 
 	openDevices = mockFn
 	t.Cleanup(func() {
 		openDevices = oldOpenDevices
-		usbCache.Update(nil, nil, nil)
+		usbCache.Update(nil, nil)
 	})
 }
 
@@ -101,19 +101,22 @@ func TestListUSBPrinters_WithMockOpenDevices(t *testing.T) {
 	res, err := ListUSBPrinters()
 	testutil.ExpectedNoError(t, err)
 	testutil.ExpectedNotNil(t, res)
-	testutil.ExpectedLen(t, res.Available, 2)
-	testutil.ExpectedLen(t, res.Unavailable, 0)
+	testutil.ExpectedLen(t, res, 2)
 
 	// Verify the mocked printers are returned correctly
-	testutil.ExpectedEqual(t, res.Available[0].Name, "VID: 04B8 PID: 0202")
-	testutil.ExpectedEqual(t, res.Available[0].Type, printer.TypeReceipt)
-	id0, err := decodeID(res.Available[0].Id)
+	testutil.ExpectedEqual(t, res[0].Name, "VID: 04B8 PID: 0202")
+	testutil.ExpectedEqual(t, res[0].Type, string(printer.TypeReceipt))
+	testutil.ExpectedEqual(t, res[0].Online, true)
+	testutil.ExpectedEqual(t, res[0].ErrorMsg, "")
+	id0, err := decodeID(res[0].Identifier)
 	testutil.ExpectedNoError(t, err)
 	testutil.ExpectedEqual(t, id0.VidPid, "04B8:0202")
 
-	testutil.ExpectedEqual(t, res.Available[1].Name, "VID: 0A5F PID: 0187")
-	testutil.ExpectedEqual(t, res.Available[1].Type, printer.TypeLabel)
-	id1, err := decodeID(res.Available[1].Id)
+	testutil.ExpectedEqual(t, res[1].Name, "VID: 0A5F PID: 0187")
+	testutil.ExpectedEqual(t, res[1].Type, string(printer.TypeLabel))
+	testutil.ExpectedEqual(t, res[1].Online, true)
+	testutil.ExpectedEqual(t, res[1].ErrorMsg, "")
+	id1, err := decodeID(res[1].Identifier)
 	testutil.ExpectedNoError(t, err)
 	testutil.ExpectedEqual(t, id1.VidPid, "0A5F:0187")
 
@@ -124,10 +127,9 @@ func TestListUSBPrinters_WithMockOpenDevices(t *testing.T) {
 	cachedRes, err := ListUSBPrinters()
 	testutil.ExpectedNoError(t, err)
 	testutil.ExpectedNotNil(t, cachedRes)
-	testutil.ExpectedLen(t, cachedRes.Available, 2)
-	testutil.ExpectedLen(t, cachedRes.Unavailable, 0)
-	testutil.ExpectedEqual(t, cachedRes.Available[0].Id, res.Available[0].Id)
-	testutil.ExpectedEqual(t, cachedRes.Available[1].Id, res.Available[1].Id)
+	testutil.ExpectedLen(t, cachedRes, 2)
+	testutil.ExpectedEqual(t, cachedRes[0].Identifier, res[0].Identifier)
+	testutil.ExpectedEqual(t, cachedRes[1].Identifier, res[1].Identifier)
 
 	// Second scan only runs the descriptor check (1 call) and skips GetPrinterInfo calls due to cache (3 + 1 = 4)
 	testutil.ExpectedEqual(t, callCount, 4)
@@ -165,9 +167,10 @@ func TestListUSBPrinters_UnavailableDevice(t *testing.T) {
 	res, err := ListUSBPrinters()
 	testutil.ExpectedNoError(t, err)
 	testutil.ExpectedNotNil(t, res)
-	testutil.ExpectedLen(t, res.Unavailable, 1)
-	testutil.ExpectedTrue(t, res.Unavailable[0].Name != "")
-	testutil.ExpectedEqual(t, res.Unavailable[0].Error, "failed to open USB device for info retrieval: device locked by another process")
+	testutil.ExpectedLen(t, res, 1)
+	testutil.ExpectedTrue(t, res[0].Name != "")
+	testutil.ExpectedEqual(t, res[0].Online, false)
+	testutil.ExpectedEqual(t, res[0].ErrorMsg, "failed to open USB device for info retrieval: device locked by another process")
 }
 
 func TestGetPrinterInfo_Direct(t *testing.T) {

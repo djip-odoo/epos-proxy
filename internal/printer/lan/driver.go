@@ -31,9 +31,9 @@ func (d *Driver) Name() string {
 	return "LAN"
 }
 
-func (d *Driver) Discover() ([]printer.Device, []printer.UnavailableDevice, error) {
+func (d *Driver) Discover() ([]printer.Device, error) {
 	if d.cfg == nil {
-		return nil, nil, nil
+		return nil, nil
 	}
 
 	ips := d.cfg.GetLANPrinters()
@@ -53,7 +53,7 @@ func (d *Driver) Discover() ([]printer.Device, []printer.UnavailableDevice, erro
 		})
 	}
 
-	return devices, nil, nil
+	return devices, nil
 }
 
 func (d *Driver) Open(id string) (printer.Printer, error) {

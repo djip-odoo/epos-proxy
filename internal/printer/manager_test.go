@@ -36,15 +36,14 @@ func (m *mockPrinter) Close() {
 }
 
 type mockDriver struct {
-	name        string
-	devices     []Device
-	unavailable []UnavailableDevice
-	printers    []Printer
+	name     string
+	devices  []Device
+	printers []Printer
 }
 
 func (d *mockDriver) Name() string { return d.name }
-func (d *mockDriver) Discover() ([]Device, []UnavailableDevice, error) {
-	return d.devices, d.unavailable, nil
+func (d *mockDriver) Discover() ([]Device, error) {
+	return d.devices, nil
 }
 
 func (d *mockDriver) Open(id string) (Printer, error) {
@@ -151,9 +150,7 @@ func TestManager_Discover(t *testing.T) {
 		name: "MockDriver",
 		devices: []Device{
 			{Identifier: "p1", Name: "Mock P1", Type: string(TypeReceipt), Online: true},
-		},
-		unavailable: []UnavailableDevice{
-			{Name: "Mock P2", ErrorMsg: "Access Denied"},
+			{Name: "Mock P2", ErrorMsg: "Access Denied", Online: false},
 		},
 		printers: []Printer{p1},
 	}
@@ -162,10 +159,12 @@ func TestManager_Discover(t *testing.T) {
 	defer mgr.Close()
 
 	res := mgr.Discover()
-	testutil.ExpectedLen(t, res.Printers, 1)
-	testutil.ExpectedLen(t, res.UnavailablePrinters, 1)
+	testutil.ExpectedLen(t, res.Printers, 2)
 	testutil.ExpectedEqual(t, res.Printers[0].Identifier, "p1")
-	testutil.ExpectedEqual(t, res.UnavailablePrinters[0].Name, "Mock P2")
+	testutil.ExpectedEqual(t, res.Printers[0].Online, true)
+	testutil.ExpectedEqual(t, res.Printers[1].Name, "Mock P2")
+	testutil.ExpectedEqual(t, res.Printers[1].ErrorMsg, "Access Denied")
+	testutil.ExpectedEqual(t, res.Printers[1].Online, false)
 
 	// Verify no printer worker was created during Discover
 	mgr.mu.RLock()

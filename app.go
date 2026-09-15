@@ -94,7 +94,9 @@ func (a *App) Printers() printer.DiscoveryResult {
 	logger.Debug("Collecting printer status")
 	result := a.printerManager.Discover()
 	for i := range result.Printers {
-		result.Printers[i].Ip = util.GetPrinterUrl(a.config.GetPort(), a.config.IsNetworkPrintingEnabled(), result.Printers[i].Identifier)
+		if result.Printers[i].Identifier != "" && result.Printers[i].ErrorMsg == "" {
+			result.Printers[i].Ip = util.GetPrinterUrl(a.config.GetPort(), a.config.IsNetworkPrintingEnabled(), result.Printers[i].Identifier)
+		}
 	}
 	return result
 }
