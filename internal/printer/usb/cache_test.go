@@ -1,9 +1,10 @@
-package printer
+package usb
 
 import (
 	"sync"
 	"testing"
 
+	"epos-proxy/internal/printer"
 	"epos-proxy/internal/testutil"
 )
 
@@ -29,7 +30,7 @@ func TestPrinterCache_Lifecycle(t *testing.T) {
 	testutil.ExpectedTrue(t, cache.HasChanged(keys))
 
 	available := []Info{
-		{Id: "p1", Name: "Printer 1", Type: TypeReceipt},
+		{Id: "p1", Name: "Printer 1", Type: printer.TypeReceipt},
 	}
 	unavailable := []UnavailableInfo{
 		{Name: "Printer Bad", Error: "permission denied"},

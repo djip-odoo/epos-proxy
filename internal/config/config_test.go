@@ -159,16 +159,8 @@ func TestManager_LANPrinters(t *testing.T) {
 	testutil.ExpectedNotNil(t, initialList)
 	testutil.ExpectedLen(t, initialList, 0)
 
-	// Add printer 1
-	err := cm.AddLanEposPrinter("192.168.1.100")
-	testutil.ExpectedNoError(t, err)
-
-	// Add printer 2
-	err = cm.AddLanEposPrinter("192.168.1.101")
-	testutil.ExpectedNoError(t, err)
-
-	// Add duplicate -> should be a no-op
-	err = cm.AddLanEposPrinter("192.168.1.100")
+	// Set printers
+	err := cm.SetLANPrinters([]string{"192.168.1.100", "192.168.1.101"})
 	testutil.ExpectedNoError(t, err)
 
 	printers := cm.GetLANPrinters()
@@ -180,18 +172,18 @@ func TestManager_LANPrinters(t *testing.T) {
 	printers[0] = "MUTATED"
 	testutil.ExpectedEqual(t, cm.GetLANPrinters()[0], "192.168.1.100")
 
-	// Remove printer
-	err = cm.RemoveLANPrinter("192.168.1.100")
+	// Update list (remove one)
+	err = cm.SetLANPrinters([]string{"192.168.1.101"})
 	testutil.ExpectedNoError(t, err)
 
 	afterRemove := cm.GetLANPrinters()
 	testutil.ExpectedLen(t, afterRemove, 1)
 	testutil.ExpectedEqual(t, afterRemove[0], "192.168.1.101")
 
-	// Remove non-existent printer -> should return nil
-	err = cm.RemoveLANPrinter("10.0.0.99")
+	// Set nil -> sets empty list
+	err = cm.SetLANPrinters(nil)
 	testutil.ExpectedNoError(t, err)
-	testutil.ExpectedLen(t, cm.GetLANPrinters(), 1)
+	testutil.ExpectedLen(t, cm.GetLANPrinters(), 0)
 }
 
 func TestManager_ConcurrentAccess(t *testing.T) {
@@ -208,9 +200,9 @@ func TestManager_ConcurrentAccess(t *testing.T) {
 		go func(workerID int) {
 			defer wg.Done()
 			ip := fmt.Sprintf("192.168.1.%d", workerID)
-			_ = cm.AddLanEposPrinter(ip)
+			_ = cm.SetLANPrinters([]string{ip})
 			_ = cm.GetLANPrinters()
-			_ = cm.RemoveLANPrinter(ip)
+			_ = cm.SetLANPrinters([]string{})
 			_ = cm.GetLANPrinters()
 		}(i)
 	}
@@ -219,28 +211,13 @@ func TestManager_ConcurrentAccess(t *testing.T) {
 }
 
 func TestFindAvailablePort_RangeExhausted(t *testing.T) {
-	start := testutil.GetFreePort(t)
-	end := start + 2
-	var listeners []net.Listener
-	for p := start; p <= end; p++ {
-		ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", p))
-		if err != nil {
-			for _, l := range listeners {
-				_ = l.Close()
-			}
-			t.Skipf("Port %d busy: %v", p, err)
-		}
-		listeners = append(listeners, ln)
-	}
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	testutil.ExpectedNoError(t, err)
+	port := ln.Addr().(*net.TCPAddr).Port
+	defer ln.Close()
 
-	defer func() {
-		for _, ln := range listeners {
-			_ = ln.Close()
-		}
-	}()
-
-	port, err := findAvailablePort(start, end)
+	result, err := findAvailablePort(port, port)
 	testutil.ExpectedError(t, err)
 	testutil.ExpectedTrue(t, errors.Is(err, ErrNoAvailablePort))
-	testutil.ExpectedEqual(t, port, 0)
+	testutil.ExpectedEqual(t, result, 0)
 }

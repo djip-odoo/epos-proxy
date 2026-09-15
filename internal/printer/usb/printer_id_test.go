@@ -1,4 +1,4 @@
-package printer
+package usb
 
 import (
 	"errors"
@@ -14,10 +14,10 @@ func TestEncodePrinterID(t *testing.T) {
 		VidPid: "04B8:0202",
 		Path:   "1.2.3",
 	}
-	encoded, err := encodePrinterID(pWithSerial)
+	encoded, err := encodeID(pWithSerial)
 	testutil.ExpectedNoError(t, err)
 
-	decoded, err := decodePrinterID(encoded)
+	decoded, err := decodeID(encoded)
 	testutil.ExpectedNoError(t, err)
 	testutil.ExpectedEqual(t, decoded.Serial, "SN123456")
 	testutil.ExpectedEqual(t, decoded.VidPid, "04B8:0202")
@@ -25,10 +25,10 @@ func TestEncodePrinterID(t *testing.T) {
 
 	// Case 2: Only serial provided (no VidPid, no Path)
 	pOnlySerial := &LibUsbPrinter{Serial: "SN987654"}
-	encodedOnlySerial, err := encodePrinterID(pOnlySerial)
+	encodedOnlySerial, err := encodeID(pOnlySerial)
 	testutil.ExpectedNoError(t, err)
 
-	decodedOnlySerial, err := decodePrinterID(encodedOnlySerial)
+	decodedOnlySerial, err := decodeID(encodedOnlySerial)
 	testutil.ExpectedNoError(t, err)
 	testutil.ExpectedEqual(t, decodedOnlySerial.Serial, "SN987654")
 	testutil.ExpectedEqual(t, decodedOnlySerial.VidPid, "")
@@ -39,10 +39,10 @@ func TestEncodePrinterID(t *testing.T) {
 		VidPid: "04B8:0202",
 		Path:   "1.2.3",
 	}
-	encoded2, err := encodePrinterID(pNoSerial)
+	encoded2, err := encodeID(pNoSerial)
 	testutil.ExpectedNoError(t, err)
 
-	decoded2, err := decodePrinterID(encoded2)
+	decoded2, err := decodeID(encoded2)
 	testutil.ExpectedNoError(t, err)
 	testutil.ExpectedEqual(t, decoded2.Serial, "")
 	testutil.ExpectedEqual(t, decoded2.VidPid, "04B8:0202")
@@ -50,45 +50,16 @@ func TestEncodePrinterID(t *testing.T) {
 
 	// Case 4: Completely empty LibUsbPrinter -> should return error
 	pEmpty := &LibUsbPrinter{}
-	_, err = encodePrinterID(pEmpty)
+	_, err = encodeID(pEmpty)
 	testutil.ExpectedError(t, err)
 }
 
 func TestDecodePrinterID_Invalid(t *testing.T) {
 	// Invalid base64
-	_, err := decodePrinterID("not-valid-base64!!!")
+	_, err := decodeID("not-valid-base64!!!")
 	testutil.ExpectedTrue(t, errors.Is(err, ErrInvalidPrinterID))
 
 	// Valid base64 but empty payload
-	_, err = decodePrinterID("")
+	_, err = decodeID("")
 	testutil.ExpectedTrue(t, errors.Is(err, ErrInvalidPrinterID))
-}
-
-func TestLANPrinterID_Roundtrip(t *testing.T) {
-	ip := "192.168.1.150"
-	encoded := EncodeLANPrinterID(ip)
-
-	decoded, ok := DecodeLANPrinterID(encoded)
-	testutil.ExpectedTrue(t, ok)
-	testutil.ExpectedEqual(t, decoded, ip)
-}
-
-func TestDecodeLANPrinterID_Invalid(t *testing.T) {
-	tests := []struct {
-		name  string
-		input string
-	}{
-		{"invalid base64", "!!!bad-base64"},
-		{"empty string", ""},
-		{"too short", "bA"},                    // decoded length < 3
-		{"missing colon", "bHh4"},              // decoded "lxx"
-		{"wrong prefix", "dToxOTIuMTY4LjEuMQ"}, // decoded "u:192.168.1.1"
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			_, ok := DecodeLANPrinterID(tc.input)
-			testutil.ExpectedFalse(t, ok)
-		})
-	}
 }

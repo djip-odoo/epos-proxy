@@ -1,22 +1,28 @@
-package printer
+package usb
 
 import (
 	"fmt"
+	"strings"
 
+	"epos-proxy/internal/config"
 	"epos-proxy/internal/logger"
+	"epos-proxy/internal/printer"
 
 	"github.com/google/gousb"
 )
 
-// Info describes a USB printer that was successfully probed.
+func init() {
+	printer.RegisterDriver("usb", func(cfg *config.Manager) printer.Driver {
+		return NewDriver()
+	})
+}
+
 type Info struct {
 	Id   string
 	Name string
-	Type Type
+	Type printer.Type
 }
 
-// UnavailableInfo describes a device that looks like a printer but could
-// not be opened, usually because of permissions or a driver holding it.
 type UnavailableInfo struct {
 	Name  string
 	Error string
@@ -27,7 +33,6 @@ type Printers struct {
 	Unavailable []UnavailableInfo
 }
 
-// EndpointInfo locates the bulk OUT endpoint used to write to a device.
 type EndpointInfo struct {
 	config           int
 	iFace            int
@@ -35,13 +40,70 @@ type EndpointInfo struct {
 	outEndpoint      int
 }
 
-// LibUsbPrinter is the raw identity read off a device during a scan.
 type LibUsbPrinter struct {
 	Serial   string
 	Path     string
 	Name     string
 	VidPid   string
 	DeviceId DeviceID
+}
+
+// Driver implements printer.Driver for USB connected printers.
+type Driver struct{}
+
+var _ printer.Driver = (*Driver)(nil)
+
+// NewDriver creates a new USB printer driver.
+func NewDriver() *Driver {
+	return &Driver{}
+}
+
+func (d *Driver) Name() string {
+	return "USB"
+}
+
+func (d *Driver) Discover() ([]printer.Device, []printer.UnavailableDevice, error) {
+	usbPrinters, err := ListUSBPrinters()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if usbPrinters == nil {
+		return nil, nil, nil
+	}
+
+	devices := make([]printer.Device, 0, len(usbPrinters.Available))
+	unavailable := make([]printer.UnavailableDevice, 0, len(usbPrinters.Unavailable))
+
+	for _, info := range usbPrinters.Available {
+		devices = append(devices, printer.Device{
+			Identifier: info.Id,
+			Name:       info.Name,
+			Type:       string(info.Type),
+			IsLAN:      false,
+			Online:     true,
+		})
+	}
+
+	for _, info := range usbPrinters.Unavailable {
+		unavailable = append(unavailable, printer.UnavailableDevice{
+			Name:     info.Name,
+			ErrorMsg: info.Error,
+			IsLAN:    false,
+		})
+	}
+
+	return devices, unavailable, nil
+}
+
+func (d *Driver) Open(id string) (printer.Printer, error) {
+	if id == "" || strings.HasPrefix(id, "usb_") {
+		return New(id), nil
+	}
+	if _, err := decodeID(id); err == nil {
+		return New(id), nil
+	}
+	return nil, printer.ErrNotFound
 }
 
 func ListUSBPrinters() (*Printers, error) {
@@ -88,7 +150,7 @@ func ListUSBPrinters() (*Printers, error) {
 				Error: err.Error(),
 			})
 		} else if info != nil {
-			id, err := encodePrinterID(info)
+			id, err := encodeID(info)
 			if err != nil {
 				logger.Errorf("failed to encode printer ID: %v", err)
 				continue

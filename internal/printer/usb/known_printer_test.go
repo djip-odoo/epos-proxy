@@ -1,34 +1,35 @@
-package printer
+package usb
 
 import (
 	"testing"
 
+	"epos-proxy/internal/printer"
 	"epos-proxy/internal/testutil"
 )
 
 func TestGetPrinterType(t *testing.T) {
 	tests := []struct {
 		vidPid   string
-		expected Type
+		expected printer.Type
 	}{
 		// Known receipt printers
-		{"2aaf:6015", TypeReceipt},
-		{"2AAF:6015", TypeReceipt}, // case-insensitive
-		{"04b8:0e32", TypeReceipt},
-		{"04B8:0202", TypeReceipt},
-		{"04b8:0e27", TypeReceipt},
-		{"0483:5720", TypeReceipt},
-		{"2d84:c7c8", TypeReceipt},
-		{"4b43:3830", TypeReceipt},
+		{"2aaf:6015", printer.TypeReceipt},
+		{"2AAF:6015", printer.TypeReceipt}, // case-insensitive
+		{"04b8:0e32", printer.TypeReceipt},
+		{"04B8:0202", printer.TypeReceipt},
+		{"04b8:0e27", printer.TypeReceipt},
+		{"0483:5720", printer.TypeReceipt},
+		{"2d84:c7c8", printer.TypeReceipt},
+		{"4b43:3830", printer.TypeReceipt},
 
 		// Known label printers
-		{"0a5f:0187", TypeLabel},
-		{"0A5F:0187", TypeLabel}, // case-insensitive
-		{"195f:0001", TypeLabel},
+		{"0a5f:0187", printer.TypeLabel},
+		{"0A5F:0187", printer.TypeLabel}, // case-insensitive
+		{"195f:0001", printer.TypeLabel},
 
 		// Unknown VID:PID -> defaults to TypeReceipt
-		{"1234:5678", TypeReceipt},
-		{"", TypeReceipt},
+		{"1234:5678", printer.TypeReceipt},
+		{"", printer.TypeReceipt},
 	}
 
 	for _, tc := range tests {

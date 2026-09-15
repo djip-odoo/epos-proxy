@@ -1,4 +1,4 @@
-package printer
+package usb
 
 import (
 	"sort"

@@ -1,11 +1,12 @@
-package printer
+package usb
 
 import (
 	"encoding/base64"
-	"epos-proxy/internal/logger"
 	"errors"
 	"fmt"
 	"strings"
+
+	"epos-proxy/internal/logger"
 )
 
 // ID is a decoded USB printer identity. Serial is preferred; VidPid plus
@@ -16,7 +17,9 @@ type ID struct {
 	Path   string
 }
 
-func encodePrinterID(libUsbPrinter *LibUsbPrinter) (string, error) {
+var ErrInvalidPrinterID = errors.New("invalid printer ID format")
+
+func encodeID(libUsbPrinter *LibUsbPrinter) (string, error) {
 	var parts []string
 
 	if libUsbPrinter.VidPid != "" {
@@ -34,15 +37,13 @@ func encodePrinterID(libUsbPrinter *LibUsbPrinter) (string, error) {
 	}
 
 	base := strings.Join(parts, "|")
-	id := base64.RawURLEncoding.EncodeToString([]byte(base))
+	id := "usb_" + base64.RawURLEncoding.EncodeToString([]byte(base))
 	logger.Infof("LibUsbPrinter: %v | base: %s | encoded id: %s", libUsbPrinter, base, id)
 	return id, nil
 }
 
-var ErrInvalidPrinterID = errors.New("invalid printer ID format")
-
-func decodePrinterID(id string) (*ID, error) {
-	decoded, err := base64.RawURLEncoding.DecodeString(id)
+func decodeID(id string) (*ID, error) {
+	decoded, err := base64.RawURLEncoding.DecodeString(strings.TrimPrefix(id, "usb_"))
 	if err != nil {
 		return nil, ErrInvalidPrinterID
 	}
@@ -79,23 +80,6 @@ func decodePrinterID(id string) (*ID, error) {
 	}, nil
 }
 
-func EncodeLANPrinterID(ip string) string {
-	return base64.RawURLEncoding.EncodeToString([]byte("l:" + ip))
-}
-
-func DecodeLANPrinterID(id string) (string, bool) {
-	decoded, err := base64.RawURLEncoding.DecodeString(id)
-	if err != nil {
-		return "", false
-	}
-
-	if len(decoded) < 3 || decoded[1] != ':' {
-		return "", false
-	}
-
-	if decoded[0] != 'l' {
-		return "", false
-	}
-
-	return string(decoded[2:]), true
-}
+// Backward compatibility helpers
+func encodePrinterID(p *LibUsbPrinter) (string, error) { return encodeID(p) }
+func decodePrinterID(id string) (*ID, error)           { return decodeID(id) }

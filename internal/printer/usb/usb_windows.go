@@ -1,6 +1,6 @@
 //go:build windows
 
-package printer
+package usb
 
 import (
 	"fmt"

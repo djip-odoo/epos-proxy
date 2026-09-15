@@ -1,4 +1,4 @@
-package printer
+package lan
 
 import (
 	"net"
@@ -25,7 +25,7 @@ func TestValidateIPAddress(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := ValidateIPAddress(tc.input)
+			got, err := validateIPAddress(tc.input)
 			if tc.expectErr {
 				testutil.ExpectedError(t, err)
 			} else {
@@ -37,8 +37,10 @@ func TestValidateIPAddress(t *testing.T) {
 }
 
 func TestCheckLANPrinter_SuccessAndOffline(t *testing.T) {
+	d := NewDriver(nil)
+
 	// 1. Offline IP / unreachable port
-	err := CheckLANPrinter("127.0.0.254")
+	err := d.CheckLANPrinter("127.0.0.254")
 	testutil.ExpectedError(t, err)
 
 	// 2. Mock a live TCP server on port 9100
@@ -47,21 +49,39 @@ func TestCheckLANPrinter_SuccessAndOffline(t *testing.T) {
 	})
 	testutil.ExpectedNoError(t, err)
 
-	err = CheckLANPrinter("127.0.0.1")
+	err = d.CheckLANPrinter("127.0.0.1")
 	testutil.ExpectedNoError(t, err)
 }
 
-func TestListLANPrinters(t *testing.T) {
+func TestDriver_Discover(t *testing.T) {
 	cfg := &config.Manager{
 		Data: config.AppConfig{
 			LANPrinters: []string{"192.168.1.100", "192.168.1.101"},
 		},
 	}
 
-	printers := ListLANPrinters(cfg)
-	testutil.ExpectedLen(t, printers, 2)
-	testutil.ExpectedEqual(t, printers[0].IP, "192.168.1.100")
-	testutil.ExpectedEqual(t, printers[0].Id, EncodeLANPrinterID("192.168.1.100"))
-	testutil.ExpectedEqual(t, printers[1].IP, "192.168.1.101")
-	testutil.ExpectedEqual(t, printers[1].Id, EncodeLANPrinterID("192.168.1.101"))
+	d := NewDriver(cfg)
+	devs, unavail, err := d.Discover()
+	testutil.ExpectedNoError(t, err)
+	testutil.ExpectedLen(t, unavail, 0)
+	testutil.ExpectedLen(t, devs, 2)
+	testutil.ExpectedEqual(t, devs[0].Ip, "192.168.1.100")
+	testutil.ExpectedEqual(t, devs[0].Identifier, encodeID("192.168.1.100"))
+	testutil.ExpectedEqual(t, devs[1].Ip, "192.168.1.101")
+	testutil.ExpectedEqual(t, devs[1].Identifier, encodeID("192.168.1.101"))
+
+	p, err := d.Open(encodeID("192.168.1.100"))
+	testutil.ExpectedNoError(t, err)
+	testutil.ExpectedEqual(t, p.ID(), encodeID("192.168.1.100"))
+}
+
+func TestEncodeDecodeID(t *testing.T) {
+	ip := "192.168.1.150"
+	id := encodeID(ip)
+	decoded, ok := decodeID(id)
+	testutil.ExpectedTrue(t, ok)
+	testutil.ExpectedEqual(t, decoded, ip)
+
+	_, ok = decodeID("invalid_id")
+	testutil.ExpectedFalse(t, ok)
 }

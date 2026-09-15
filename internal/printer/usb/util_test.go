@@ -1,9 +1,11 @@
-package printer
+package usb
 
 import (
-	"epos-proxy/internal/testutil"
-	"github.com/google/gousb"
 	"testing"
+
+	"epos-proxy/internal/testutil"
+
+	"github.com/google/gousb"
 )
 
 func TestPathToString(t *testing.T) {

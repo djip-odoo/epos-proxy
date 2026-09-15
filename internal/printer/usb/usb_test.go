@@ -1,9 +1,10 @@
-package printer
+package usb
 
 import (
 	"errors"
 	"testing"
 
+	"epos-proxy/internal/printer"
 	"epos-proxy/internal/testutil"
 
 	"github.com/google/gousb"
@@ -105,14 +106,14 @@ func TestListUSBPrinters_WithMockOpenDevices(t *testing.T) {
 
 	// Verify the mocked printers are returned correctly
 	testutil.ExpectedEqual(t, res.Available[0].Name, "VID: 04B8 PID: 0202")
-	testutil.ExpectedEqual(t, res.Available[0].Type, TypeReceipt)
-	id0, err := decodePrinterID(res.Available[0].Id)
+	testutil.ExpectedEqual(t, res.Available[0].Type, printer.TypeReceipt)
+	id0, err := decodeID(res.Available[0].Id)
 	testutil.ExpectedNoError(t, err)
 	testutil.ExpectedEqual(t, id0.VidPid, "04B8:0202")
 
 	testutil.ExpectedEqual(t, res.Available[1].Name, "VID: 0A5F PID: 0187")
-	testutil.ExpectedEqual(t, res.Available[1].Type, TypeLabel)
-	id1, err := decodePrinterID(res.Available[1].Id)
+	testutil.ExpectedEqual(t, res.Available[1].Type, printer.TypeLabel)
+	id1, err := decodeID(res.Available[1].Id)
 	testutil.ExpectedNoError(t, err)
 	testutil.ExpectedEqual(t, id1.VidPid, "0A5F:0187")
 

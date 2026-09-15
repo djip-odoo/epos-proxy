@@ -6,15 +6,19 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
+	"time"
 
 	"epos-proxy/internal/config"
 	"epos-proxy/internal/logger"
 	"epos-proxy/internal/printer"
+	"epos-proxy/internal/printer/lan"
 	"epos-proxy/internal/server"
 	"epos-proxy/internal/testutil"
 	"epos-proxy/internal/util"
 
+	autostart "github.com/emersion/go-autostart"
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -40,11 +44,51 @@ func (f *fakeDialogs) SaveFile(_ context.Context, opts wailsruntime.SaveDialogOp
 	return f.savePath, f.saveErr
 }
 
+type emittedEvent struct {
+	Name string
+	Data []interface{}
+}
+
+// fakeEvents is an emitter that records every emitted event, so event-driven
+// code paths can be tested without Wails.
+type fakeEvents struct {
+	mu      sync.Mutex
+	emitted []emittedEvent
+}
+
+func (f *fakeEvents) Emit(_ context.Context, eventName string, optionalData ...interface{}) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.emitted = append(f.emitted, emittedEvent{
+		Name: eventName,
+		Data: optionalData,
+	})
+}
+
+func (f *fakeEvents) getEvents() []emittedEvent {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	copied := make([]emittedEvent, len(f.emitted))
+	copy(copied, f.emitted)
+	return copied
+}
+
+func waitFor(timeout time.Duration, cond func() bool) bool {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if cond() {
+			return true
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	return cond()
+}
+
 func TestNewApp(t *testing.T) {
 	app := NewApp()
 	testutil.ExpectedNotNil(t, app)
 	testutil.ExpectedNotNil(t, app.autoStart)
-	testutil.ExpectedNotNil(t, app.printerManager)
+	testutil.ExpectedNotNil(t, app.config)
 }
 
 func TestApp_AppVariableAndPrintersAndGetPrinterUrl(t *testing.T) {
@@ -54,13 +98,14 @@ func TestApp_AppVariableAndPrintersAndGetPrinterUrl(t *testing.T) {
 	cfg, err := config.NewManager()
 	testutil.ExpectedNoError(t, err)
 
-	err = cfg.AddLanEposPrinter("192.168.1.100")
+	err = cfg.SetLANPrinters([]string{"192.168.1.100"})
 	testutil.ExpectedNoError(t, err)
 
 	port := testutil.GetFreePort(t)
-	mgr := printer.NewManager()
+	mgr := printer.NewManager(lan.NewDriver(cfg))
 	srv := server.New(port, mgr)
 	defer srv.Stop()
+	defer mgr.Close()
 
 	app := &App{
 		webserver:      srv,
@@ -69,9 +114,9 @@ func TestApp_AppVariableAndPrintersAndGetPrinterUrl(t *testing.T) {
 	}
 
 	appVariable := app.AppVariable()
-	testutil.ExpectedEqual(t, app.GetPrinterUrl("czpTTjEyMzQ1Ng"), fmt.Sprintf("%s:%d/p/czpTTjEyMzQ1Ng", util.GetLocalIP(app.IsNetworkPrintingEnabled()), port))
+	testutil.ExpectedEqual(t, util.GetPrinterUrl(srv.Port, app.config.IsNetworkPrintingEnabled(), "czpTTjEyMzQ1Ng"), fmt.Sprintf("%s/p/czpTTjEyMzQ1Ng", util.LocalAddr(srv.Port, app.config.IsNetworkPrintingEnabled())))
 	testutil.ExpectedTrue(t, appVariable.ServerRunning, "Expected ServerRunning to be true")
-	testutil.ExpectedTrue(t, appVariable.Os != "", "Expected non-empty Os field in app variable")
+	testutil.ExpectedTrue(t, appVariable.OS != "", "Expected non-empty Os field in app variable")
 
 	// Verify Printers() includes the configured LAN printer
 	printers := app.Printers()
@@ -81,7 +126,6 @@ func TestApp_AppVariableAndPrintersAndGetPrinterUrl(t *testing.T) {
 			foundLAN = true
 			testutil.ExpectedEqual(t, p.Type, string(printer.TypeReceipt))
 			testutil.ExpectedEqual(t, p.Name, "Network - 192.168.1.100")
-			testutil.ExpectedEqual(t, p.Ip, fmt.Sprintf("%s:%d/p/%s", util.GetLocalIP(app.IsNetworkPrintingEnabled()), port, p.Id))
 		}
 	}
 	testutil.ExpectedTrue(t, foundLAN, "Expected to find configured LAN printer in printer status")
@@ -94,7 +138,7 @@ func TestApp_AddLANPrinter(t *testing.T) {
 	cfg, err := config.NewManager()
 	testutil.ExpectedNoError(t, err)
 
-	app := &App{config: cfg}
+	app := &App{config: cfg, printerManager: printer.NewManager(lan.NewDriver(cfg))}
 
 	// Invalid IP format.
 	err = app.AddLANPrinter("not.an.ip")
@@ -121,7 +165,7 @@ func TestApp_AddLANPrinter(t *testing.T) {
 }
 
 func TestApp_CheckLANPrinterStatus(t *testing.T) {
-	app := &App{}
+	app := &App{printerManager: printer.NewManager(lan.NewDriver(nil))}
 
 	// 1. Unreachable (closed IP returns false)
 	testutil.ExpectedFalse(t, app.CheckLANPrinterStatus("127.0.0.254"))
@@ -132,54 +176,19 @@ func TestApp_CheckLANPrinterStatus(t *testing.T) {
 	testutil.ExpectedTrue(t, app.CheckLANPrinterStatus("127.0.0.1"))
 }
 
-func TestApp_ConfirmRemoveLANPrinter(t *testing.T) {
+func TestApp_RemoveLANPrinter(t *testing.T) {
 	const ip = "192.168.1.100"
+	t.Setenv("HOME", t.TempDir())
 
-	tests := []struct {
-		name          string
-		dialogResult  string
-		dialogErr     error
-		expectRemoved bool
-		expectErr     bool
-	}{
-		{name: "confirm removes printer", dialogResult: "Confirm", expectRemoved: true},
-		{name: "linux yes button removes printer", dialogResult: "Yes", expectRemoved: true},
-		{name: "cancel keeps printer", dialogResult: "Cancel"},
-		{name: "dialog error keeps printer", dialogErr: errors.New("no display"), expectErr: true},
-	}
+	cfg, err := config.NewManager()
+	testutil.ExpectedNoError(t, err)
+	testutil.ExpectedNoError(t, cfg.SetLANPrinters([]string{ip}))
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Setenv("HOME", t.TempDir())
+	app := &App{config: cfg, printerManager: printer.NewManager(lan.NewDriver(cfg))}
 
-			cfg, err := config.NewManager()
-			testutil.ExpectedNoError(t, err)
-			testutil.ExpectedNoError(t, cfg.AddLanEposPrinter(ip))
-
-			dialogs := &fakeDialogs{messageResult: tc.dialogResult, messageErr: tc.dialogErr}
-			app := &App{config: cfg, dialogs: dialogs}
-
-			removed, err := app.ConfirmRemoveLANPrinter(ip)
-
-			if tc.expectErr {
-				testutil.ExpectedError(t, err)
-			} else {
-				testutil.ExpectedNoError(t, err)
-			}
-			testutil.ExpectedEqual(t, removed, tc.expectRemoved)
-
-			// The printer must survive unless the user actually confirmed.
-			expectedRemaining := 1
-			if tc.expectRemoved {
-				expectedRemaining = 0
-			}
-			testutil.ExpectedLen(t, cfg.GetLANPrinters(), expectedRemaining)
-
-			// Exactly one confirmation dialog is shown, and it names the printer.
-			testutil.ExpectedLen(t, dialogs.messages, 1)
-			testutil.ExpectedContains(t, dialogs.messages[0].Message, ip)
-		})
-	}
+	err = app.RemoveLANPrinter(ip)
+	testutil.ExpectedNoError(t, err)
+	testutil.ExpectedLen(t, cfg.GetLANPrinters(), 0)
 }
 
 func TestApp_ConfirmQuit(t *testing.T) {
@@ -278,7 +287,13 @@ func TestApp_AutostartMethods(t *testing.T) {
 	tempDir := t.TempDir()
 	t.Setenv("HOME", tempDir)
 
-	app := NewApp()
+	app := &App{
+		autoStart: &autostart.App{
+			Name:        "epos-proxy",
+			DisplayName: "ePOS Proxy",
+			Exec:        []string{os.Args[0]},
+		},
+	}
 
 	// Enable autostart on linux creates desktop file
 	err := app.EnableAutostart()
@@ -299,6 +314,7 @@ func TestApp_NetworkPrintingEnabled(t *testing.T) {
 	mgr := printer.NewManager()
 	srv := server.New(port, mgr)
 	defer srv.Stop()
+	defer mgr.Close()
 
 	app := &App{config: cfg, webserver: srv}
 

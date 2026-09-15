@@ -1,17 +1,18 @@
-import { main } from "../../wailsjs/go/models";
+import { printer } from "../../wailsjs/go/models";
 import { PrinterContext } from "../contexts/PrinterContext";
-import { useContext } from "react";
+import { useContext, useState } from "react";
 import PrinterActions from "./PrinterActions";
 import LibusbFixDialog from "./LibusbFixDialog";
 import CloseButton from "./CloseButton";
+import ConfirmDialog from "./ConfirmDialog";
 
 type PrinterListItemProps =
   | {
-      printer: main.Printer;
+      printer: printer.Device;
       isOnline: true;
     }
   | {
-      printer: main.UnavailablePrinter;
+      printer: printer.UnavailableDevice;
       isOnline: false;
     };
 
@@ -20,8 +21,9 @@ export default function PrinterListItem({
   isOnline,
 }: PrinterListItemProps) {
   const printerContext = useContext(PrinterContext);
+  const [confirmSignal, setConfirmSignal] = useState(0);
 
-  const getPrinterStatusClass = (printer: main.Printer) => {
+  const getPrinterStatusClass = (printer: printer.Device) => {
     if (!printer.isLAN) {
       return printer.online ? "bg-success" : "bg-danger";
     }
@@ -48,7 +50,7 @@ export default function PrinterListItem({
     <>
       {isOnline ? (
         <li
-          key={printer.id}
+          key={printer.identifier}
           className="text-left first:pt-0 py-6 last:pb-0 relative"
         >
           <div className="flex items-center justify-between gap-2">
@@ -59,9 +61,18 @@ export default function PrinterListItem({
               {printer.name}
             </span>
             {printer.isLAN && (
-              <CloseButton
-                onClick={() => printerContext.actions.removeLanPrinter(printer)}
-              />
+              <>
+                <CloseButton
+                  onClick={() => setConfirmSignal((s) => s + 1)}
+                />
+                <ConfirmDialog
+                  title="Remove Printer"
+                  message={`Are you sure you want to remove the printer at ${printer.lanIp}?`}
+                  openSignal={confirmSignal}
+                  confirmLabel="Remove"
+                  onConfirm={() => printerContext.actions.removeLanPrinter(printer)}
+                />
+              </>
             )}
           </div>
           <div className="text-gray-600 mt-2 text-sm break-all">

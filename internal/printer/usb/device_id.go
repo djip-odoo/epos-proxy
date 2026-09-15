@@ -1,10 +1,11 @@
-package printer
+package usb
 
 import (
-	"epos-proxy/internal/logger"
 	"regexp"
 	"strings"
 	"unicode"
+
+	"epos-proxy/internal/logger"
 
 	"github.com/google/gousb"
 )

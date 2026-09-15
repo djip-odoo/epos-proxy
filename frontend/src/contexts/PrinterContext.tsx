@@ -1,10 +1,10 @@
-import { main } from "../../wailsjs/go/models";
+import { printer } from "../../wailsjs/go/models";
 import {
   AddLANPrinter,
   CheckLANPrinterStatus,
-  ConfirmRemoveLANPrinter,
   IsNetworkPrintingEnabled,
   Printers,
+  RemoveLANPrinter,
 } from "../../wailsjs/go/main/App";
 import { EventsOn } from "../../wailsjs/runtime/runtime";
 
@@ -23,13 +23,13 @@ type ActionStatus = {
 type PrinterContextType = {
   setters: {};
   data: {
-    printers: main.Printers | null;
+    printers: printer.DiscoveryResult | null;
     lanStatus: PrinterLanStatusByIp;
     fetchError: string | null;
     networkPrintingEnabled: boolean;
   };
   actions: {
-    removeLanPrinter: (printer: main.Printer) => Promise<ActionStatus>;
+    removeLanPrinter: (printer: printer.Device) => Promise<ActionStatus>;
     addLanPrinter: (ip: string) => Promise<ActionStatus>;
   };
 };
@@ -41,7 +41,7 @@ interface PrinterContextWrapper {
 }
 
 export const PrinterContextWrapper = ({ children }: PrinterContextWrapper) => {
-  const [printers, setPrinters] = useState<main.Printers | null>(null);
+  const [printers, setPrinters] = useState<printer.DiscoveryResult | null>(null);
   const [lanStatus, setLanStatus] = useState<PrinterLanStatusByIp>({});
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [networkPrintingEnabled, setNetworkPrintingEnabledState] = useState(false);
@@ -106,7 +106,7 @@ export const PrinterContextWrapper = ({ children }: PrinterContextWrapper) => {
     [checkLanPrinterStatus],
   );
 
-  const removeLanPrinter = async (printer: main.Printer) => {
+  const removeLanPrinter = async (printer: printer.Device) => {
     if (!printer.isLAN || !printer.lanIp) {
       console.error("Attempted to remove a non-LAN printer:", printer);
       return {
@@ -116,11 +116,7 @@ export const PrinterContextWrapper = ({ children }: PrinterContextWrapper) => {
     }
 
     try {
-      const confirmed = await ConfirmRemoveLANPrinter(printer.lanIp);
-      if (!confirmed) {
-        throw new Error("User cancelled the removal of the LAN printer");
-      }
-
+      await RemoveLANPrinter(printer.lanIp);
       await checkAppStatus(true);
       return {
         status: true,
