@@ -10,3 +10,16 @@ staged_go_files=$(git diff --cached --name-only --diff-filter=ACM | grep '\.go$'
 if [ -n "$staged_go_files" ]; then
     echo "$staged_go_files" | xargs -r git add
 fi
+
+# Lint and fix frontend files
+if [ -d "frontend/node_modules" ]; then
+    echo "Running eslint --fix in frontend..."
+    npm --prefix frontend run lint:fix
+
+    # Re-stage any staged frontend files that were fixed
+    staged_frontend_files=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^frontend/.*\.(ts|tsx|js|jsx)$' || true)
+    if [ -n "$staged_frontend_files" ]; then
+        echo "$staged_frontend_files" | xargs -r git add
+    fi
+fi
+

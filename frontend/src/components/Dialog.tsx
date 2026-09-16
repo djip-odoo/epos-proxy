@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useMountTransition } from "../hooks/useMountTransition";
 import CloseButton from "./CloseButton";
 
-export type ActionType = "primary" | "secondary" | "danger"
+export type ActionType = "primary" | "secondary" | "danger";
 
 export interface DialogAction {
   name: string;
@@ -41,15 +41,15 @@ export default function Dialog({
   const { mounted } = useMountTransition(isOpen);
   const previousOpenSignal = useRef(openSignal);
 
-  const close = () => {
+  const close = useCallback(() => {
     setIsOpen(false);
     onClose?.();
-  };
+  }, [onClose]);
 
-  const open = () => {
+  const open = useCallback(() => {
     setIsOpen(true);
     onOpen?.();
-  };
+  }, [onOpen]);
 
   useEffect(() => {
     if (openSignal === undefined || openSignal === previousOpenSignal.current) {
@@ -58,11 +58,11 @@ export default function Dialog({
 
     previousOpenSignal.current = openSignal;
     open();
-  }, [openSignal]);
+  }, [openSignal, open]);
 
   const isExecuting = useRef(false);
 
-  const handleAction = async (action: DialogAction) => {
+  const handleAction = useCallback(async (action: DialogAction) => {
     if (action.disabled || isExecuting.current) {
       return;
     }
@@ -83,7 +83,7 @@ export default function Dialog({
       isExecuting.current = false;
       setLoadingAction(null);
     }
-  };
+  }, [close]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -114,7 +114,7 @@ export default function Dialog({
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen, actions, onClose]);
+  }, [isOpen, actions, close, handleAction]);
 
   return (
     <>
@@ -125,7 +125,7 @@ export default function Dialog({
             className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 transition ${isOpen
               ? "opacity-100 duration-200 ease-out"
               : "opacity-0 duration-150 ease-in"
-              }`}
+            }`}
           >
             <div
               className="absolute inset-0 bg-black/75"

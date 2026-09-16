@@ -116,9 +116,9 @@ export default function StepDialog({ steps, openButton, title, isLoading, onOpen
       return [];
     }
 
-    const nextAction: DialogAction = { name: "next", label: "Next", variant: "primary", onClick: () => { next(steps.length); return false; } }
+    const nextAction: DialogAction = { name: "next", label: "Next", variant: "primary", onClick: () => { next(steps.length); return false; } };
     const done: DialogAction = { name: "done", label: "Done", variant: "primary", onClick: () => { setCurrentStep(0); return true; }, };
-    const backAction: DialogAction = { name: "back", label: "Back", variant: "secondary", onClick: () => { back(); return false; } }
+    const backAction: DialogAction = { name: "back", label: "Back", variant: "secondary", onClick: () => { back(); return false; } };
 
     if (currentStep === 0) {
       return [nextAction];
@@ -160,7 +160,7 @@ export default function StepDialog({ steps, openButton, title, isLoading, onOpen
                       : i < displayStep
                         ? "w-2.5 bg-odoo/40"
                         : "w-2.5 bg-stone-200"
-                      }`}
+                    }`}
                   />
                 ))}
               </div>

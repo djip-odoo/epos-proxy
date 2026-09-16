@@ -20,10 +20,10 @@
     "removeComments": true,
     "preserveConstEnums": true,
     "sourceMap": true,
-    "allowJs": true,
+    "allowJs": false,
   },
   "exclude": ["node_modules", "**/*.spec.ts"],
-  "include": ["src/**/*", "wailsjs/**/*.ts"],
+  "include": ["src/**/*.ts", "src/**/*.tsx", "wailsjs/**/*.ts"],
   "references": [
     {
       "path": "./tsconfig.node.json"

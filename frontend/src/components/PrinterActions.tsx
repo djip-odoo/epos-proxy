@@ -56,9 +56,9 @@ export default function PrinterActions({ printer }: PrinterActionsProps) {
       <button
         onClick={() => copy(printer.ip, printer.ip, "Printer IP")}
         className={`flex-1 border text-sm rounded-lg px-3 py-2 cursor-pointer whitespace-nowrap ${isCopied(printer.ip)
-            ? "bg-success text-white"
-            : "bg-odoo text-white hover:bg-odoo-dark"
-          }`}
+          ? "bg-success text-white"
+          : "bg-odoo text-white hover:bg-odoo-dark"
+        }`}
       >
         {isCopied(printer.ip) ? "✓ Copied!" : "Copy IP"}
       </button>

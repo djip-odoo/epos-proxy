@@ -66,13 +66,13 @@ export default function NetworkIpDialog() {
 
   const handlePaste = (event: React.ClipboardEvent) => {
     event.preventDefault();
-    
+
     const pasted = event.clipboardData.getData("text").trim();
     const ip = extractIP(pasted);
     const parts = ip?.split(".");
     if (!parts || !parts.every(isValidOctet)) {
-        setErrorMessage("The pasted address is not a valid IP address");
-        return;
+      setErrorMessage("The pasted address is not a valid IP address");
+      return;
     }
     setIpParts(parts);
     setErrorMessage(null);
@@ -81,10 +81,10 @@ export default function NetworkIpDialog() {
 
   const submit = async () => {
     if (!ipParts.every(isValidOctet)) {
-        setErrorMessage("Please enter a valid IP address");
-        return false;
+      setErrorMessage("Please enter a valid IP address");
+      return false;
     }
-  
+
     const ip = ipParts.join(".");
     const result = await printerContext.actions.addLanPrinter(ip);
     if (!result.status) {
