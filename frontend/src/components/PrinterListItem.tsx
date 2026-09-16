@@ -1,4 +1,4 @@
-import { main } from "../../wailsjs/go/models";
+import { printer } from "../../wailsjs/go/models";
 import { PrinterContext } from "../contexts/PrinterContext";
 import { useContext } from "react";
 import PrinterActions from "./PrinterActions";
@@ -7,11 +7,11 @@ import CloseButton from "./CloseButton";
 
 type PrinterListItemProps =
   | {
-      printer: main.Printer;
+      printer: printer.Device;
       isOnline: true;
     }
   | {
-      printer: main.UnavailablePrinter;
+      printer: printer.UnavailableDevice;
       isOnline: false;
     };
 
@@ -21,7 +21,7 @@ export default function PrinterListItem({
 }: PrinterListItemProps) {
   const printerContext = useContext(PrinterContext);
 
-  const getPrinterStatusClass = (printer: main.Printer) => {
+  const getPrinterStatusClass = (printer: printer.Device) => {
     if (!printer.isLAN) {
       return printer.online ? "bg-success" : "bg-danger";
     }
