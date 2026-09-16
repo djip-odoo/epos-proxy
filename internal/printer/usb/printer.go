@@ -48,15 +48,7 @@ func (p *UsbPrinter) ID() string {
 	return p.idStr
 }
 
-// Write writes the data payload to the USB bulk OUT endpoint in chunks.
-func (p *UsbPrinter) Write(data []byte) error {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	if err := p.ensureOpenLocked(); err != nil {
-		return err
-	}
-
+func (p *UsbPrinter) writeRawLocked(data []byte) error {
 	for len(data) > 0 {
 		size := min(len(data), printer.ChunkSize)
 		logger.Debugf("USB printer %s writing %d bytes", p.idToString(), size)
@@ -66,12 +58,41 @@ func (p *UsbPrinter) Write(data []byte) error {
 		cancel()
 
 		if err != nil {
-			p.closeLocked()
 			return fmt.Errorf("failed to write %d bytes to USB printer %s: %w", size, p.idToString(), err)
 		}
 
 		data = data[size:]
 	}
+	return nil
+}
+
+// Write writes the data payload to the USB bulk OUT endpoint in chunks.
+func (p *UsbPrinter) Write(data []byte) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if err := p.ensureOpenLocked(); err != nil {
+		return err
+	}
+
+	err := p.writeRawLocked(data)
+	if err == nil {
+		return nil
+	}
+
+	// Retry once on failure
+	logger.Warnf("Write to USB printer %s failed: %v. Re-opening device and retrying...", p.idToString(), err)
+	p.closeLocked()
+
+	if reOpenErr := p.ensureOpenLocked(); reOpenErr != nil {
+		return fmt.Errorf("write failed: %w (reconnect failed: %v)", err, reOpenErr)
+	}
+
+	if retryErr := p.writeRawLocked(data); retryErr != nil {
+		return fmt.Errorf("write failed on retry: %w", retryErr)
+	}
+
+	logger.Infof("Write to USB printer %s succeeded on retry", p.idToString())
 	return nil
 }
 

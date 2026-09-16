@@ -70,6 +70,28 @@ func (p *LanPrinter) Write(data []byte) error {
 		return err
 	}
 
+	err := p.writeRawLocked(data)
+	if err == nil {
+		return nil
+	}
+
+	// Retry once on failure
+	logger.Warnf("Write to LAN printer %s failed: %v. Re-opening connection and retrying...", p.id, err)
+	p.closeLocked()
+
+	if reOpenErr := p.ensureOpenLocked(); reOpenErr != nil {
+		return fmt.Errorf("write failed: %w (reconnect failed: %v)", err, reOpenErr)
+	}
+
+	if retryErr := p.writeRawLocked(data); retryErr != nil {
+		return fmt.Errorf("write failed on retry: %w", retryErr)
+	}
+
+	logger.Infof("Write to LAN printer %s succeeded on retry", p.id)
+	return nil
+}
+
+func (p *LanPrinter) writeRawLocked(data []byte) error {
 	logger.Debugf("Writing %d bytes to LAN printer %s", len(data), p.id)
 
 	if err := p.tcpConn.SetWriteDeadline(time.Now().Add(printer.WriteTimeout)); err != nil {

@@ -62,6 +62,11 @@ func (m *Manager) Unregister(id string) {
 	}
 }
 
+// Remove explicitly unregisters and closes a printer worker by ID.
+func (m *Manager) Remove(id string) {
+	m.Unregister(id)
+}
+
 func (m *Manager) Get(id string) (*printerWorker, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -106,6 +111,9 @@ func (m *Manager) Print(printerID string, data []byte) error {
 	}
 
 	res := <-reply
+	if res.Err != nil {
+		m.Unregister(printerID)
+	}
 	return res.Err
 }
 

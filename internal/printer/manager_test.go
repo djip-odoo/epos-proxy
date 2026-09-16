@@ -180,3 +180,23 @@ func TestManager_Discover(t *testing.T) {
 	testutil.ExpectedEqual(t, len(mgr.workers), 1)
 	mgr.mu.RUnlock()
 }
+
+func TestManager_Remove(t *testing.T) {
+	mgr := NewManager()
+
+	p := &mockPrinter{id: "printer-1"}
+	d := &mockDriver{name: "mock", printers: []Printer{p}}
+	mgr.RegisterDriver(d)
+
+	p1, err := mgr.Get("printer-1")
+	testutil.ExpectedNoError(t, err)
+	testutil.ExpectedNotNil(t, p1)
+
+	mgr.Remove("printer-1")
+
+	mgr.mu.RLock()
+	_, exists := mgr.workers["printer-1"]
+	mgr.mu.RUnlock()
+	testutil.ExpectedTrue(t, !exists)
+	testutil.ExpectedTrue(t, p.closed)
+}

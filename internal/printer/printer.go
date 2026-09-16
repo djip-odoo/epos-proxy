@@ -8,6 +8,7 @@ import (
 const (
 	QueueSize    = 100
 	WriteTimeout = 5 * time.Second
+	IdleTimeout  = 45 * time.Second
 	ChunkSize    = 8 * 1024 // 8 KB
 )
 

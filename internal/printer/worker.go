@@ -2,6 +2,7 @@ package printer
 
 import (
 	"sync"
+	"time"
 
 	"epos-proxy/internal/logger"
 )
@@ -54,15 +55,62 @@ func (w *printerWorker) Enqueue(fn JobFunc, reply chan JobResult) error {
 }
 
 func (w *printerWorker) loop() {
-	logger.Debugf("Printer loop started for %s with %d jobs", w.printer.ID(), len(w.jobs))
-	for j := range w.jobs {
-		result := j.run(w.printer)
-		if j.reply != nil {
-			j.reply <- result
-			close(j.reply)
+	logger.Debugf("Printer loop started for %s", w.printer.ID())
+	var idleTimer *time.Timer
+	var idleC <-chan time.Time
+
+	startIdleTimer := func() {
+		if idleTimer == nil {
+			idleTimer = time.NewTimer(IdleTimeout)
+		} else {
+			if !idleTimer.Stop() {
+				select {
+				case <-idleTimer.C:
+				default:
+				}
+			}
+			idleTimer.Reset(IdleTimeout)
 		}
-		if len(w.jobs) == 0 {
+		idleC = idleTimer.C
+	}
+
+	stopIdleTimer := func() {
+		if idleTimer != nil {
+			if !idleTimer.Stop() {
+				select {
+				case <-idleTimer.C:
+				default:
+				}
+			}
+			idleC = nil
+		}
+	}
+
+	if len(w.jobs) == 0 {
+		startIdleTimer()
+	}
+
+	for {
+		select {
+		case j, ok := <-w.jobs:
+			if !ok {
+				stopIdleTimer()
+				w.printer.Close()
+				return
+			}
+			stopIdleTimer()
+			result := j.run(w.printer)
+			if j.reply != nil {
+				j.reply <- result
+				close(j.reply)
+			}
+			if len(w.jobs) == 0 {
+				startIdleTimer()
+			}
+		case <-idleC:
+			logger.Debugf("Idle timeout reached for printer %s, closing device connection", w.printer.ID())
 			w.printer.Close()
+			idleC = nil
 		}
 	}
 }
