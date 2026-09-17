@@ -92,3 +92,33 @@ func TestDecodeLANPrinterID_Invalid(t *testing.T) {
 		})
 	}
 }
+
+func TestBluetoothPrinterID_Roundtrip(t *testing.T) {
+	mac := "00:11:22:33:44:55"
+	encoded := EncodeBluetoothPrinterID(mac)
+
+	decoded, ok := DecodeBluetoothPrinterID(encoded)
+	testutil.ExpectedTrue(t, ok)
+	testutil.ExpectedEqual(t, decoded, mac)
+}
+
+func TestDecodeBluetoothPrinterID_Invalid(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"invalid base64", "!!!bad-base64"},
+		{"empty string", ""},
+		{"too short", "bA"},                    // decoded length < 3
+		{"missing colon", "Ynh4"},              // decoded "bxx"
+		{"wrong prefix", "dToxOTIuMTY4LjEuMQ"}, // decoded "u:192.168.1.1"
+		{"lan prefix", "bDoxOTIuMTY4LjEuMQ"},   // decoded "l:192.168.1.1"
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, ok := DecodeBluetoothPrinterID(tc.input)
+			testutil.ExpectedFalse(t, ok)
+		})
+	}
+}

@@ -19,6 +19,7 @@ type ConnKind int
 const (
 	ConnKindUSB ConnKind = iota
 	ConnKindLAN
+	ConnKindBle
 )
 
 const (
@@ -60,9 +61,19 @@ type Printer struct {
 	// LAN fields
 	tcpConn net.Conn
 	jobs    chan Job
+
+	// Bluetooth fields
+	bluetoothAddress string
+	btDevPath        string // cached /dev/rfcommX path (Linux only; empty on other platforms)
+	btConn           net.Conn
 }
 
 func newPrinter(id string) *Printer {
+	// Check if this is a Bluetooth printer
+	if address, ok := DecodeBluetoothPrinterID(id); ok {
+		return newBlueToothPrinter(address)
+	}
+
 	// Check if this is a LAN printer
 	if lanIP, ok := DecodeLANPrinterID(id); ok {
 		p := &Printer{
@@ -112,6 +123,10 @@ func (p *Printer) Write(data []byte) error {
 
 	logger.Debugf("Writing %d bytes to printer %s", len(data), p.idToString())
 
+	if p.connectionType == ConnKindBle {
+		return p.writeBluetooth(data)
+	}
+
 	if p.connectionType == ConnKindLAN {
 		if err := p.tcpConn.SetWriteDeadline(time.Now().Add(WriteTimeout)); err != nil {
 			p.closeDeviceLocked()
@@ -158,7 +173,10 @@ func (p *Printer) loop() {
 	}
 }
 func (p *Printer) ensureOpen() error {
-	if p.connectionType == ConnKindLAN {
+	switch p.connectionType {
+	case ConnKindBle:
+		return p.ensureOpenBluetoothLocked()
+	case ConnKindLAN:
 		return p.ensureOpenLANLocked()
 	}
 	return p.ensureOpenUSBLocked()
@@ -301,6 +319,15 @@ func (p *Printer) close() {
 }
 
 func (p *Printer) closeDeviceLocked() {
+	if p.connectionType == ConnKindBle {
+		if p.btConn != nil {
+			_ = p.btConn.Close()
+			p.btConn = nil
+			logger.Debugf("BT printer %s connection closed", p.idToString())
+		}
+		return
+	}
+
 	if p.connectionType == ConnKindLAN {
 		if p.tcpConn != nil {
 			_ = p.tcpConn.Close()
@@ -327,7 +354,10 @@ func (p *Printer) closeDeviceLocked() {
 }
 
 func (p *Printer) idToString() string {
-	if p.connectionType == ConnKindLAN {
+	switch p.connectionType {
+	case ConnKindBle:
+		return fmt.Sprintf("BT:%s", p.bluetoothAddress)
+	case ConnKindLAN:
 		return fmt.Sprintf("LAN:%s", p.lanIP)
 	}
 	if p.id != nil {

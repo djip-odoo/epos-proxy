@@ -1,4 +1,5 @@
 import { useContext } from "react";
+import BluetoothDialog from "./BluetoothDialog";
 import NetworkIpDialog from "./NetworkIpDialog";
 import PrinterListItem from "./PrinterListItem";
 import { PrinterContext } from "../contexts/PrinterContext";
@@ -48,7 +49,7 @@ export default function PrinterList() {
                 No printers found
               </div>
               <div className="mt-2 text-gray-600 text-center">
-                Make sure your printer is powered on and connected via USB.
+                Make sure your printer is powered on and connected via USB, Network, or Bluetooth.
               </div>
             </div>
           )
@@ -63,8 +64,13 @@ export default function PrinterList() {
         )}
       </div>
 
-      <div className="mt-6 w-full max-w-full sm:max-w-md md:max-w-lg lg:max-w-xl">
-        <NetworkIpDialog />
+      <div className="mt-6 w-full max-w-full sm:max-w-md md:max-w-lg lg:max-w-xl flex flex-col sm:flex-row gap-3">
+        <div className="flex-1">
+          <NetworkIpDialog />
+        </div>
+        <div className="flex-1">
+          <BluetoothDialog />
+        </div>
       </div>
     </>
   );
