@@ -6,7 +6,7 @@ export function getWindowsSteps(info: main.TroubleshootInfo) {
     {
       title: "Windows Firewall Rule",
       desc: "If Windows Defender Firewall is blocking other devices on your local network, open *PowerShell as Administrator* and run the following command.\n\nIf the command does not work, you can create the same rule from *Windows Defender Firewall → Advanced settings → Inbound Rules → New Rule/Edit Rule (if one already exists)*.",
-      codes: [`New-NetFirewallRule -DisplayName "ePOS Proxy" -Direction Inbound \`\n  -Program "${info.execPath}" \`\n  -Action Allow -Profile Private`,],
+      codes: [`New-NetFirewallRule -DisplayName "Obox App" -Direction Inbound \`\n  -Program "${info.execPath}" \`\n  -Action Allow -Profile Private`,],
     },
     ...networkSteps(info),
   ];
@@ -17,8 +17,8 @@ export function getMacSteps(info: main.TroubleshootInfo) {
     ...defaultSteps(info),
     {
       title: "macOS Application Firewall",
-      desc: "macOS may block incoming network access to ePOS Proxy through its built-in Application Firewall.\n\nYou can allow it in *System Settings → Privacy & Security → Firewall*, or run this in Terminal:",
-      codes: [`sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp "/Applications/ePOS Proxy.app"`,],
+      desc: "macOS may block incoming network access to Obox App through its built-in Application Firewall.\n\nYou can allow it in *System Settings → Privacy & Security → Firewall*, or run this in Terminal:",
+      codes: [`sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp "/Applications/Obox App.app"`,],
     },
     ...networkSteps(info),
   ];

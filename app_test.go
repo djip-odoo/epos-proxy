@@ -10,14 +10,14 @@ import (
 	"testing"
 	"time"
 
-	"epos-proxy/internal/app_actions"
-	"epos-proxy/internal/config"
-	"epos-proxy/internal/logger"
-	"epos-proxy/internal/obox"
-	"epos-proxy/internal/printer"
-	"epos-proxy/internal/server"
-	"epos-proxy/internal/testutil"
-	"epos-proxy/internal/util"
+	"obox-app/internal/app_actions"
+	"obox-app/internal/config"
+	"obox-app/internal/logger"
+	"obox-app/internal/obox"
+	"obox-app/internal/printer"
+	"obox-app/internal/server"
+	"obox-app/internal/testutil"
+	"obox-app/internal/util"
 
 	autostart "github.com/emersion/go-autostart"
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -377,7 +377,7 @@ func TestApp_DownloadLogs(t *testing.T) {
 		testutil.ExpectedTrue(t, info.Size() > 0, "expected a non-empty archive")
 
 		testutil.ExpectedLen(t, dialogs.saves, 1)
-		testutil.ExpectedContains(t, dialogs.saves[0].DefaultFilename, "epos-proxy-logs-")
+		testutil.ExpectedContains(t, dialogs.saves[0].DefaultFilename, "obox-app-logs-")
 		testutil.ExpectedLen(t, dialogs.messages, 0)
 	})
 
@@ -429,8 +429,8 @@ func TestApp_AutostartMethods(t *testing.T) {
 
 	app := &App{
 		autoStart: &autostart.App{
-			Name:        "epos-proxy",
-			DisplayName: "ePOS Proxy",
+			Name:        "obox-app",
+			DisplayName: "Obox App",
 			Exec:        []string{os.Args[0]},
 		},
 	}
