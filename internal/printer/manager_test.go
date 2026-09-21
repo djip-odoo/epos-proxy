@@ -117,3 +117,154 @@ func TestManager_WriteAsync_PrinterNotFound(t *testing.T) {
 	testutil.ExpectedError(t, err)
 	testutil.ExpectedNil(t, replyChan)
 }
+
+func removePrinterForTest(m *Manager, id string) {
+	m.mu.Lock()
+	p, ok := m.printers[id]
+	if ok {
+		delete(m.printers, id)
+	}
+	m.mu.Unlock()
+
+	if ok && p != nil {
+		p.close()
+	}
+}
+
+func TestManager_Remove(t *testing.T) {
+	mgr := NewManager()
+
+	_, _, err := testutil.StartMockTCPServer(t)
+	testutil.ExpectedNoError(t, err)
+
+	id := EncodeLANPrinterID("127.0.0.1")
+	p1, err := mgr.Get(id)
+	testutil.ExpectedNoError(t, err)
+	testutil.ExpectedNotNil(t, p1)
+
+	removePrinterForTest(mgr, id)
+
+	mgr.mu.Lock()
+	_, exists := mgr.printers[id]
+	mgr.mu.Unlock()
+	testutil.ExpectedTrue(t, !exists)
+}
+
+func TestManager_ReuseAfterDeviceConnectionClosed(t *testing.T) {
+	var received []byte
+	var mu sync.Mutex
+	done := make(chan struct{})
+
+	_, _, err := testutil.StartMockTCPServer(t, func(conn net.Conn) {
+		buf := make([]byte, 1024)
+		for {
+			n, err := conn.Read(buf)
+			if n > 0 {
+				mu.Lock()
+				received = append(received, buf[:n]...)
+				mu.Unlock()
+				select {
+				case <-done:
+				default:
+					close(done)
+				}
+			}
+			if err != nil {
+				return
+			}
+		}
+	})
+	testutil.ExpectedNoError(t, err)
+
+	mgr := NewManager()
+	id := EncodeLANPrinterID("127.0.0.1")
+
+	p1, err := mgr.Get(id)
+	testutil.ExpectedNoError(t, err)
+	testutil.ExpectedNotNil(t, p1)
+
+	// Close only the device connection (simulating idle timeout or connection drop)
+	p1.closeDevice()
+	testutil.ExpectedNil(t, p1.tcpConn)
+
+	// Manager.Get should return the same Printer instance without error
+	p2, err := mgr.Get(id)
+	testutil.ExpectedNoError(t, err)
+	testutil.ExpectedEqual(t, p1, p2)
+
+	// Subsequent print job transparently reopens device and prints
+	testData := []byte("DATA AFTER CLOSE DEVICE")
+	replyChan, err := mgr.WriteAsync(id, testData)
+	testutil.ExpectedNoError(t, err)
+
+	select {
+	case res := <-replyChan:
+		testutil.ExpectedTrue(t, res.OK)
+		testutil.ExpectedNoError(t, res.Err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out waiting for print job")
+	}
+
+	select {
+	case <-done:
+		mu.Lock()
+		testutil.ExpectedBytesEqual(t, received, testData)
+		mu.Unlock()
+	case <-time.After(3 * time.Second):
+		t.Fatal("Timed out waiting for server data")
+	}
+
+	testutil.ExpectedNotNil(t, p1.tcpConn)
+}
+
+func TestManager_RemainsUsableWhenOnePrinterSlowOrFailing(t *testing.T) {
+	_, _, err := testutil.StartMockTCPServer(t)
+	testutil.ExpectedNoError(t, err)
+
+	mgr := NewManager()
+	goodID := EncodeLANPrinterID("127.0.0.1")
+	badID := EncodeLANPrinterID("127.0.0.254")
+
+	slowStarted := make(chan struct{})
+	slowDone := make(chan struct{})
+
+	go func() {
+		close(slowStarted)
+		_, _ = mgr.Get(badID)
+		close(slowDone)
+	}()
+
+	<-slowStarted
+	// Give the slow goroutine a moment to enter ensureOpen outside mgr.mu
+	time.Sleep(30 * time.Millisecond)
+
+	// The good printer should be retrieved and usable immediately without waiting for bad printer timeout
+	start := time.Now()
+	pGood, err := mgr.Get(goodID)
+	elapsed := time.Since(start)
+
+	testutil.ExpectedNoError(t, err)
+	testutil.ExpectedNotNil(t, pGood)
+	testutil.ExpectedTrue(t, elapsed < 500*time.Millisecond)
+
+	<-slowDone
+}
+
+func TestManager_FailedInitialEnsureOpen_NoResourceLeak(t *testing.T) {
+	mgr := NewManager()
+	badID := EncodeLANPrinterID("127.0.0.254")
+
+	// Call Get on unreachable printer multiple times
+	for range 3 {
+		_, err := mgr.Get(badID)
+		testutil.ExpectedError(t, err)
+	}
+
+	mgr.mu.Lock()
+	_, exists := mgr.printers[badID]
+	totalPrinters := len(mgr.printers)
+	mgr.mu.Unlock()
+
+	testutil.ExpectedFalse(t, exists)
+	testutil.ExpectedEqual(t, totalPrinters, 0)
+}

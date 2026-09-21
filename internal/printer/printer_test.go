@@ -217,3 +217,157 @@ func TestPrinter_EnsureOpenUSB_VidPidFiltering(t *testing.T) {
 	testutil.ExpectedFalse(t, filteredResults[0]) // zebra rejected
 	testutil.ExpectedTrue(t, filteredResults[1])  // epson accepted
 }
+
+func TestPrinter_IdleDeviceConnectionClosed_WorkerRemainsUsable(t *testing.T) {
+	var received []byte
+	var mu sync.Mutex
+
+	_, _, err := testutil.StartMockTCPServer(t, func(conn net.Conn) {
+		buf := make([]byte, 1024)
+		for {
+			n, err := conn.Read(buf)
+			if n > 0 {
+				mu.Lock()
+				received = append(received, buf[:n]...)
+				mu.Unlock()
+			}
+			if err != nil {
+				return
+			}
+		}
+	})
+	testutil.ExpectedNoError(t, err)
+
+	p := newPrinter(EncodeLANPrinterID("127.0.0.1"))
+	defer p.close()
+
+	// 1. Initial write connects and succeeds
+	msg1 := []byte("JOB_1_BEFORE_IDLE")
+	err = p.Write(msg1)
+	testutil.ExpectedNoError(t, err)
+
+	p.mu.Lock()
+	testutil.ExpectedNotNil(t, p.tcpConn)
+	p.mu.Unlock()
+
+	// 2. Simulate idle connection cleanup closing device connection
+	p.closeDevice()
+
+	// Device connection must be closed, but worker must remain usable (not closed)
+	p.mu.Lock()
+	testutil.ExpectedNil(t, p.tcpConn)
+	p.mu.Unlock()
+
+	// 3. Subsequent job transparently reopens device connection and succeeds
+	msg2 := []byte("JOB_2_AFTER_IDLE")
+	err = p.Write(msg2)
+	testutil.ExpectedNoError(t, err)
+
+	p.mu.Lock()
+	testutil.ExpectedNotNil(t, p.tcpConn)
+	p.mu.Unlock()
+
+	time.Sleep(50 * time.Millisecond)
+	mu.Lock()
+	expectedTotal := append(msg1, msg2...)
+	testutil.ExpectedBytesEqual(t, received, expectedTotal)
+	mu.Unlock()
+}
+
+func TestPrinter_Write_RetryOnceOnFailure(t *testing.T) {
+	var received []byte
+	var mu sync.Mutex
+
+	_, _, err := testutil.StartMockTCPServer(t, func(conn net.Conn) {
+		buf := make([]byte, 1024)
+		for {
+			n, err := conn.Read(buf)
+			if n > 0 {
+				mu.Lock()
+				received = append(received, buf[:n]...)
+				mu.Unlock()
+			}
+			if err != nil {
+				return
+			}
+		}
+	})
+	testutil.ExpectedNoError(t, err)
+
+	p := newPrinter(EncodeLANPrinterID("127.0.0.1"))
+	defer p.close()
+
+	// First write succeeds
+	msg1 := []byte("FIRST WRITE")
+	err = p.Write(msg1)
+	testutil.ExpectedNoError(t, err)
+
+	// Simulate broken/stale connection by closing the client TCP connection
+	p.mu.Lock()
+	_ = p.tcpConn.Close()
+	p.mu.Unlock()
+
+	// Second write: initial writeRaw fails on closed socket, transparently reopens and retries once
+	msg2 := []byte("SECOND WRITE RETRY")
+	err = p.Write(msg2)
+	testutil.ExpectedNoError(t, err)
+
+	p.mu.Lock()
+	testutil.ExpectedNotNil(t, p.tcpConn)
+	p.mu.Unlock()
+
+	time.Sleep(50 * time.Millisecond)
+	mu.Lock()
+	expectedTotal := append(msg1, msg2...)
+	testutil.ExpectedBytesEqual(t, received, expectedTotal)
+	mu.Unlock()
+}
+
+func TestPrinter_Write_RetryFailsIfReconnectFails(t *testing.T) {
+	ln, _, err := testutil.StartMockTCPServer(t)
+	testutil.ExpectedNoError(t, err)
+
+	p := newPrinter(EncodeLANPrinterID("127.0.0.1"))
+	defer p.close()
+
+	// Initial write succeeds
+	err = p.Write([]byte("INIT"))
+	testutil.ExpectedNoError(t, err)
+
+	// Now kill server and close socket
+	_ = ln.Close()
+	p.mu.Lock()
+	_ = p.tcpConn.Close()
+	p.mu.Unlock()
+
+	// Next write should fail on retry because reconnect fails
+	err = p.Write([]byte("FAILING"))
+	testutil.ExpectedError(t, err)
+}
+
+func TestPrinter_ConcurrentEnqueueAndShutdown_NoPanic(t *testing.T) {
+	_, _, err := testutil.StartMockTCPServer(t)
+	testutil.ExpectedNoError(t, err)
+
+	p := newPrinter(EncodeLANPrinterID("127.0.0.1"))
+
+	var wg sync.WaitGroup
+	for range 10 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for range 50 {
+				reply := make(chan JobResult, 1)
+				_ = p.Enqueue(func(p *Printer) JobResult {
+					_ = p.Write([]byte("test"))
+					return JobResult{OK: true}
+				}, reply)
+				time.Sleep(1 * time.Millisecond)
+			}
+		}()
+	}
+
+	time.Sleep(10 * time.Millisecond)
+	p.close()
+	wg.Wait()
+}

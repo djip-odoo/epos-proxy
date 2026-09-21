@@ -17,17 +17,26 @@ func NewManager() *Manager {
 
 func (m *Manager) Get(id string) (*Printer, error) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	if p, ok := m.printers[id]; ok {
+		m.mu.Unlock()
 		logger.Debugf("Reusing existing printer instance for ID: %s", id)
 		return p, nil
 	}
+	m.mu.Unlock()
 
 	logger.Debugf("Creating new printer instance for ID: %s", id)
 	p := newPrinter(id)
 	if err := p.ensureOpen(); err != nil {
+		p.close()
 		return nil, fmt.Errorf("failed to open new printer instance for ID %s: %w", id, err)
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if existing, ok := m.printers[id]; ok {
+		p.close()
+		logger.Debugf("Reusing existing printer instance registered concurrently for ID: %s", id)
+		return existing, nil
 	}
 
 	m.printers[id] = p

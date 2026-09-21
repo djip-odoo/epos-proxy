@@ -24,6 +24,7 @@ const (
 const (
 	QueueSize    = 100
 	WriteTimeout = 5 * time.Second
+	IdleTimeout  = 45 * time.Second
 	ChunkSize    = 8 * 1024 // 8 KB
 )
 
@@ -59,7 +60,10 @@ type Printer struct {
 	outEndpoint *gousb.OutEndpoint
 	// LAN fields
 	tcpConn net.Conn
-	jobs    chan Job
+
+	jobs      chan Job
+	done      chan struct{}
+	closeOnce sync.Once
 }
 
 func newPrinter(id string) *Printer {
@@ -69,6 +73,7 @@ func newPrinter(id string) *Printer {
 			connectionType: ConnKindLAN,
 			lanIP:          lanIP,
 			jobs:           make(chan Job, QueueSize),
+			done:           make(chan struct{}),
 		}
 		go p.loop()
 		return p
@@ -84,6 +89,7 @@ func newPrinter(id string) *Printer {
 		connectionType: ConnKindUSB,
 		id:             printerID,
 		jobs:           make(chan Job, QueueSize),
+		done:           make(chan struct{}),
 	}
 
 	logger.Debugf("Created new USB printer instance for ID: %s", p.idToString())
@@ -94,6 +100,8 @@ func newPrinter(id string) *Printer {
 func (p *Printer) Enqueue(fn JobFunc, reply chan JobResult) error {
 	j := Job{run: fn, reply: reply}
 	select {
+	case <-p.done:
+		return errors.New("printer is closed")
 	case p.jobs <- j:
 		logger.Debugf("Enqueued print job for printer %s", p.idToString())
 		return nil
@@ -106,19 +114,40 @@ func (p *Printer) Enqueue(fn JobFunc, reply chan JobResult) error {
 func (p *Printer) Write(data []byte) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if err := p.ensureOpen(); err != nil {
+
+	if err := p.ensureOpenLocked(); err != nil {
 		return err
 	}
 
+	err := p.writeRaw(data)
+	if err == nil {
+		return nil
+	}
+
+	// Retry once on failure
+	logger.Warnf("Write to printer %s failed: %v. Re-opening device and retrying...", p.idToString(), err)
+	p.closeDeviceLocked()
+
+	if reOpenErr := p.ensureOpenLocked(); reOpenErr != nil {
+		return fmt.Errorf("write failed: %w (reconnect failed: %v)", err, reOpenErr)
+	}
+
+	if retryErr := p.writeRaw(data); retryErr != nil {
+		return fmt.Errorf("write failed on retry: %w", retryErr)
+	}
+
+	logger.Infof("Write to printer %s succeeded on retry", p.idToString())
+	return nil
+}
+
+func (p *Printer) writeRaw(data []byte) error {
 	logger.Debugf("Writing %d bytes to printer %s", len(data), p.idToString())
 
 	if p.connectionType == ConnKindLAN {
 		if err := p.tcpConn.SetWriteDeadline(time.Now().Add(WriteTimeout)); err != nil {
-			p.closeDeviceLocked()
 			return fmt.Errorf("failed to set write deadline for LAN printer %s: %w", p.idToString(), err)
 		}
 		if _, err := p.tcpConn.Write(data); err != nil {
-			p.closeDeviceLocked()
 			return fmt.Errorf("failed to write to LAN printer %s: %w", p.idToString(), err)
 		}
 		logger.Debugf("Successfully wrote to LAN printer %s", p.idToString())
@@ -135,7 +164,6 @@ func (p *Printer) Write(data []byte) error {
 		cancel()
 
 		if err != nil {
-			p.closeDeviceLocked()
 			return fmt.Errorf("failed to write %d bytes to USB printer %s: %w", size, p.idToString(), err)
 		}
 
@@ -145,19 +173,93 @@ func (p *Printer) Write(data []byte) error {
 }
 
 func (p *Printer) loop() {
-	logger.Debugf("Printer loop started for %s with %d jobs", p.idToString(), len(p.jobs))
-	for j := range p.jobs {
-		result := j.run(p)
-		if j.reply != nil {
-			j.reply <- result
-			close(j.reply)
+	logger.Debugf("Printer loop started for %s", p.idToString())
+	var idleTimer *time.Timer
+	var idleC <-chan time.Time
+
+	startIdleTimer := func() {
+		if idleTimer == nil {
+			idleTimer = time.NewTimer(IdleTimeout)
+		} else {
+			if !idleTimer.Stop() {
+				select {
+				case <-idleTimer.C:
+				default:
+				}
+			}
+			idleTimer.Reset(IdleTimeout)
 		}
-		if len(p.jobs) == 0 {
-			p.close()
+		idleC = idleTimer.C
+	}
+
+	stopIdleTimer := func() {
+		if idleTimer != nil {
+			if !idleTimer.Stop() {
+				select {
+				case <-idleTimer.C:
+				default:
+				}
+			}
+			idleC = nil
+		}
+	}
+
+	if len(p.jobs) == 0 {
+		startIdleTimer()
+	}
+
+	for {
+		select {
+		case <-p.done:
+			stopIdleTimer()
+			p.closeDevice()
+			// Drain remaining jobs and reply with error
+			for {
+				select {
+				case j := <-p.jobs:
+					if j.reply != nil {
+						j.reply <- JobResult{Err: errors.New("printer is closed")}
+						close(j.reply)
+					}
+				default:
+					return
+				}
+			}
+
+		case j, ok := <-p.jobs:
+			if !ok {
+				stopIdleTimer()
+				p.closeDevice()
+				return
+			}
+			stopIdleTimer()
+			result := j.run(p)
+			if j.reply != nil {
+				j.reply <- result
+				close(j.reply)
+			}
+			if len(p.jobs) == 0 {
+				startIdleTimer()
+			}
+
+		case <-idleC:
+			idleC = nil
+			if len(p.jobs) > 0 {
+				continue
+			}
+			logger.Debugf("Idle timeout reached for printer %s, closing device connection", p.idToString())
+			p.closeDevice()
 		}
 	}
 }
+
 func (p *Printer) ensureOpen() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.ensureOpenLocked()
+}
+
+func (p *Printer) ensureOpenLocked() error {
 	if p.connectionType == ConnKindLAN {
 		return p.ensureOpenLANLocked()
 	}
@@ -294,8 +396,16 @@ func (p *Printer) ensureOpenUSBLocked() error {
 }
 
 func (p *Printer) close() {
+	p.closeOnce.Do(func() {
+		if p.done != nil {
+			close(p.done)
+		}
+		p.closeDevice()
+	})
+}
+
+func (p *Printer) closeDevice() {
 	p.mu.Lock()
-	logger.Debugf("Closing printer %s", p.idToString())
 	defer p.mu.Unlock()
 	p.closeDeviceLocked()
 }
