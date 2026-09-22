@@ -194,6 +194,38 @@ func TestManager_LANPrinters(t *testing.T) {
 	testutil.ExpectedLen(t, cm.GetLANPrinters(), 1)
 }
 
+func TestManager_LastSeenUpdate(t *testing.T) {
+	tempDir := t.TempDir()
+
+	cm := &Manager{
+		path: filepath.Join(tempDir, "config.json"),
+		Data: AppConfig{},
+	}
+
+	if got := cm.LastSeenUpdate(); got != "" {
+		t.Errorf("initial LastSeenUpdate = %q, want empty", got)
+	}
+
+	testutil.ExpectedNoError(t, cm.SetLastSeenUpdate("v1.2.3"))
+	testutil.ExpectedEqual(t, cm.LastSeenUpdate(), "v1.2.3")
+
+	// Marking the same tag again is a no-op (no save, value unchanged).
+	testutil.ExpectedNoError(t, cm.SetLastSeenUpdate("v1.2.3"))
+	testutil.ExpectedEqual(t, cm.LastSeenUpdate(), "v1.2.3")
+
+	// A newer release replaces the previous one.
+	testutil.ExpectedNoError(t, cm.SetLastSeenUpdate("v1.3.0"))
+	testutil.ExpectedEqual(t, cm.LastSeenUpdate(), "v1.3.0")
+
+	// The value survives a reload from disk.
+	reloaded := &Manager{
+		path: filepath.Join(tempDir, "config.json"),
+		Data: AppConfig{},
+	}
+	testutil.ExpectedNoError(t, reloaded.Load())
+	testutil.ExpectedEqual(t, reloaded.LastSeenUpdate(), "v1.3.0")
+}
+
 func TestManager_ConcurrentAccess(t *testing.T) {
 	tempDir := t.TempDir()
 
