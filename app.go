@@ -102,7 +102,6 @@ func NewApp() *App {
 		DisplayName: "ePOS Proxy",
 		Exec:        []string{os.Args[0]},
 	}
-	a.printerManager = printer.NewManager()
 	a.dialogs = runtimeDialogs{}
 
 	cfg, err := config.NewManager()
@@ -115,6 +114,7 @@ func NewApp() *App {
 	}
 
 	a.config = cfg
+	a.printerManager = printer.NewManager(cfg)
 
 	return a
 }

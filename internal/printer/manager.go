@@ -1,6 +1,7 @@
 package printer
 
 import (
+	"epos-proxy/internal/config"
 	"epos-proxy/internal/logger"
 	"fmt"
 	"sync"
@@ -11,7 +12,8 @@ type Manager struct {
 	printers map[string]*Printer
 }
 
-func NewManager() *Manager {
+func NewManager(cfg *config.Manager) *Manager {
+	initKnownPrinterRegistry(cfg.GetKnownPrinters())
 	return &Manager{printers: make(map[string]*Printer)}
 }
 

@@ -21,15 +21,17 @@ const (
 )
 
 type AppConfig struct {
-	Port            int      `json:"port"`
-	LANPrinters     []string `json:"lan_printers,omitempty"`
-	NetworkPrinting bool     `json:"network_printing"`
+	Port            int            `json:"port"`
+	LANPrinters     []string       `json:"lan_printers,omitempty"`
+	NetworkPrinting bool           `json:"network_printing"`
+	KnownPrinters   []KnownPrinter `json:"known_printers"`
 }
 
 func defaults() AppConfig {
 	return AppConfig{
 		Port:            0,
 		NetworkPrinting: false,
+		KnownPrinters:   DefaultKnownPrinters(),
 	}
 }
 

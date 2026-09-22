@@ -83,8 +83,14 @@ func ListUSBPrinters() (*Printers, error) {
 			// Device is not accessible, likely due to permissions / drivers.
 			vid := fmt.Sprintf("%04X", uint16(desc.Vendor))
 			pid := fmt.Sprintf("%04X", uint16(desc.Product))
+
+			name := getPrinterFriendlyName(vid, pid)
+			if cfgName := getKnownPrinterName(fmt.Sprintf("%s:%s", vid, pid)); cfgName != "" {
+				name = cfgName
+			}
+
 			result.Unavailable = append(result.Unavailable, UnavailableInfo{
-				Name:  getPrinterFriendlyName(vid, pid),
+				Name:  name,
 				Error: err.Error(),
 			})
 		} else if info != nil {

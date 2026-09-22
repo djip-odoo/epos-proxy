@@ -8,11 +8,20 @@ import (
 	"testing"
 	"time"
 
+	"epos-proxy/internal/config"
 	"epos-proxy/internal/testutil"
 )
 
+// newTestManager builds a manager seeded with the built-in known printers,
+// mirroring what NewManager(cfg) does at startup without touching disk.
+func newTestManager() *Manager {
+	return NewManager(&config.Manager{
+		Data: config.AppConfig{KnownPrinters: config.DefaultKnownPrinters()},
+	})
+}
+
 func TestNewManager(t *testing.T) {
-	mgr := NewManager()
+	mgr := newTestManager()
 	testutil.ExpectedNotNil(t, mgr)
 	testutil.ExpectedNotNil(t, mgr.printers)
 }
@@ -61,7 +70,7 @@ func TestManager_LANPrinterIntegration(t *testing.T) {
 	})
 	testutil.ExpectedNoError(t, err)
 
-	mgr := NewManager()
+	mgr := newTestManager()
 	printerID := EncodeLANPrinterID("127.0.0.1")
 
 	testPayload := []byte("TEST PRINT DATA FOR LAN")
@@ -87,7 +96,7 @@ func TestManager_LANPrinterIntegration(t *testing.T) {
 }
 
 func TestManager_Get_Error_And_Reusing(t *testing.T) {
-	mgr := NewManager()
+	mgr := newTestManager()
 
 	// 1. Unreachable LAN printer returns error
 	_, err := mgr.Get(EncodeLANPrinterID("127.0.0.254"))
@@ -109,7 +118,7 @@ func TestManager_Get_Error_And_Reusing(t *testing.T) {
 }
 
 func TestManager_WriteAsync_PrinterNotFound(t *testing.T) {
-	mgr := NewManager()
+	mgr := newTestManager()
 
 	// Non-existent USB printer
 	nonExistentID := "czpOT05fRVhJU1RFTlRfU0VSSUFMCg"

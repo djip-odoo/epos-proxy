@@ -9,13 +9,22 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"epos-proxy/internal/config"
 	"epos-proxy/internal/printer"
 	"epos-proxy/internal/testutil"
 )
 
+// newTestManager builds a printer manager seeded with the built-in known
+// printers, without touching disk.
+func newTestManager() *printer.Manager {
+	return printer.NewManager(&config.Manager{
+		Data: config.AppConfig{KnownPrinters: config.DefaultKnownPrinters()},
+	})
+}
+
 func TestServer_Lifecycle(t *testing.T) {
 	port := testutil.GetFreePort(t)
-	mgr := printer.NewManager()
+	mgr := newTestManager()
 	s := New(port, mgr)
 	defer s.Stop()
 
@@ -36,7 +45,7 @@ func TestPrintData_ValidXML_Success(t *testing.T) {
 	testutil.ExpectedNoError(t, err)
 
 	port := testutil.GetFreePort(t)
-	mgr := printer.NewManager()
+	mgr := newTestManager()
 	s := New(port, mgr)
 	defer s.Stop()
 
@@ -58,7 +67,7 @@ func TestPrintData_ValidXML_Success(t *testing.T) {
 
 func TestPrintData_SchemaError(t *testing.T) {
 	port := testutil.GetFreePort(t)
-	mgr := printer.NewManager()
+	mgr := newTestManager()
 	s := New(port, mgr)
 	defer s.Stop()
 
@@ -78,7 +87,7 @@ func TestPrintData_SchemaError(t *testing.T) {
 
 func TestPrintData_UnreachablePrinter_EX_BADPORT(t *testing.T) {
 	port := testutil.GetFreePort(t)
-	mgr := printer.NewManager()
+	mgr := newTestManager()
 	s := New(port, mgr)
 	defer s.Stop()
 
@@ -110,7 +119,7 @@ func TestPrintLabel_Success(t *testing.T) {
 	testutil.ExpectedNoError(t, err)
 
 	port := testutil.GetFreePort(t)
-	mgr := printer.NewManager()
+	mgr := newTestManager()
 	s := New(port, mgr)
 	defer s.Stop()
 
@@ -127,7 +136,7 @@ func TestPrintLabel_Success(t *testing.T) {
 
 func TestPrintLabel_EmptyBody_BadRequest(t *testing.T) {
 	port := testutil.GetFreePort(t)
-	mgr := printer.NewManager()
+	mgr := newTestManager()
 	s := New(port, mgr)
 	defer s.Stop()
 
@@ -139,7 +148,7 @@ func TestPrintLabel_EmptyBody_BadRequest(t *testing.T) {
 
 func TestPrintLabel_UnreachablePrinter_ServerError(t *testing.T) {
 	port := testutil.GetFreePort(t)
-	mgr := printer.NewManager()
+	mgr := newTestManager()
 	s := New(port, mgr)
 	defer s.Stop()
 
@@ -156,7 +165,7 @@ func TestPrintLabel_UnreachablePrinter_ServerError(t *testing.T) {
 
 func TestCORSHeaders(t *testing.T) {
 	port := testutil.GetFreePort(t)
-	mgr := printer.NewManager()
+	mgr := newTestManager()
 	s := New(port, mgr)
 	defer s.Stop()
 
@@ -197,7 +206,7 @@ func TestPrintData_AutoSelectRoute(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			port := testutil.GetFreePort(t)
-			mgr := printer.NewManager()
+			mgr := newTestManager()
 			s := New(port, mgr)
 			defer s.Stop()
 

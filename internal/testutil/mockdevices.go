@@ -35,6 +35,18 @@ func MockAltInterrupt() gousb.InterfaceSetting {
 	}
 }
 
+// MockPrinterDesc returns a minimal DeviceDesc with the given vendor and
+// product IDs, for exercising registry lookups.
+func MockPrinterDesc(vendor, product gousb.ID) *gousb.DeviceDesc {
+	return &gousb.DeviceDesc{
+		Bus:     1,
+		Address: 2,
+		Vendor:  vendor,
+		Product: product,
+		Path:    []int{1, 2},
+	}
+}
+
 // MockEpsonPrinterDesc returns a standard USB printer class DeviceDesc (Epson 0x04B8:0x0202).
 func MockEpsonPrinterDesc() *gousb.DeviceDesc {
 	return &gousb.DeviceDesc{

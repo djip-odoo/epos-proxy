@@ -58,7 +58,7 @@ func TestApp_AppVariableAndPrintersAndGetPrinterUrl(t *testing.T) {
 	testutil.ExpectedNoError(t, err)
 
 	port := testutil.GetFreePort(t)
-	mgr := printer.NewManager()
+	mgr := printer.NewManager(cfg)
 	srv := server.New(port, mgr)
 	defer srv.Stop()
 
@@ -296,7 +296,7 @@ func TestApp_NetworkPrintingEnabled(t *testing.T) {
 	testutil.ExpectedNoError(t, err)
 
 	port := testutil.GetFreePort(t)
-	mgr := printer.NewManager()
+	mgr := printer.NewManager(cfg)
 	srv := server.New(port, mgr)
 	defer srv.Stop()
 

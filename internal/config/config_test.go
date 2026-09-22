@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
@@ -192,6 +193,57 @@ func TestManager_LANPrinters(t *testing.T) {
 	err = cm.RemoveLANPrinter("10.0.0.99")
 	testutil.ExpectedNoError(t, err)
 	testutil.ExpectedLen(t, cm.GetLANPrinters(), 1)
+}
+
+func TestManager_KnownPrinters(t *testing.T) {
+	tempDir := t.TempDir()
+	configFile := filepath.Join(tempDir, "config.json")
+
+	cm := &Manager{path: configFile, Data: defaults()}
+
+	// Defaults are seeded with the built-in registry, in their original hex.
+	// Receipt entries omit "type" (omitempty), label entries carry it.
+	seeded := cm.GetKnownPrinters()
+	testutil.ExpectedLen(t, seeded, 10)
+	testutil.ExpectedEqual(t, seeded[0].VID, "2aaf")
+	testutil.ExpectedEqual(t, seeded[0].PID, "6015")
+	testutil.ExpectedEqual(t, seeded[0].Type, "")
+	testutil.ExpectedEqual(t, seeded[8].VID, "0a5f")
+	testutil.ExpectedEqual(t, seeded[8].PID, "0187")
+	testutil.ExpectedEqual(t, seeded[8].Type, "label")
+
+	// Custom registry persists through Save/Load round-trip.
+	custom := []KnownPrinter{
+		{VID: "1234", PID: "5678", Name: "Custom", Type: "label"},
+	}
+	cm.Data.KnownPrinters = custom
+	err := cm.Save()
+	testutil.ExpectedNoError(t, err)
+
+	loaded := &Manager{path: configFile, Data: defaults()}
+	err = loaded.Load()
+	testutil.ExpectedNoError(t, err)
+	printers := loaded.GetKnownPrinters()
+	testutil.ExpectedLen(t, printers, 1)
+	testutil.ExpectedEqual(t, printers[0].VID, "1234")
+	testutil.ExpectedEqual(t, printers[0].PID, "5678")
+	testutil.ExpectedEqual(t, printers[0].Name, "Custom")
+	testutil.ExpectedEqual(t, printers[0].Type, "label")
+
+	// An explicit empty registry persists as [] and is not reseeded with
+	// defaults on reload (known_printers is always written).
+	cm.Data.KnownPrinters = []KnownPrinter{}
+	err = cm.Save()
+	testutil.ExpectedNoError(t, err)
+
+	raw, err := os.ReadFile(configFile)
+	testutil.ExpectedNoError(t, err)
+	testutil.ExpectedTrue(t, strings.Contains(string(raw), `"known_printers": []`), "expected empty registry to be persisted")
+
+	loaded = &Manager{path: configFile, Data: defaults()}
+	err = loaded.Load()
+	testutil.ExpectedNoError(t, err)
+	testutil.ExpectedLen(t, loaded.GetKnownPrinters(), 0)
 }
 
 func TestManager_ConcurrentAccess(t *testing.T) {

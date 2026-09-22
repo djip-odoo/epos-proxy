@@ -3,6 +3,10 @@ package printer
 import (
 	"fmt"
 	"strings"
+	"sync"
+
+	"epos-proxy/internal/config"
+	"epos-proxy/internal/logger"
 
 	"github.com/google/gousb"
 )
@@ -15,36 +19,61 @@ const (
 	TypeLabel   Type = "label"
 )
 
-// Some thermal printers do not expose the standard USB printer class (0x07)
-// and instead use vendor-specific interfaces. These known VID:PID pairs are
-// treated as printers even when printer-class detection fails.
-var printerRegistry = map[string]Type{
-	// Receipt printers
-	"2aaf:6015": TypeReceipt, // Essae thermal
-	"04b8:0e32": TypeReceipt, // Epson thermal
-	"04b8:0202": TypeReceipt, // Epson thermal
-	"04b8:0203": TypeReceipt, // Epson thermal
-	"04b8:0e27": TypeReceipt, // Epson TM-T83III
-	"2d84:c7c8": TypeReceipt, // Zhuhai Poskey
-	"4b43:3830": TypeReceipt, // Caysn
-	"0483:5720": TypeReceipt, // STMicroelectronics
+type registryEntry struct {
+	typ  Type
+	name string
+}
 
-	// Label printers
-	"0a5f:0187": TypeLabel, // Zebra ZD421
-	"195f:0001": TypeLabel, // Godex G500
+var (
+	registryMu      sync.RWMutex
+	printerRegistry map[string]registryEntry
+)
+
+func initKnownPrinterRegistry(printers []config.KnownPrinter) {
+	registryMu.Lock()
+	defer registryMu.Unlock()
+
+	reg := make(map[string]registryEntry, len(printers))
+	for _, p := range printers {
+		pt := Type(p.Type)
+		if pt == "" {
+			pt = TypeReceipt
+		} else if pt != TypeLabel && pt != TypeReceipt {
+			logger.Warnf("Assigning Default type for known printer %s (%s:%s) with invalid type %s", p.Name, p.VID, p.PID, p.Type)
+			pt = TypeReceipt
+		}
+		reg[vidPidKey(p.VID, p.PID)] = registryEntry{typ: pt, name: p.Name}
+	}
+	printerRegistry = reg
+}
+
+func vidPidKey(vid, pid string) string {
+	return strings.ToLower(fmt.Sprintf("%s:%s", vid, pid))
+}
+
+func lookup(vidPid string) (registryEntry, bool) {
+	registryMu.RLock()
+	entry, ok := printerRegistry[strings.ToLower(vidPid)]
+	registryMu.RUnlock()
+	return entry, ok
 }
 
 func isKnownPrinter(desc *gousb.DeviceDesc) bool {
-	vidPid := strings.ToLower(
-		fmt.Sprintf("%04x:%04x", uint16(desc.Vendor), uint16(desc.Product)),
-	)
-	_, ok := printerRegistry[vidPid]
+	vidPid := vidPidKey(fmt.Sprintf("%04x", uint16(desc.Vendor)), fmt.Sprintf("%04x", uint16(desc.Product)))
+	_, ok := lookup(vidPid)
 	return ok
 }
 
 func getPrinterType(vidPid string) Type {
-	if printerType, ok := printerRegistry[strings.ToLower(vidPid)]; ok {
-		return printerType
+	if entry, ok := lookup(vidPid); ok {
+		return entry.typ
 	}
 	return TypeReceipt
+}
+
+func getKnownPrinterName(vidPid string) string {
+	if entry, ok := lookup(vidPid); ok {
+		return entry.name
+	}
+	return ""
 }
