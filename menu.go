@@ -26,6 +26,11 @@ func createMenu(app *App) *menu.Menu {
 		handleNetworkPrintingToggle(app, cb)
 	})
 
+	appMenu.AddText("Check for Updates", nil, func(_ *menu.CallbackData) {
+		logger.Infof("Check for updates requested from menu")
+		wailsruntime.EventsEmit(app.ctx, "check-for-update-requested")
+	})
+
 	appMenu.AddText("Download Logs", nil, func(_ *menu.CallbackData) {
 		app.DownloadLogs()
 	})
@@ -76,6 +81,12 @@ func handleNetworkPrintingToggle(app *App, cb *menu.CallbackData) {
 }
 
 func (app *App) ConfirmQuit() bool {
+	// During a self-update the app is replacing its own binary; quit without
+	// asking so the updater script or installer can finish the swap.
+	if app.restartingForUpdate {
+		return true
+	}
+
 	result, err := app.dlg().Message(app.ctx, wailsruntime.MessageDialogOptions{
 		Type:          wailsruntime.QuestionDialog,
 		Title:         "Quit ePOS Proxy",

@@ -1,6 +1,7 @@
 import NetworkPrinting from "./components/NetworkPrinting";
 import NetworkPrintingEnabledDialog from "./components/NetworkPrintingEnabledDialog";
 import PrinterList from "./components/PrinterList";
+import UpdateBanner from "./components/UpdateBanner";
 import { AppContextWrapper } from "./contexts/AppContext";
 import { PrinterContextWrapper } from "./contexts/PrinterContext";
 import { ToastContextWrapper } from "./contexts/ToastContext";
@@ -14,6 +15,7 @@ function App() {
             <PrinterList />
             <NetworkPrintingEnabledDialog />
             <NetworkPrinting />
+            <UpdateBanner />
           </div>
         </PrinterContextWrapper>
       </AppContextWrapper>

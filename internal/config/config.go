@@ -24,6 +24,7 @@ type AppConfig struct {
 	Port            int      `json:"port"`
 	LANPrinters     []string `json:"lan_printers,omitempty"`
 	NetworkPrinting bool     `json:"network_printing"`
+	LastSeenUpdate  string   `json:"last_seen_update,omitempty"`
 }
 
 func defaults() AppConfig {
@@ -188,4 +189,25 @@ func (cm *Manager) GetLANPrinters() []string {
 	result := make([]string, len(cm.Data.LANPrinters))
 	copy(result, cm.Data.LANPrinters)
 	return result
+}
+
+// LastSeenUpdate returns the release tag whose update banner has already been
+// offered, so the banner is not shown twice for the same release.
+func (cm *Manager) LastSeenUpdate() string {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	return cm.Data.LastSeenUpdate
+}
+
+// SetLastSeenUpdate records the release tag the user saw, so the update banner
+// is suppressed until a newer release appears.
+func (cm *Manager) SetLastSeenUpdate(tag string) error {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	if tag == "" || cm.Data.LastSeenUpdate == tag {
+		return nil
+	}
+	cm.Data.LastSeenUpdate = tag
+	return cm.saveLocked()
 }
