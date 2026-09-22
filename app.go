@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"runtime"
@@ -11,6 +12,7 @@ import (
 	"epos-proxy/internal/logger"
 	"epos-proxy/internal/printer"
 	"epos-proxy/internal/server"
+	"epos-proxy/internal/update"
 	"epos-proxy/internal/util"
 
 	autostart "github.com/emersion/go-autostart"
@@ -44,6 +46,7 @@ type App struct {
 	printerManager *printer.Manager
 	autoStart      *autostart.App
 	dialogs        dialoger
+	updatePath     string
 }
 
 // dlg returns the dialog backend, defaulting to the Wails runtime so an App
@@ -92,6 +95,92 @@ type Printers struct {
 	ErrorMsg            string               `json:"errorMsg"`
 	Printers            []Printer            `json:"printers"`
 	UnavailablePrinters []UnavailablePrinter `json:"unavailablePrinters"`
+}
+
+// UpdateInfo summarises the outcome of a release check for the frontend.
+type UpdateInfo struct {
+	CheckOK        bool   `json:"checkOk"`
+	Available      bool   `json:"available"`
+	CurrentVersion string `json:"currentVersion"`
+	LatestVersion  string `json:"latestVersion"`
+	DownloadURL    string `json:"downloadUrl"`
+	AssetName      string `json:"assetName"`
+	AssetSize      int64  `json:"assetSize"`
+	Notes          string `json:"notes"`
+	Error          string `json:"error,omitempty"`
+}
+
+var currentVersion = update.Version
+
+// CheckForUpdate asks GitHub whether a newer build exists for this OS. It
+// never fails: network errors come back inside the result so the UI can show
+// them inline.
+func (a *App) CheckForUpdate() UpdateInfo {
+	logger.Debugf("Checking for updates (current version %s)", currentVersion)
+	info := update.Check()
+	ui := UpdateInfo{
+		CheckOK:        info.CheckOK,
+		Available:      info.Available,
+		CurrentVersion: currentVersion,
+		LatestVersion:  info.LatestVersion,
+		DownloadURL:    info.DownloadURL,
+		AssetName:      info.AssetName,
+		AssetSize:      info.AssetSize,
+		Notes:          info.Notes,
+		Error:          info.Error,
+	}
+	if info.Available {
+		logger.Infof("Update available: %s -> %s", currentVersion, info.LatestVersion)
+	}
+	return ui
+}
+
+// DownloadUpdate downloads the latest release asset and returns the local
+// path. Progress is emitted to the frontend as the "update-progress" event.
+func (a *App) DownloadUpdate() (string, error) {
+	info := a.CheckForUpdate()
+	if !info.CheckOK || !info.Available {
+		return "", errors.New("no update available for this operating system")
+	}
+
+	dir, err := os.MkdirTemp("", "epos-proxy-update")
+	if err != nil {
+		return "", fmt.Errorf("failed to create update directory: %w", err)
+	}
+
+	path, err := update.Download(info.DownloadURL, info.AssetName, dir, func(downloaded, total int64) {
+		if a.ctx != nil {
+			wailsruntime.EventsEmit(a.ctx, "update-progress", map[string]int64{
+				"downloaded": downloaded,
+				"total":      total,
+			})
+		}
+	})
+	if err != nil {
+		return "", err
+	}
+
+	a.updatePath = path
+	return path, nil
+}
+
+// ApplyUpdate installs the previously downloaded asset, then quits so the new
+// version (or the running installer) can take over.
+func (a *App) ApplyUpdate() error {
+	if a.updatePath == "" {
+		return errors.New("no downloaded update to apply")
+	}
+
+	logger.Infof("Applying update %s", a.updatePath)
+	if err := update.Apply(a.updatePath); err != nil {
+		return err
+	}
+	a.updatePath = ""
+
+	if a.ctx != nil {
+		wailsruntime.Quit(a.ctx)
+	}
+	return nil
 }
 
 func NewApp() *App {

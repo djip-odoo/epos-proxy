@@ -45,7 +45,7 @@ export default function PrinterList() {
           printers.unavailablePrinters.length === 0 && (
             <div className="p-6">
               <div className="font-medium text-lg text-center">
-                No printers found
+                No printer found
               </div>
               <div className="mt-2 text-gray-600 text-center">
                 Make sure your printer is powered on and connected via USB.
