@@ -26,6 +26,10 @@ func createMenu(app *App) *menu.Menu {
 		handleNetworkPrintingToggle(app, cb)
 	})
 
+	appMenu.AddCheckbox("Support Mode", logger.IsSupportMode(), nil, func(cb *menu.CallbackData) {
+		handleSupportModeToggle(app, cb)
+	})
+
 	appMenu.AddText("Download Logs", nil, func(_ *menu.CallbackData) {
 		app.DownloadLogs()
 	})
@@ -36,6 +40,10 @@ func createMenu(app *App) *menu.Menu {
 	})
 
 	return mainMenu
+}
+
+func handleSupportModeToggle(app *App, cb *menu.CallbackData) {
+	logger.SetSupportMode(cb.MenuItem.Checked)
 }
 
 func handleAutoStartToggle(app *App, cb *menu.CallbackData) {
