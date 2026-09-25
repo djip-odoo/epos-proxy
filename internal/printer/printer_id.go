@@ -5,7 +5,16 @@ import (
 	"epos-proxy/internal/logger"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
+)
+
+// btMACRegexp and btUUIDRegexp mirror bluetooth/util.go patterns.
+// They are duplicated here to avoid an import cycle between internal/printer
+// and the bluetooth package.
+var (
+	btMACRegexp  = regexp.MustCompile(`(?i)^([0-9A-F]{2}[:\-]){5}[0-9A-F]{2}$`)
+	btUUIDRegexp = regexp.MustCompile(`(?i)^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$`)
 )
 
 // ID is a decoded USB printer identity. Serial is preferred; VidPid plus
@@ -98,4 +107,25 @@ func DecodeLANPrinterID(id string) (string, bool) {
 	}
 
 	return string(decoded[2:]), true
+}
+
+func EncodeBluetoothPrinterID(mac string) string {
+	return base64.RawURLEncoding.EncodeToString([]byte("b:" + mac))
+}
+
+func DecodeBluetoothPrinterID(id string) (string, bool) {
+	decoded, err := base64.RawURLEncoding.DecodeString(id)
+	if err != nil {
+		return "", false
+	}
+	if len(decoded) < 3 || decoded[1] != ':' || decoded[0] != 'b' {
+		return "", false
+	}
+	address := string(decoded[2:])
+	// Reject anything that isn't a valid Bluetooth MAC or CoreBluetooth UUID.
+	// This closes the bypass where any base64("b:<garbage>") could reach Dial.
+	if !btMACRegexp.MatchString(address) && !btUUIDRegexp.MatchString(address) {
+		return "", false
+	}
+	return address, true
 }

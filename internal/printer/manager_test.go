@@ -73,7 +73,7 @@ func TestManager_LANPrinterIntegration(t *testing.T) {
 		testutil.ExpectedTrue(t, res.OK)
 		testutil.ExpectedNoError(t, res.Err)
 	case <-time.After(5 * time.Second):
-		t.Fatal("Timed out waiting for print job reply")
+		testutil.ExpectedTrue(t, false, "Timed out waiting for print job reply")
 	}
 
 	select {
@@ -82,7 +82,7 @@ func TestManager_LANPrinterIntegration(t *testing.T) {
 		testutil.ExpectedBytesEqual(t, receivedData, testPayload)
 		mu.Unlock()
 	case <-time.After(3 * time.Second):
-		t.Fatal("Timed out waiting for mock printer server to receive data")
+		testutil.ExpectedTrue(t, false, "Timed out waiting for mock printer server to receive data")
 	}
 }
 

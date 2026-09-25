@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"time"
 
+	"epos-proxy/bluetooth"
 	"epos-proxy/internal/config"
 	"epos-proxy/internal/logger"
 	"epos-proxy/internal/printer"
@@ -67,20 +68,22 @@ func (a *App) showError(title, message string) {
 }
 
 type Printer struct {
-	Name   string `json:"name"`
-	Ip     string `json:"ip"`
-	Id     string `json:"id"`
-	IsLAN  bool   `json:"isLAN"`
-	LANIp  string `json:"lanIp,omitempty"`
-	Online bool   `json:"online"`
-	Type   string `json:"type"`
+	Name           string           `json:"name"`
+	Ip             string           `json:"ip"`
+	Id             string           `json:"id"`
+	ConnectionType printer.ConnKind `json:"connectionType"`
+	LANIp          string           `json:"lanIp,omitempty"`
+	BTMac          string           `json:"btMac,omitempty"`
+	Online         bool             `json:"online"`
+	Type           string           `json:"type"`
 }
 
 type UnavailablePrinter struct {
-	Name     string `json:"name"`
-	ErrorMsg string `json:"errorMsg"`
-	IsLAN    bool   `json:"isLAN"`
-	LANIp    string `json:"lanIp,omitempty"`
+	Name           string           `json:"name"`
+	ErrorMsg       string           `json:"errorMsg"`
+	ConnectionType printer.ConnKind `json:"connectionType"`
+	LANIp          string           `json:"lanIp,omitempty"`
+	BTMac          string           `json:"btMac,omitempty"`
 }
 
 type AppVariable struct {
@@ -114,6 +117,7 @@ func NewApp() *App {
 		logger.Warnf("Config load warning: %v", err)
 	}
 
+	bluetooth.InitBluetoothManager(cfg)
 	a.config = cfg
 
 	return a
@@ -168,18 +172,20 @@ func (a *App) Printers() Printers {
 
 		for _, info := range printerInfos.Available {
 			printers = append(printers, Printer{
-				Id:     info.Id,
-				Name:   info.Name,
-				Ip:     a.GetPrinterUrl(info.Id),
-				Online: true,
-				Type:   string(info.Type),
+				Id:             info.Id,
+				Name:           info.Name,
+				Ip:             a.GetPrinterUrl(info.Id),
+				ConnectionType: printer.ConnKindUSB,
+				Online:         true,
+				Type:           string(info.Type),
 			})
 		}
 
 		for _, info := range printerInfos.Unavailable {
 			unavailablePrinters = append(unavailablePrinters, UnavailablePrinter{
-				Name:     info.Name,
-				ErrorMsg: info.Error,
+				Name:           info.Name,
+				ErrorMsg:       info.Error,
+				ConnectionType: printer.ConnKindUSB,
 			})
 
 			logger.Warnf("USB printer unavailable: %s (%s)", info.Name, info.Error)
@@ -193,12 +199,31 @@ func (a *App) Printers() Printers {
 
 	for _, info := range lanPrinters {
 		printers = append(printers, Printer{
-			Id:    info.Id,
-			Name:  fmt.Sprintf("Network - %s", info.IP),
-			Ip:    a.GetPrinterUrl(info.Id),
-			IsLAN: true,
-			LANIp: info.IP,
-			Type:  string(printer.TypeReceipt),
+			Id:             info.Id,
+			Name:           fmt.Sprintf("Network - %s", info.IP),
+			Ip:             a.GetPrinterUrl(info.Id),
+			ConnectionType: printer.ConnKindLAN,
+			LANIp:          info.IP,
+			Type:           string(printer.TypeReceipt),
+		})
+	}
+
+	// Bluetooth printers from config
+	btPrinters := a.config.GetBluetoothPrinters()
+	for _, btCfg := range btPrinters {
+		id := printer.EncodeBluetoothPrinterID(btCfg.Address)
+		name := btCfg.Name
+		if name == "" {
+			name = "Bluetooth - " + btCfg.Address
+
+		}
+		printers = append(printers, Printer{
+			Id:             id,
+			Name:           name,
+			Ip:             a.GetPrinterUrl(id),
+			ConnectionType: printer.ConnKindBT,
+			BTMac:          btCfg.Address,
+			Type:           string(printer.TypeReceipt),
 		})
 	}
 
@@ -354,4 +379,53 @@ func (a *App) GetTroubleshootInfo() TroubleshootInfo {
 		LocalIP:        netInfo.IP,
 		ExecPath:       execPath,
 	}
+}
+
+func (a *App) ScanBluetoothPrinters() ([]bluetooth.BluetoothPrinterInfo, error) {
+	logger.Debug("Scanning for Bluetooth devices")
+	devices, err := bluetooth.BTManager.Scan()
+	if err != nil {
+		logger.Errorf("Bluetooth scan failed: %v", err)
+		return nil, err
+	}
+	return devices, nil
+}
+
+func (a *App) CheckBluetoothDependencies() []bluetooth.DependencyStatus {
+	return bluetooth.BTManager.CheckDependencies()
+}
+
+func (a *App) AddBluetoothPrinter(address, name string) error {
+	return bluetooth.BTManager.AddBluetoothPrinter(address, name)
+}
+
+func (a *App) ConfirmRemoveBluetoothPrinter(address string) (bool, error) {
+	logger.Debugf("Remove Bluetooth printer requested: %s", address)
+
+	result, err := a.dlg().Message(a.ctx, wailsruntime.MessageDialogOptions{
+		Type:          wailsruntime.QuestionDialog,
+		Title:         "Remove Printer",
+		Message:       fmt.Sprintf("Are you sure you want to remove the Bluetooth printer %s?", address),
+		Buttons:       []string{"Cancel", "Confirm"},
+		DefaultButton: "Cancel",
+		CancelButton:  "Cancel",
+	})
+	if err != nil {
+		logger.Errorf("failed to show confirmation dialog: %v", err)
+		return false, fmt.Errorf("failed to show confirmation dialog: %w", err)
+	}
+	if result == "Confirm" || result == "Yes" {
+		if err := bluetooth.BTManager.RemoveBluetoothPrinter(address); err != nil {
+			logger.Errorf("Failed to remove Bluetooth printer: %v", err)
+			return false, err
+		}
+		logger.Debugf("Bluetooth printer removed successfully")
+		return true, nil
+	}
+	logger.Debugf("Remove Bluetooth printer cancelled")
+	return false, nil
+}
+
+func (a *App) CheckBluetoothPrinterStatus(address string) bool {
+	return bluetooth.BTManager.IsPrinterOnline(address)
 }
