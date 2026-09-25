@@ -97,7 +97,7 @@ func TestBluetoothPrinterID_Roundtrip(t *testing.T) {
 	mac := "00:11:22:33:44:55"
 	encoded := EncodeBluetoothPrinterID(mac)
 
-	decoded, ok := DecodeBluetoothPrinterID(encoded)
+	decoded, ok := decodeBluetoothPrinterID(encoded)
 	testutil.ExpectedTrue(t, ok)
 	testutil.ExpectedEqual(t, decoded, mac)
 }
@@ -106,7 +106,7 @@ func TestBluetoothPrinterID_UUID_Roundtrip(t *testing.T) {
 	uuid := "12345678-1234-1234-1234-123456789ABC"
 	encoded := EncodeBluetoothPrinterID(uuid)
 
-	decoded, ok := DecodeBluetoothPrinterID(encoded)
+	decoded, ok := decodeBluetoothPrinterID(encoded)
 	testutil.ExpectedTrue(t, ok)
 	testutil.ExpectedEqual(t, decoded, uuid)
 }
@@ -125,7 +125,7 @@ func TestDecodeBluetoothPrinterID_Invalid(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			_, ok := DecodeBluetoothPrinterID(tc.input)
+			_, ok := decodeBluetoothPrinterID(tc.input)
 			testutil.ExpectedFalse(t, ok)
 		})
 	}

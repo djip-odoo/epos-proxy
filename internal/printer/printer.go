@@ -70,7 +70,7 @@ type Printer struct {
 
 func newPrinter(id string) *Printer {
 	// Check if this is a Bluetooth printer
-	if address, ok := DecodeBluetoothPrinterID(id); ok {
+	if address, ok := decodeBluetoothPrinterID(id); ok {
 		return newBlueToothPrinter(address)
 	}
 

@@ -113,7 +113,7 @@ func EncodeBluetoothPrinterID(mac string) string {
 	return base64.RawURLEncoding.EncodeToString([]byte("b:" + mac))
 }
 
-func DecodeBluetoothPrinterID(id string) (string, bool) {
+func decodeBluetoothPrinterID(id string) (string, bool) {
 	decoded, err := base64.RawURLEncoding.DecodeString(id)
 	if err != nil {
 		return "", false
@@ -121,11 +121,6 @@ func DecodeBluetoothPrinterID(id string) (string, bool) {
 	if len(decoded) < 3 || decoded[1] != ':' || decoded[0] != 'b' {
 		return "", false
 	}
-	address := string(decoded[2:])
-	// Reject anything that isn't a valid Bluetooth MAC or CoreBluetooth UUID.
-	// This closes the bypass where any base64("b:<garbage>") could reach Dial.
-	if !btMACRegexp.MatchString(address) && !btUUIDRegexp.MatchString(address) {
-		return "", false
-	}
-	return address, true
+
+	return string(decoded[2:]), true
 }

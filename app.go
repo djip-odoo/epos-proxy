@@ -196,7 +196,6 @@ func (a *App) Printers() Printers {
 	}
 
 	lanPrinters := printer.ListLANPrinters(a.config)
-
 	for _, info := range lanPrinters {
 		printers = append(printers, Printer{
 			Id:             info.Id,
@@ -209,18 +208,12 @@ func (a *App) Printers() Printers {
 	}
 
 	// Bluetooth printers from config
-	btPrinters := a.config.GetBluetoothPrinters()
+	btPrinters := printer.ListBluetoothPrinters(a.config)
 	for _, btCfg := range btPrinters {
-		id := printer.EncodeBluetoothPrinterID(btCfg.Address)
-		name := btCfg.Name
-		if name == "" {
-			name = "Bluetooth - " + btCfg.Address
-
-		}
 		printers = append(printers, Printer{
-			Id:             id,
-			Name:           name,
-			Ip:             a.GetPrinterUrl(id),
+			Id:             btCfg.Id,
+			Name:           btCfg.Name,
+			Ip:             a.GetPrinterUrl(btCfg.Id),
 			ConnectionType: printer.ConnKindBT,
 			BTMac:          btCfg.Address,
 			Type:           string(printer.TypeReceipt),

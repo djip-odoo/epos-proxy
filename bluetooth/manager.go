@@ -52,11 +52,11 @@ func (bm *BluetoothManager) getCachedRFCOMMChannel(address string) int {
 	return 0
 }
 
-// checkBluetoothPrinter verifies connectivity to a Bluetooth printer at address.
+// CheckBluetoothPrinter verifies connectivity to a Bluetooth printer at address.
 // When isAllowlisted is true, it verifies that the address is in the saved printer list
 // before dialing (used for UI status checks). When false, it dials directly without
 // allowlist verification (used when testing a new device during AddBluetoothPrinter).
-func (bm *BluetoothManager) checkBluetoothPrinter(address string, isAllowlisted bool) error {
+func (bm *BluetoothManager) CheckBluetoothPrinter(address string, isAllowlisted bool) error {
 	if !bm.isAdapterActive() {
 		return fmt.Errorf("BT/manager: Bluetooth adapter is not available")
 	}
@@ -84,7 +84,7 @@ func (bm *BluetoothManager) AddBluetoothPrinter(address, name string) error {
 		return err
 	}
 
-	if err := bm.checkBluetoothPrinter(address, false); err != nil {
+	if err := bm.CheckBluetoothPrinter(address, false); err != nil {
 		logger.Errorf("BT/manager: check printer failed for %s: %v", address, err)
 		return err
 	}
@@ -122,7 +122,7 @@ func (bm *BluetoothManager) RemoveBluetoothPrinter(address string) error {
 
 func (bm *BluetoothManager) IsPrinterOnline(address string) bool {
 	logger.Debugf("BT/manager: checking Bluetooth printer status: %s", address)
-	if err := bm.checkBluetoothPrinter(address, true); err != nil {
+	if err := bm.CheckBluetoothPrinter(address, true); err != nil {
 		logger.Errorf("BT/manager: printer %s check failed: %v", address, err)
 		return false
 	}
